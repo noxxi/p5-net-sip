@@ -58,7 +58,7 @@ use IO::Socket;
 use List::Util 'first';
 use Net::DNS;
 use Carp 'croak';
-use Debug;
+use Net::SIP::Debug;
 
 
 ###########################################################################
@@ -642,7 +642,7 @@ use fields (
 	'callback',     # callback for DSN (success, ETIMEDOUT...)
 );
 
-use Debug;
+use Net::SIP::Debug;
 use Net::SIP::Util 'invoke_callback';
 
 ###########################################################################

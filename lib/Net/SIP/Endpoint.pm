@@ -35,7 +35,7 @@ use fields (
 	'ctx'           # hash of ( callid => Net::SIP::Endpoint::Context )
 );
 
-use Debug;
+use Net::SIP::Debug;
 use Net::SIP::Endpoint::Context;
 use Net::SIP::Util qw(invoke_callback);
 

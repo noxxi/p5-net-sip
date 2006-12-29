@@ -29,7 +29,7 @@ use warnings;
 package Net::SIP::Leg;
 use Digest::MD5 'md5_hex';
 use Socket;
-use Debug;
+use Net::SIP::Debug;
 use Net::SIP::Util qw( sip_hdrval2parts invoke_callback );
 use Net::SIP::Packet;
 use Net::SIP::Request;

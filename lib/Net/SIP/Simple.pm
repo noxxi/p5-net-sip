@@ -33,7 +33,7 @@ use Net::SIP::Simple::Call;
 use Net::SIP::Simple::RTP;
 use Net::SIP::Util qw( :all );
 use List::Util 'first';
-use Debug;
+use Net::SIP::Debug;
 
 ###########################################################################
 # create UA

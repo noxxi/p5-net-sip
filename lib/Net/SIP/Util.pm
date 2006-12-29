@@ -9,7 +9,7 @@ use warnings;
 package Net::SIP::Util;
 use Digest::MD5 'md5_hex';
 use IO::Socket;
-use Debug;
+use Net::SIP::Debug;
 use base 'Exporter';
 
 our @EXPORT_OK = qw( 

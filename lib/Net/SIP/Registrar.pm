@@ -14,7 +14,7 @@ package Net::SIP::Registrar;
 use fields qw( store max_expires min_expires dispatcher domains _last_timer );
 use Net::SIP::Util ':all';
 use Carp 'croak';
-use Debug;
+use Net::SIP::Debug;
 use List::Util 'first';
 
 ###########################################################################

@@ -13,7 +13,7 @@
 use strict;
 use warnings;
 package Net::SIP::Packet;
-use Debug;
+use Net::SIP::Debug;
 use Storable;
 use Net::SIP::SDP;
 

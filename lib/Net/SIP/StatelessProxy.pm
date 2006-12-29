@@ -17,7 +17,7 @@ use Net::SIP::Registrar;
 use Digest::MD5 'md5_hex';
 use Carp 'croak';
 use List::Util 'first';
-use Debug;
+use Net::SIP::Debug;
 
 ###########################################################################
 # creates new stateless proxy

@@ -43,7 +43,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       with (result,self,%args)
 
 use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
-use Debug;
+use Net::SIP::Debug;
 use Socket;
 
 ###########################################################################

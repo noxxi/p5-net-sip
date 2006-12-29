@@ -13,7 +13,7 @@ use warnings;
 package Net::SIP::Simple::RTP;
 use Net::SIP::Util qw(invoke_callback);
 use Socket;
-use Debug;
+use Net::SIP::Debug;
 
 ###########################################################################
 # creates function which will initialize Media for echo back

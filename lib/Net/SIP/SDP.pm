@@ -12,7 +12,7 @@ use strict;
 use warnings;
 package Net::SIP::SDP;
 use Hash::Util qw(lock_keys);
-use Debug;
+use Net::SIP::Debug;
 
 
 ###########################################################################

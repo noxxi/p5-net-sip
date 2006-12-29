@@ -12,7 +12,7 @@ use Time::HiRes qw(gettimeofday);
 use Socket;
 use List::Util qw(first);
 use Net::SIP::Util 'invoke_callback';
-use Debug;
+use Net::SIP::Debug;
 
 ###########################################################################
 sub new {

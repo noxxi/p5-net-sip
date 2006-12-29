@@ -54,7 +54,7 @@ use fields (
 use Digest::MD5 'md5_hex';
 use Net::SIP::Request;
 use Net::SIP::Response;
-use Debug;
+use Net::SIP::Debug;
 use Errno qw( EINVAL EPERM EFAULT );
 use Hash::Util 'lock_keys';
 use List::Util 'first';
