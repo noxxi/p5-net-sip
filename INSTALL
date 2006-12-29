@@ -1,0 +1,15 @@
+This module can be installed on perl5.8 if you add Net::DNS.
+
+It was not tested on older versions but it might work if you add
+Storable, List::Util, Hash::Util, Time::HiRes, Digest::MD5
+and IO::Socket.
+
+The module itself is pure perl, so if the prerequisites are
+fullfilled no C-Compiler is necessary.
+
+For installation do the usual
+
+	perl Makefile.PL
+	make
+	make test
+	make install
