@@ -1,21 +1,10 @@
-
-###########################################################################
-# package Net::SIP::Packet
-# SIP packets are either requests or responses
-# the constructor can create objects from packet strings or from
-# hash/array description, in both cases one can later retrieve 
-# a string representation or a hash/array representation of the
-# packet
-# Packets can be manipulated, e.g add, delete or modify header
-# elements or body.
-###########################################################################
-
 use strict;
 use warnings;
 package Net::SIP::Packet;
 use Net::SIP::Debug;
 use Storable;
 use Net::SIP::SDP;
+use Carp 'croak';
 
 use fields qw( code text header lines body as_string );
 
@@ -109,7 +98,7 @@ sub new_from_parts {
 			push @hnew, $header->[$i];
 			$normalized = 1;
 		} else {
-			die "mix between normalized and not normalized data in header" if $normalized;
+			croak( "mix between normalized and not normalized data in header" ) if $normalized;
 			push @hnew, Net::SIP::HeaderPair->new( $key,$value ) ;
 		}
 	}
@@ -119,7 +108,8 @@ sub new_from_parts {
 
 	if ( ref($body)) {
 		if ( !$self->get_header( 'content-type' )) {
-			$self->set_header( 'content-type' => $body->content_type )
+			my $sub = UNIVERSAL::can( $body, 'content-type' );
+			$self->set_header( 'content-type' => $sub->($body) ) if $sub;
 		}
 		$body = $body->as_string;
 	}
@@ -208,7 +198,7 @@ sub callid { scalar( shift->get_header('call-id')) }
 #  $key: (optional) which headerkey to access
 # Returns: @val|\%header
 #   @val: if key given returns all values for this key
-#      die()s if in scalar context and I've more then one value for the key
+#      croak()s if in scalar context and I've more then one value for the key
 #   \%header: if no key given returns hash with 
 #      { key1 => \@val1, key2 => \@val2,.. }
 ###########################################################################
@@ -222,7 +212,7 @@ sub get_header {
 			push @v,$h->{value} if $h->{key} eq $key;
 		}
 		return @v if wantarray;
-		die "multiple values for $key" if @v>1;
+		croak( "multiple values for $key" ) if @v>1;
 		return $v[0];
 	} else {
 		my %result;
@@ -241,7 +231,7 @@ sub get_header {
 #  $key: (optional) which headerkey to access
 # Returns: @val|\%header
 #   @val: if key given returns all values (Net::SIP::HeaderVal) for this key
-#      die()s if in scalar context and I've more then one value for the key
+#      croak()s if in scalar context and I've more then one value for the key
 #   \%header: if no key given returns hash with 
 #      { key1 => \@val1, key2 => \@val2,.. } where val are Net::SIP::HeaderVal
 ###########################################################################
@@ -256,7 +246,7 @@ sub get_header_hashval {
 				if $h->{key} eq $key;
 		}
 		return @v if wantarray;
-		die "multiple values for $key" if @v>1;
+		croak( "multiple values for $key" ) if @v>1;
 		return $v[0];
 	} else {
 		my %result;
@@ -340,7 +330,13 @@ sub set_header {
 ###########################################################################
 sub set_body {
 	my ($self,$body) = @_;
-	$body = $body->as_string if ref($body);
+	if ( ref($body)) {
+		if ( !$self->get_header( 'content-type' )) {
+			my $sub = UNIVERSAL::can( $body, 'content-type' );
+			$self->set_header( 'content-type' => $sub->($body) ) if $sub;
+		}
+		$body = $body->as_string;
+	}
 	$self->as_parts;
 	$self->{body} = $body;
 	$self->_update_string();

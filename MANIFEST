@@ -6,6 +6,7 @@ Makefile.PL
 lib/Net/SIP.pm
 lib/Net/SIP/Debug.pm
 lib/Net/SIP/Packet.pm
+lib/Net/SIP/Packet.pod
 lib/Net/SIP/Request.pm
 lib/Net/SIP/Response.pm
 lib/Net/SIP/SDP.pm

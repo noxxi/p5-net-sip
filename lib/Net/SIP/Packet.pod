@@ -1,0 +1,185 @@
+
+=head1 NAME
+
+Net::SIP::Packet - handling of SIP packets
+
+=head1 SYNOPSIS
+
+  use Net::SIP::Packet;
+  my $pkt = Net::SIP::Packet->new( $sip_string );
+  $pkt->get_header( 'call-id' ) || die "no call-id";
+  $pkt->set_header( via => \@via );
+  print $pkt->as_string;
+
+=head1 DESCRIPTION
+
+This module implements the parsing, manipulation and creation of SIP
+packets according to RFC3261.
+
+NET::SIP::Packet's objects can be created by parsing a string containing
+the SIP packet or by constructing it from parts, e.g. header keys and
+values, body, method+URI (requests) or code+text (responses).
+
+All parts can be manipulated and finally the string representation of
+the manipulated packet can be (re)created.
+
+For dealing with requests and responses directly usually the subclasses
+L<Net::SIP::Request> or L<Net::SIP::Response> will be used instead.
+
+=head1 EXAMPLES
+
+  # create packet from string
+  my $invite = Net::SIP::Packet->new(  <<'EOS' );
+  INVITE sip:you@example.com SIP/2.0
+  From: <sip:me@example.com>
+  To: <sip:you@example.com>
+  ...
+  EOS
+
+  # show and manipulate some header
+  print "callid=".$invite->get_header( 'call-id' )."\n";
+  print "route=".join( ",", $invite->get_header( 'route' ))."\n";
+  $invite->set_header( 'via' => [ $via1,$via2,.. ] );
+
+  # get resulting string representation
+  print $invite->as_string;
+
+  # create packet from parts
+  my $resp = Net::SIP::Packet->new(
+    200, 'Ok',
+    { to => '<sip:you@example.com>', from => '<sip:me@example.com>',.. }
+    Net::SIP::SDP->new(...)
+  );
+
+  # and get the packet as string
+  print $resp->as_string;
+
+=head1 CONSTRUCTOR
+
+=over 4 
+
+=item new ( STRING | @PARTS )
+
+This is the default constructor. Depending on the number of arguments branches
+into B<new_from_string> or B<new_from_parts>.
+
+=item new_from_string ( STRING )
+
+Interprets STRING as a SIP request or response and creates L<Net::SIP::Request>
+or L<Net::SIP::Response> object accordingly.
+
+=item new_from_parts ( CODE|METHOD, TEXT|URI, \%HEADER|\@HEADER, [ BODY ] )
+
+If CODE|METHOD is numeric a L<Net::SIP::Response> object will be created with
+the response code CODE and the text TEXT.
+Otherwise a L<Net::SIP::Request> object will be created with the method METHOD 
+and the uri URI.
+
+Header data can be given as a hash %HEADER or array @HEADER reference. 
+In case of a hash the key is the SIP field name and the value as either a string
+or a \@list of strings. The fields on the resulting SIP packet
+will be sorted by name of the fields and fields with multiple values will be
+created as seperat lines.
+
+If the header is given as an array the elements of the array are C<< [ key => value ] >>
+pairs where the keys are the field names and the values are strings or \@list of
+strings. Each pair will result in a single line in the SIP header.
+If the value was a list reference the values in the list will be concatened by ','.
+The order of the fields in the resulting SIP packet will be the same as in 
+the array. 
+
+The BODY is optinal and can be given either as a string or as an reference to an
+object which has a method B<as_string>, like L<Net::SIP::SDP>. If the BODY is an
+object which has a method B<content_type> it will set the C<content-type> header
+of the SIP object based on the result of C<< BODY->content_type >> unless a 
+C<content-type> header was explicitly given.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item is_request
+
+Returns TRUE if the SIP packet is a request, otherwise FALSE.
+
+=item is_response
+
+Returns TRUE if the SIP packet is a response, otherwise FALSE.
+
+=item tid
+
+Returns a transaction ID created from the sequence number in
+the C<CSeq> header and the C<Call-Id> header.
+All packets with the same tid belong to the same transaction.
+
+=item cseq
+
+Returns C<CSeq> header. Short for C<< $self->get_header( 'cseq' ) >>.
+
+=item callid
+
+Returns C<Call-Id> header. Short for C<< $self->get_header( 'call-id' ) >>.
+
+=item get_header ( [ NAME ] )
+
+If NAME is given it returns the SIP header for NAME. If no header
+exists returns (). If there is only one value for the header returns
+this value. In case of multiple values it returns a @list of all
+values, but if C<wantarray> says, that the caller expects only a
+single value it will C<croak()>.
+
+If no NAME is given it will return a reference to a hash wich contains
+all fields and has the format described in B<new_from_parts>.
+
+=item add_header ( NAME, VAL )
+
+Adds the header at the end of the SIP header.
+VAL can be a string or a reference to a list of strings.
+
+=item insert_header ( NAME, VAL )
+
+Like B<add_header>, but the lines will be added on top of the header.
+
+=item del_header ( NAME )
+
+Delete all lines from header where the field name is NAME.
+
+=item set_header ( NAME, VAL )
+
+Replaces an existing header, like B<del_header> followed by B<add_header>.
+
+=item set_body ( VAL )
+
+Sets body to VAL, which can be string or object. The handling for body
+objects see B<new_from_parts>.
+
+=item as_string
+
+Returns string representation of SIP packet.
+
+=item as_parts
+
+Returns Array with CODE|METHOD, TEXT|URI, \@HEADER and BODY like used
+in B<new_from_parts>.
+
+=item sdp_body
+
+Returns body as L<Net::SIP::SDP> object if there is a body and the 
+content-type is 'application/sdp' or empty.
+
+=back
+
+=head2 UNDOCUMENTED METHODS
+
+=over 4
+
+=item get_header_hashval ( [ NAME ] )
+
+=item scan_header ( @ARG )
+
+=item clone
+
+=back
+
