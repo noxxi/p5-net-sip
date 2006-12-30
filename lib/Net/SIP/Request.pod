@@ -1,0 +1,101 @@
+
+=head1 NAME
+
+Net::SIP::Request - handling of SIP request packets
+
+=head1 SYNOPSIS
+
+  my $req = Net::SIP::Request->new( 'INVITE',... );
+  my $ack = $req->create_ack();
+
+=head1 DESCRIPTION
+
+Subclass of L<Net::SIP::Packet> for handling request packets.
+Has methods to create responses to requests and to authorize requests.
+
+=head1 EXAMPLES
+
+  # create INVITE request
+  my $invite = Net::SIP::Request->new( 
+    'INVITE', 'sip:you@example.com',
+    { from => ..., to => ... },
+    Net::SIP::SDP->new( ... )
+  );
+
+  # somehow send request and retrieve response $resp
+  ...
+  if ( $resp->code eq '401' or $resp->code eq '407' ) {
+    # need to authorize request
+    $invite->authorize( $resp, username, password );
+
+    # somehow send again and retrieve response $resp
+    ...
+  }
+
+  if ( $resp->code ~m{^[2345]\d\d} ) {
+    # got final response, send ACK
+    my $ack = $invite->create_ack( $resp );
+
+    # somehow send $ack
+    ...
+  }
+
+=head1 CONSTRUCTOR
+
+Inherited from L<Net::SIP::Packet>. See there.
+
+=head1 METHODS
+
+=over 4
+
+=item method
+
+Get method of request.
+
+=item uri
+
+Get URI part of request.
+
+=item set_uri ( STRING )
+
+Set URI of request to STRING
+
+=item set_cseq ( NUMBER )
+
+Set sequence number if C<CSeq> header to NUMBER.
+
+=item create_ack ( RESPONSE )
+
+Returns Net::SIP::Request object for ACK request for the case 
+when L<Net::SIP::Response> RESPONSE was received in reply for packet C<$self>.
+
+=item create_cancel
+
+Returns Net::SIP::Request object to cancel request in C<$self>.
+
+=item create_response ( CODE, MSG, [ \%HEADER, BODY ] )
+
+Returns Net::SIP::Response packet for the received request C<$self> with
+numerical code CODE and text message MSG. Header for the response will
+be based on the request, but can be added or overriden using \%HEADER.
+
+For details to \%HEADER and BODY see B<new_from_parts> in L<Net::SIP::Packet>.
+
+=item authorize ( RESPONSE, @AUTH )
+
+Tries to authorize request C<$self> based on the information in RESPONSE
+(a 401 or 407 "Authorization required" response) and @AUTH. @AUTH is either
+C<< (user,pass) >> if a global authorization info exists for all realms or
+C<< ( realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... ) >> if
+different credentials are provided for different realms. The realms, for
+which authorization is needed, are read from RESPONSE.
+
+The request C<$self> is modified in-place. If a modification occurred, e.g.
+if (parts of) the authorization requests could be resolved it will return
+TRUE, else FALSE.
+
+Supports only RFC2617 with md5 and empty qop or qop 'auth', not md5-sess
+or qop's like 'auth-int'.
+
+=back
+

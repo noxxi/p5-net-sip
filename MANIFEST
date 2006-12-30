@@ -8,6 +8,7 @@ lib/Net/SIP/Debug.pm
 lib/Net/SIP/Packet.pm
 lib/Net/SIP/Packet.pod
 lib/Net/SIP/Request.pm
+lib/Net/SIP/Request.pod
 lib/Net/SIP/Response.pm
 lib/Net/SIP/SDP.pm
 lib/Net/SIP/Util.pm
