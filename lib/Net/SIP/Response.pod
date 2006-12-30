@@ -1,0 +1,35 @@
+
+=head1 NAME
+
+Net::SIP::Response - handling of SIP response packets
+
+=head1 SYNOPSIS
+
+  my $resp = Net::SIP::Response->new( '401','Authorization required',... );
+
+=head1 DESCRIPTION
+
+Subclass of L<Net::SIP::Packet> for handling response packets.
+
+=head1 CONSTRUCTOR
+
+Inherited from L<Net::SIP::Packet>. See there.
+
+Seldom used directly, usually responses get not generated from
+scratch, but based on a request with the B<create_response> method
+from L<Net::SIP::Request>.
+
+=head1 METHODS
+
+=over 4
+
+=item code
+
+Get numerical code of response.
+
+=item msg
+
+Get text for code from response.
+
+=back
+
