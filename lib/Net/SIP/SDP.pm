@@ -294,7 +294,7 @@ sub content_type { return 'application/sdp' };
 # Args: $self
 # Returns: @media|$media
 #  @media: list of hashes with the following keys:
-#     addr:  IP4 addr
+#     addr:  IP4/IP6 addr
 #     port:  the starting port number
 #     range: number, how many ports starting with port should be allocated
 #     proto: media proto, e.g. udp or RTP/AVP

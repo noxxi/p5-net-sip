@@ -1,0 +1,145 @@
+
+=head1 NAME
+
+Net::SIP::SDP - Parsing and manipulation of SDP data for SIP
+
+=head1 SYNOPSIS
+
+  my $sdp = Net::SIP::SDP->new( sdp_string );
+  my @media = $sdp->get_media;
+
+=head1 DESCRIPTION
+
+Net::SIP::SDP can parse and manipulate SDP data. 
+
+It's not a general purpose SDP class (like L<Net::SDP>) but
+designed to work with SDP data contained in SIP packets
+and for easy extraction and manipulation (for NAT etc)
+of media information contained in the SDP.
+
+The class is also designed for easy creation of SDP bodies
+in the context of the rest of L<Net::SIP::*>.
+
+=head1 EXAMPLES
+
+  # creation based on media data
+  my $sdp = Net::SIP::SDP->new(
+    { addr => '192.168.0.1' },
+    { port => 2012, proto => 'RTP/AVP', media => 'audio', fmt => 0 },
+    { port => 2014, proto => 'RTP/AVP', media => 'video', fmt => 0 },
+  );
+
+  # parse from string
+  my $sdp = Net::SIP::SDP->new( sdp_string );
+
+  # extract all media data
+  my @media = $sdp->get_media;
+
+  # and replace them with new addr + port (for NAT)
+  my @new_media,;
+  foreach (@media) {
+    my ($port,@socks) = create_rtp_sockets( '192.168.178.1', $_->{range} );
+    push @new_media, [ '192.168.178.1', $port ];
+    ...
+  }
+  $sdp->replace_media_listen( @new_media );
+    
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new
+
+Default constructor.
+Depending on kind of arguments branches into B<new_from_string> or B<new_from_parts>.
+See there.
+
+=item new_from_string ( STRING )
+
+Creates object from STRING containing the SDP data.
+
+=item new_from_parts ( \%GLOBAL, @MEDIA )
+
+Creates object from specification.
+%GLOBAL describes the global keys, usually only a common C<addr> for all media but
+any of the keys defined in L<RFC2327> can be used.
+
+@MEDIA is a list of hash references, one hash for each media part. These hashes
+can contain as keys the one-letter keys specified in L<RFC2327> and/or special
+keys for constructing the 'c' and 'm' line:
+
+=over 8
+
+=item addr - The address, used in the 'c' line.
+
+=item port -  The port number
+
+=item range - Range of ports, for RTP/AVP defaults to 2, else 1
+
+=item media - The media typ, e.g. 'audio','video',...
+
+=item proto - Transport protocol, ususally 'RTP/AVP' or 'udp'
+
+=back
+
+If the SDP should contain multiple values for the same key in the same
+media section on can specifiy the value for the key as a \@list instead
+of a string (this is often the case for 'a' lines).
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+
+=item as_string
+
+Returns string representation for object.
+
+=item content_type
+
+Returns 'application/sdp'
+
+=item get_media
+
+Returns list of all media described in the SDP. If the caller expects
+an array the result will be a list, otherwise a reference to a list.
+
+Each element of the list is a hash with the following keys:
+
+=over 8
+
+=item addr - IP4/IP6 address for media
+
+=item port - Start port
+
+=item range - Range for ports
+
+=item proto - Media proto, usually 'RTP/AVP' or 'udp'
+
+=item media - Media typ, usually 'audio', 'video' or 'data'
+
+=item fmt - Format info from media line as \@list, e.g C<< [ 0,10,5 ] >>.
+
+=item lines - All lines from media description as \@list of [ key,value ].
+
+=back
+
+B<WARNING!> You should never manipulate the values you got from this function,
+because this might affect the objects internals.
+
+=item replace_media_listen ( NEW_MEDIA )
+
+Replaces the exisisting media in the object with new media. Useful for NAT.
+
+NEW_MEDIA is ether an array or a reference to an array. Each element in
+the list consists of the new [ addr,port ] mapping for the matching media
+entry. 
+
+The number of entries in the list should be the same as the number of media
+entries in the object ( see B<get_media> ). If this is not the case it will
+C<die()>.
+
+=back
+

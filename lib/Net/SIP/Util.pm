@@ -187,14 +187,15 @@ sub create_socket_to {
 # create RTP/RTCP sockets
 # Args: ($laddr;$range,$min,$max,$tries)
 #   $laddr: local addr
-#   $range: how many socks, 2 if not defined
+#   $range: how many sockets, 2 if not defined
 #   $min: minimal port number, default 2000
 #   $max: maximal port number, default 10000 more than $min
 #   $tries: how many tries, default 100
 # Returns: ($port,$rtp_sock,$rtcp_sock,@more_socks)
+#   $port:      port of RTP socket, port for RTCP is port+1
 #   $rtp_sock:  socket for RTP data
 #   $rtcp_sock: socket for RTCP data
-#   $port:      port of RTP socket, port for RTCP is port+1
+#   @more_socks: more sockets (if range >2)
 ###########################################################################
 sub create_rtp_sockets {
 	my ($laddr,$range,$min,$max,$tries) = @_;
