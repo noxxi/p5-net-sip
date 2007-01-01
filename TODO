@@ -1,0 +1,3 @@
+- need to handle a:rtpmap in SDP bodies
+- more documentation
+- Net::SIP documentation fill SYNOPSIS and EXAMPLES
