@@ -187,7 +187,7 @@ sub add_leg {
 			# on a listening socket might cause a new leg to be added
 			# which then will receive the packet (maybe over multiple
 			# read attempts)
-			my ($packet,$from) = $leg->receive( $self ) or do {
+			my ($packet,$from) = $leg->receive or do {
 				DEBUG( "failed to receive" );
 				return;
 			};

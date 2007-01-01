@@ -102,22 +102,6 @@ sub new {
 }
 
 ###########################################################################
-# handle incoming packet (e.g incoming leg)
-# Args: ($self,$packet)
-#   $packet: Net::SIP::Packet, gets modified in-place
-# Returns: undef | [code,text]
-#   code: error code (can be empty if just drop packet on error)
-#   text: error description (e.g max-forwards reached..)
-###########################################################################
-sub incoming {
-	my ($self,$packet) = @_;
-	# does nothing to the packet
-	# XXXX we could check here the via Header is our, e.g. that
-	# the packet came in through the right leg
-	return;
-}
-
-###########################################################################
 # prepare incoming packet for forwarding
 # Args: ($self,$packet)
 #   $packet: incoming Net::SIP::Packet, gets modified in-place
@@ -274,15 +258,13 @@ sub deliver {
 # for udp socket it just makes a recv on the socket and returns the packet
 # for tcp master sockets it makes accept and creates a new leg based on
 #   the masters leg. 
-# Args: ($self,$dispatcher)
-#   $dispatcher: Net::SIP::Dispatcher which manages these leg
+# Args: ($self)
 # Returns: ($packet,$from) || ()
 #   $packet: Net::SIP::Packet
 #   $from:   ip:port where it got packet from
 ###########################################################################
 sub receive {
 	my Net::SIP::Leg $self = shift;
-	my $dispatcher = shift;
 
 	if ( $self->{proto} ne 'udp' ) {
 		DEBUG( "only udp is supported at the moment" );

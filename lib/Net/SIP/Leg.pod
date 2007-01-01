@@ -1,0 +1,106 @@
+
+=head1 NAME
+
+Net::SIP::Leg - Wrapper around Socket for sending and receiving SIP packets
+
+=head1 SYNOPSIS
+
+  my $leg = Net::SIP::Leg->new( addr => '192.168.0.2' );
+  $leg->deliver( $packet, '192.168.0.5:5060' );
+
+=head1 DESCRIPTION
+
+A B<Leg> wraps the socket which is used to send and receive packets.
+It provides ways to strip B<Via> header from incoming packets, to
+add B<Via> header to outgoing packets and to add B<Record-Route> header
+while forwarding.
+
+It's usually not used directly, but from L<Net::SIP::Dispatcher>.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( %ARGS )
+
+The constructor creates a new object based on the hash %ARGS.
+The following keys are used from %ARGS:
+
+=over 8
+
+=item sock
+
+The socket as IO::Socket::INET object. C<addr>, C<port> and C<proto>
+will be determined from this object and not from %ARGS.
+
+=item addr
+
+The local address of the socket.
+
+=item port
+
+The port of the socket. Defaults to 5060.
+
+=item proto
+
+The connection protocol, e.g. 'tcp' or 'udp'. Defaults to 'udp'.
+
+=item contact
+
+Optional contact information which will be added as B<Record-route> header
+to outgoing requests. If not given it will be created based on C<addr>, C<port>
+and C<proto>.
+
+=back
+
+If no socket is given with C<sock> it will be created based on C<addr>, C<port>
+and C<proto>. If this fails the constructur will C<< die() >>.
+
+The constructor will creeate a uniq branch tag for this leg.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item forward_incoming ( PACKET )
+
+Modifies the L<Net::SIP::Packet> PACKET in-place for forwarding, e.g
+strips top B<Via> header in responses, adds B<received> parameter to
+top B<Via> header in requests, handles the difference between forwarding
+of requests to strict or loose routes and inserts B<Record-Route>
+header in requests.
+
+=item deliver ( PACKET, ADDR, [ CALLBACK ] )
+
+Delivers L<Net::SIP::Packet> PACKET through the leg C<$self> to ADDR, which
+is C<< "ip:port" >>. 
+Usually this method will be call from within L<Net::SIP::Dispatcher>.
+
+If the packet was received by the other end (which is
+only possible to say if a reliable protocol, e.g. 'tcp' was used) it will
+call CALLBACK if provided. See B<invoke_callback> in L<Net::SIP::Util> for
+the format of callbacks. If the packet could not be delivered CALLBACK
+will be invoked with the appropriate errno (C<$!>).
+
+While delivering requests it adds a B<Via> header.
+
+=item receive
+
+Reads a packet from the socket and returns the L<Net::SIP::Packet> PACKET
+and the senders ADDR as C<< "ip:port" >>. If reading failed will return C<()>.
+
+=item check_via ( PACKET )
+
+Returns TRUE if the top B<Via> header in the L<Net::SIP::Packet> PACKET contains
+the B<branch>-tag from C<$self>, otherwise FALSE. Used to check if the response
+came in through the same leg the response was send.
+
+=item can_deliver_to ( ADDR )
+
+Returns TRUE if the leg can deliver to ADDR (IP), else FALSE.
+Rigth now returns TRUE in all cases, because it cannot use the route
+information from the underlying OS.
+
+=back
