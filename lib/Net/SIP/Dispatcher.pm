@@ -84,6 +84,8 @@ sub new {
 		= delete @args{qw( outgoing_proxy do_retransmits domain2proxy )};
 	die "bad args: ".join( ' ',keys %args ) if %args;
 
+	$eventloop ||= Net::SIP::Dispatcher::Eventloop->new;
+
 	# normalize domain2proxy so that its the same format one gets from
 	# the SRV record
 	$domain2proxy ||= {};
@@ -370,7 +372,7 @@ sub receive {
 ###########################################################################
 sub queue_expire {
 	my Net::SIP::Dispatcher $self = shift;
-	my $now = shift || time();
+	my $now = shift || $self->{eventloop}->looptime;
 
 	# expire queue
 	my $queue = $self->{queue};

@@ -1,0 +1,251 @@
+
+=head1 NAME
+
+Net::SIP::Dispatcher - dispatch SIP packets between legs and endpoint
+
+=head1 SYNOPSIS
+
+  my $disp = Net::SIP::Dispatcher->new( ... );
+  $disp->deliver( $request );
+
+=head1 DESCRIPTION
+
+This module dispatches L<Net::SIP::Packet>s between L<Net::SIP::Leg>s
+and endpoints like L<Net::SIP::Endpoint>, L<Net::SIP::Registrar> and
+L<Net::SIP::StatelessProxy>. 
+
+It manages retransmission of outgoing packets and redelivery of responses
+to incoming requests.
+
+It is asssociated with an event handling like 
+L<Net::SIP::Dispatcher::Eventloop>.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( \@LEGS, EVENTLOOP, %ARGS )
+
+Creates a new dispatcher object.
+
+@LEGS is a list of legs or specification for legs. See B<add_leg> for
+possible formats.
+
+EVENTLOOP is a eventloop which provides handling of events on file
+descriptors and timers. If not given a new L<Net::SIP::Dispatcher::Eventloop>
+object will be created and used. See there how to define your own
+event loop package.
+
+%ARGS are parameters for the behavior of the dispatcher:
+
+=over 8
+
+=item outgoing_proxy
+
+Specifies C<< "ip:port" >> of outgoing proxy, e.g the proxy which will
+be used for all outgoing packets.
+
+If no leg but an outgoing proxy is specified a leg will be created
+which can reach the outgoing proxy by udp.
+
+=item do_retransmits
+
+If TRUE retransmits will be done accoring to RFC3261. If FALSE no
+retransmits will be done, which is used in the case of stateless
+proxies.
+Defaults to TRUE.
+
+This is the default for the delivery and can be overwritten in
+sub B<deliver>.
+
+=item domain2proxy
+
+Optional mapping between target SIP domain and proxy to use.
+This is usually a hash of C<< ( domain, "ip_proxy:port_proxy" ) >> 
+pairs. Special domain '*' can be used to specify a fallback.
+See sub B<deliver> for more details.
+
+=back
+
+The constructor will create a timer using the eventloop which
+will regularly (each second) call B<queue_expire>.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item set_receiver ( ENDPOINT )
+
+This sets ENDPOINT as a receiver for incoming packets.
+ENDPOINT is an object with a method B<receive> or
+a callback usable by B<invoke_callback> in L<Net::SIP::Util>.
+
+=item add_leg ( LEG )
+
+Adds LEG as a leg to the dispatcher C<$self>. LEG can be either
+a L<Net::SIP::Leg> object, a L<IO::Handle> or a hash reference
+which is usable in the constructor of L<Net::SIP::Leg>.
+
+The leg will be added to the dispatchers eventloop for receiving
+incoming packets.
+
+=item remove_leg ( LEG )
+
+Removes L<Net::SIP::Leg> object LEG from the dispatcher. 
+
+=item get_legs ( %ARGS ) 
+
+Get a list of all L<Net::SIP::Leg> objects matching the
+criteria given by %ARGS. %ARGS can be a combination of:
+
+=over 8
+
+=item addr
+
+Matches if given address matches the legs source address.
+
+=item port
+
+Matches if given port matches the legs source port.
+
+=item proto
+
+Matches if given proto ('udp','tcp') matches the legs protocol.
+
+=item sock
+
+Matches if the given L<IO::Handle> is used as the socket in the leg.
+
+=item sub
+
+Call given sub with the L<Net::SIP::Leg> as argument. Matches if
+the sub returns TRUE.
+
+=back
+
+The leg matches %ARGS if the all conditions specified in %ARGS
+match.
+
+=item add_timer ( WHEN, CALLBACK, [ REPEAT ] )
+
+Adds a timer using the eventloop.
+
+WHEN is either an absolute or a relative time (what it is will
+be decided based on the value of WHEN). Absolute times will be
+specified in time_t (seconds since 1970-01-01 00:00:00) and
+relative time will be specified in seconds.
+WHEN can be floating point to specifiy subseconds.
+WHEN can be C<0> to trigger the timer immediatly.
+
+CALLBACK is a callback usable by B<invoke_callback> in L<Net::SIP::Util>.
+
+REPEAT is the optional repeat interval for the timer.
+
+=item deliver ( PACKET, %ARGS )
+
+Delivers B<Net::SIP::Packet> PACKET.
+%ARGS can speciffy hints for delivery:
+
+=over 8
+
+=item id
+
+ID for packet, used in B<cancel_delivery>. If not given the transaction
+ID of PACKET given by method B<tid> will be used.
+
+=item callback
+
+callback which will be called on definite delivery of packet (only possible
+for TCP) or on definite failure. Callback will be invoked using B<invoke_callback>
+from B<Net::SIP::Util> with the additional argument of C<$!>.
+See sub B<deliver> in L<Net::SIP::Leg>.
+
+=item leg
+
+Specifies outgoing L<Net::SIP::Leg> object. For responses created by the
+endpoint the outgoing leg is usually known, because it's the same as the 
+incoming leg for the request.
+
+=item dst_addr
+
+C<< "ip:port" >> where to deliver the packet. This is necessary for
+responses, for requests it can be find out based on the requests URI.
+
+=item do_retransmits
+
+Specifies if retransmits should be done according to RFC3261. This is
+usually the case, except for stateless proxies. Overwrites the global parameter
+with the same name from the constructor for the delivery of the
+specific packet.
+
+=back
+
+Delivery of the packet itself will be handled in multiple steps (in the
+code done mainly by sub B<__deliver>:
+
+=over 8
+
+=item *
+
+If a leg is specified it will be used for delivery. B<dst_addr> needs to
+be specified in this case too.
+This is usually the case for locally generated responses.
+
+=item *
+
+Otherwise the global outgoing proxy will be used if specified.
+
+=item *
+
+If B<dst_addr> is not given needs to be computed from the URI.
+Naturally this works only for requests.
+See sub B<__resolve_uri> in the source code.
+
+If the URI contains an IP address this will be used.
+
+If B<domain2proxy> was given in the constructor it will be used
+to lookup an outgoing proxy. 
+If SIP domain for outgoing request is not in the mapping but
+an upper domain is in the mapping then this entry will be used.
+
+If no outgoing proxy could be found it will be looked up using 
+a partial implementation of RFC3263, e.g. DNS SRV records will
+be used (but not DNS NAPTR records).
+
+=item *
+
+The outgoing leg will be computed based on B<dst_addr>.
+This will be done in sub B<__find_leg4addr> by going through
+all legs and checking, if the leg could deliver to this
+address by calling B<can_deliver_to> on the leg (see L<Net::SIP::Leg>).
+
+=back
+
+If the packets could be retransmitted appropriate setups
+will be done. Retransmission will be done until final failure
+or until B<cancel_delivery> will be called for the packet, which
+usually means, that the packet was successfully delivered because
+a response to the packet was received.
+
+=item cancel_delivery ( ID )
+
+Cancels retransmission of packet with id ID. Called from endpoint
+if response to packet came in, which means that the packet was
+successfully delivered.
+
+=item receive ( PACKET, LEG, FROM )
+
+Called from the eventloop (e.g was setup as a callback) for
+incoming packets. The new L<Net::SIP::Packet> is PACKET,
+LEG is the L<Net::SIP::Leg> where the packet came in and
+FROM is C<< "ip:port" >> of the sender.
+
+=item queue_expire ( [ NOW ] )
+
+Expires retransmission queue, e.g. deletes packet where retransmissions
+failed permanently (and calls appropriate callbacks) and initiates
+pending retransmissions. Called from a timer setup in the constructor.
+
+=back
