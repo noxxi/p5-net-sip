@@ -18,6 +18,8 @@ lib/Net/SIP/Leg.pm
 lib/Net/SIP/Leg.pod
 lib/Net/SIP/Dispatcher.pm
 lib/Net/SIP/Dispatcher.pod
+lib/Net/SIP/Dispatcher/Eventloop.pm
+lib/Net/SIP/Dispatcher/Eventloop.pod
 lib/Net/SIP/Util.pm
 lib/Net/SIP/Dispatcher/Eventloop.pm
 lib/Net/SIP/Endpoint/Context.pm

@@ -1,0 +1,98 @@
+
+=head1 NAME
+
+Net::SIP::Dispatcher::Eventloop - simple event loop for L<Net::SIP::Dispatcher>
+
+=head1 SYNOPSIS
+
+  my $loop = Net::SIP::Dispatcher::Eventloop->new;
+  $loop->addFD( $fd, $callback );
+  $loop->addTimer( 10,$callback ); 
+  $loop->loop;
+
+=head1 DESCRIPTION
+
+The package implements a simple event loop. It's not optimized
+for speed but it is provided as a simple implementation in case the
+users application does not has an event loop yet.
+
+Because the eventloop object can be given in the constructor
+of L<Net::SIP::Dispatcher> you might provide an alternative implementation,
+which implemented the described methods.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new
+
+Creates new event loop, returns created object
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item addFD ( HANDLE, CALLBACK )
+
+Adds file handle HANDLE to the event loop, so that CALLBACK gets triggered
+if HANDLE is readable. CALLBACK is a callback accepted by B<invoke_callback>
+in L<Net::SIP::Util>. The callback will be invoked with HANDLE as an additional
+argument.
+
+If there was already a callback for HANDLE it gets replaced by the new one.
+
+IMPORTANT NOTE: CALLBACK gets triggered if HANDLE *is* readable inside the
+loop, not if HANDLE *gets* readable. Unlike with L<Event::Lib> or similar
+the CALLBACK is not triggered by the edge, but by the level (like poll(2)
+or select(2)). So if 2 bytes come in at the handle and one reads only
+1 byte in the callback the callback gets triggered again for more data.
+You have to watch this, if you want to integrate L<Net::SIP> with your
+existing event loop.
+
+=item delFD ( HANDLE )
+
+Removes HANDLE from loop, e.g. no more checking for readability will be done.
+
+=item addTimer( WHEN, CALLBACK, [ REPEAT ] )
+
+Adds timer which gets triggered at WHEN or C<< now + WHEN >>. Depending on
+the value of WHEN it gets interpreted as the number of seconds since 1970-01-01
+(when it's really big) or as a relative time (when it's not that big).
+WHEN can be floating point for subseconds resolution.
+
+CALLBACK is a callback accepted by B<invoke_callback> in L<Net::SIP::Util>.
+It gets invoked with the timer object (see later) as an additional argument,
+which has a method B<cancel> for canceling the (repeating) timer.
+
+REPEAT is the number of seconds between each invocation of the timer. If greater
+then 0 (subsection resulution possible) the callback will be called each
+REPEAT seconds, after it was called the first time at WHEN.
+
+The method will return an object which has a method B<cancel> which can be
+used to cancel the timer before it gets triggered (or gets triggered the next
+time in case of repeating timers).
+
+=item loop ( [ TIMEOUT, \@STOPVAR ] )
+
+The main loop, e.g. continuiosly checks timers and file handles for the
+events and calls callbacks. 
+
+If TIMEOUT is given it will run the loop for at most TIMEOUT seconds,
+then the method will return. Undefined TIMEOUT means that it will never
+return because of timeout and TIMEOUT of 0 means that it will check all
+timers and handles only once and then return.
+
+@STOPVAR is a list of scalar references. These scalars are expected to
+be changed from the callbacks, so it will check after each loop cycle, e.g.
+after all callbacks are called (timers and handles) if any of these scalars 
+is TRUE, in which case it will end the loop.
+
+The behavior with STOPVAR cannot be found in most existing event loops.
+If you want to integrate L<Net::SIP> with your own event loop you migth
+simply wrap all callbacks given in B<addFD> and B<addTimer> in another
+callback which at the end checks the stopvars and terminates the 3rd-party loop 
+in a loop-specific way.
+
+=back
