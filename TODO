@@ -3,3 +3,4 @@
 - Net::SIP documentation fill SYNOPSIS and EXAMPLES
 - mechanis to use another Leg implementation
 - better async handling of DNS SRV in Net::SIP::Dispatcher::__resolve_uri
+- samples for integration with other loops

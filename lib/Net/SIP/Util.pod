@@ -1,0 +1,147 @@
+
+=head1 NAME
+
+Net::SIP::Util - utility functions used by all of L<Net::SIP>
+
+=head1 SYNOPSIS
+
+  use Net::SIP::Util qw( create_rtp_sockets );
+  my ($port,@socks) = create_rtp_sockets( '192.168.0.10' ) or die;
+
+=head1 DESCRIPTION
+
+This package implements various utility function used within various
+L<Net::SIP> packages and partly usable for the user of L<Net::SIP> too.
+
+Each of this functions is exportable, but none is exported per default.
+All functions can be exported at once with the import flag C<:all>.
+
+=head1 SUBROUTINES
+
+=over 4
+
+=item invoke_callback ( CALLBACK, @ARGS )
+
+Invokes callback CALLBACK with additional args @ARGS.
+CALLBACK can be:
+
+=over 8
+
+=item A code reference
+
+In this case it will be called as C<< $CALLBACK->(@ARGS) >>
+and return the return value of this call.
+
+=item A reference to a scalar
+
+In this case the scalar will be set to C<< $ARGS[0] >> and
+the rest of @ARGS will be ignored. If no @ARGS are given the
+scalar will be set to TRUE.
+It will return with the value of the scalar.
+
+=item An object which has a method B<run>
+
+In this case it will call C<< $CALLBACK->run(@ARGS) >>
+and return with the return value of this call.
+
+=item A reference to an array
+
+The first element of the array will be interpreted as code reference,
+while the rest as args, e.g. it will do:
+
+  my ($coderef,@cb_args) = @$CALLBACK;
+  return $coderef->( @cb_args, @ARGS );
+
+=item A regular expression
+
+In this case it will try to match all @ARGS against the regex.
+If anything matches it will return TRUE, else FALSE.
+
+=back
+
+=item create_socket_to ( ADDR, [ PROTO ] )
+
+Creates socket with protocol PROTO (default 'udp') on a local interface,
+from where ADDR is reachable.
+This is done by first creating a UDP socket with target
+ADDR and using getsockname(2) to find out the local address of this
+socket. The newly created socket than will be bound to this address.
+
+It will try to bind the socket to port 5060 (default SIP port).
+If this fails it will try port 5062..5100 and if it cannot bind
+to any of these ports it will just use any port which gets assigned
+by the OS.
+
+For multihomed hosts where several addresses are bound to the same
+interface it will just use one of these addresses. If you need more
+control about the address the socket is bound to (and which will
+be used as the local IP in outgoing packets) you need to create the
+socket yourself.
+
+In scalar context it just returns the newly created socket.
+In array context it will return the socket and the C<< "ip:port" >>
+the created socket is bound to.
+If the creation of the socket fails it will return C<()> and set C<$!>.
+
+Example:
+
+  my ($sock,$ip_port) = create_socket_to ( '192.168.0.1' )
+    or die $!;
+
+
+=item create_rtp_sockets ( LADDR, [ RANGE, MINPORT, MAXPORT, TRIES ] )
+
+This tries to allocate sockets for RTP. RTP consists usually of a data
+socket on an even port number and a control socket (RTCP) and the following
+port. It will try to create these sockets. MINPORT is the minimal
+port number to use (default 2000), MAXPORT the highest port (default 
+MINPORT+10000), TRIES is the number of attempts it makes to create such
+socket pairs and defaults to 1000.
+
+RANGE is the number of consecutive ports it needs to allocate and
+defaults to 2 (e.g. data and control socket).
+
+Allocation will be done by choosing a random even number between MINPORT
+and MAXPORT and then trying to allocate all the sockets on this and
+the following port numbers.
+
+If the allocation fails after TRIES attempts were made it will return C<()>,
+otherwise it will return an array with at first the starting port number
+followed by all the allocated sockets.
+
+Example:
+
+  my ($port,$rtp_sock,$rtcp_sock) = create_rtp_sockets( '192.168.0.10' )
+    or die "allocation failed";
+
+
+=item sip_hdrval2parts ( KEY, VALUE )
+
+Interprets VALUE as a value for the SIP header field KEY and splits
+it into the parts (prefix, parameter). Because for most keys the 
+delimiter is C<;>, but for some keys C<,> the field name KEY need to
+be known.
+
+KEY needs to be normalized already (lower case, no abbrevation).
+
+Returns array with initial data (up to first delimiter) and 
+the parameters as hash.
+
+Example for key 'to':
+
+  '"Silver; John" <silver@example.com>; tag=...; protocol=TCP'
+  -> ( '"Silver; John" <silver@example.com>', { tag => ..., protocol => 'TCP' } )
+
+Example for key 'www-authenticate':
+
+  'Digest method="md5", qop="auth"'
+  -> ( 'Digest', { method => 'md5', qop => 'auth' } )
+
+=item sip_parts2hdrval ( KEY, PREFIX, \%PARAMETER )
+
+Inverse function to B<sip_hdrval2parts>, e.g constructs header value for KEY from
+PREFIX and %PARAMETER and returns value.
+
+=back
+
+
