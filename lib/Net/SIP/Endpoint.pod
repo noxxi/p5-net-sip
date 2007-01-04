@@ -1,0 +1,229 @@
+
+=head1 NAME
+
+Net::SIP::Endpoint - Endpoint for SIP packets (UAC,UAS)
+
+=head1 SYNOPSIS
+
+  my $disp = Net::SIP::Dispatcher->new(...);
+  my $ua = Net::SIP::Endpoint->new($disp);
+  $ua->register( 
+    from => 'sip:me@example.com',
+    contact => 'sip:me@192.168.0.1',
+    registar => '192.168.0.10:5060'
+  );
+
+=head1 DESCRIPTION
+
+The package implements a communication endpoint for SIP.
+This is usually a phone, but can also be a stateful proxy (because
+it retransmits packets itself).
+
+It provides methods to send arbitrary requests but also for sending
+special requests like INVITE or REGISTER. Together with
+L<Net::SIP::Endpoint::Context> it implements the behavior of
+the endpoint.
+
+For incoming requests the endpoint usually communicates with
+the upper layer, the application, which is the interface to
+the user (e.g. let it ring for incoming calls, create response
+for call accepted if user picks up phone on incoming call etc).
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( DISPATCHER ) 
+
+Creates a new endpoint and sets it as the receiver for incoming
+packets at the L<Net::SIP::Dispatcher> DISPATCHER. The endpoint
+will use DISPATCHER for outgoing packets and will receive
+incoming packets from it.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item set_application ( APP )
+
+Sets APP as the upper layer, e.g. the layer between the user
+and the endpoint object C<$self>. APP is either an object which has
+a method B<receive> or a callback usable by B<invoke_callback> 
+in L<Net::SIP::Util>. 
+
+The callback will be invoked with the following arguments:
+
+=over 8
+
+=item ENDPOINT
+
+This is the endpoint itself, e.g. C<$self>.
+
+=item CTX
+
+The L<Net::SIP::Endpoint::Context> object for the current call.
+
+=item REQUEST
+
+The L<Net::SIP::Request> which caused the invocation of the call,
+e.g. an INVITE on new calls, ACK if the peer established the call,
+BYE if a call gets closed by the peer etc.
+
+=item LEG
+
+The L<Net::SIP::Leg> object where the call came in. Together
+with FROM used to send response packet back to peer.
+
+=item FROM
+
+C<< "ip:port" >> of the sender of the request.
+
+=back
+
+It will call into APP in various incoming requests, like:
+
+=over 8
+
+=item INVITE
+
+In this case APP should ring the user and while ringing send 
+C<< 180 Ringing >> responses back to the peer, using 
+C<< ENDPOINT->new_response >>. After some time it should
+send a final response (like C<< 200 Ok >> if the user accepted
+the call).
+
+=item ACK
+
+This is the sign, that the peer established the call. APP should
+now expect to process incoming RTP data and send RTP data itself.
+
+=item CANCEL, BYE
+
+This informs APP, that the call is closed. No need for the
+APP to send a response itself, this was already handled by
+the endpoint (because there is no choice of responses, it
+can hardly not accept a BYE).
+
+=item other requests
+
+Like OPTION,.. .
+Theseneed to be fully handled by APP, e.g. send the appropriate
+response back using C<< ENDPOINT->new_response >>.
+
+=back
+
+=item invite ( CTX, [ CALLBACK, BODY, %ARGS ] )
+
+Creates a new INVITE request and delivers it to the peer.
+Simply calls B<new_request> with the method 'INVITE'.
+See this method for information for the arguments.
+
+=item register ( %ARGS )
+
+Registers endpoint at remote registrar. %ARGS needs to
+be filled as follows:
+
+=over 8
+
+=item registrar
+
+C<< "ip:port" >> of registrar. Mandatory.
+
+=item from
+
+The adress to register at the registrar. Mandatory.
+
+=item contact
+
+The contact, under which C<from> will be registered. Mandatory.
+
+=item auth
+
+Authorization info, see method B<authorize> in L<Net::SIP::Request>
+for information about the format. Optional.
+
+=item expires
+
+Expires time. Optional, defaults to 900.
+
+=item callback
+
+Optional callback, e.g. called if requests come in from the
+peer on the call created for the registration. See B<invoke_callback>
+in L<Net::SIP::Util> for the format.
+
+=back
+
+All other keys will be used as header keys in generating the
+L<Net::SIP::Request> object.
+
+=item new_request ( METHOD, CTX, [ CALLBACK, BODY, %ARGS ] )
+
+Method is the uppercase name of the method for which a request
+should be generated. It can also be already a L<Net::SIP::Request>
+object in which case no new request object will be generated,
+but the provided delivered.
+
+CTX is either an existing L<Net::SIP::Endpoint::Context> object
+or a hash reference which will be used to construct one. It contains
+information about C<from> and C<to> etc. See
+constructor in L<Net::SIP::Endpoint::Context> for details.
+
+CALLBACK is a callback usable by B<invoke_callback> in L<Net::SIP::Util>.
+If defined it will be set up as the new default callback for the
+context.
+
+BODY is a string or an object for the SIP body accepted by the 
+constructor of L<Net::SIP::Request>.  See there.
+
+Anything in %ARGS will be used to construct the SIP header. See
+constructor in L<Net::SIP::Request>.
+
+It returns the L<Net::SIP::Endpoint::Context> object for this
+request which can be then used for further requests in the same
+call.
+
+=item close_context ( CTX )
+
+Delete L<Net::SIP::Endpoint::Context> object CTX from the list
+of active calls.
+
+=item receive ( PACKET, LEG, FROM )
+
+Called from dispatcher on incoming packets.
+
+PACKET is the incoming L<Net::SIP::Packet>, LEG the L<Net::SIP::Leg>
+where the packet came in and FROM the C<< "ip:port" >> of the sender.
+
+Just forwards to B<receive_request> or B<receive_response> based
+on the type of packet.
+
+=item receive_response ( RESPONSE, LEG, FROM )
+
+Handles incoming response packets. Tries to find an active call based
+on the C<Call-Id> header in the packet. If none was found it
+will drop the packet, otherwise call B<handle_response> on the
+call context object (L<Net::SIP::Endpoint::Context>).
+
+=item receive_request ( REQUEST, LEG, FROM )
+
+Handles incoming requests.
+
+If there is already a call context for this B<Call-Id> in the request
+it will use it, otherwise it will create a L<Net::SIP::Endpoint::Context>
+object based on the information in the request (C<from>, C<to>, C<contact>,... ).
+
+Calls B<handle_request> on the existing/new context object.
+
+=item new_response ( CTX, RESPONSE, LEG, ADDR )
+
+Delivers L<Net::SIP::Response> packet RESPONSE through the endpoints
+dispatcher to ADDR (C<< "ip:port" >>) using L<Net::SIP::Leg> LEG.
+LEG and ADDR are usually the leg and the senders address where the
+associated request came in.
+
+CTX is the context from the call, where the associated request came in.
+
+=back

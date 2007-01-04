@@ -165,10 +165,6 @@ sub new_request {
 
 	die "cannot redefine call-id" if delete $args{ 'call-id' };
 	my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
-	if ( $body && ref($body)) {
-		$args{'content-type' } ||= $body->content_type;
-		$body = $body->as_string;
-	}
 
 	DEBUG( "create new request for $method" );
 

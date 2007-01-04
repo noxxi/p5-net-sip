@@ -439,11 +439,6 @@ sub handle_request {
 		my $response = $request->create_response( '100','Trying' );
 		$endpoint->new_response( $self,$response,$leg,$from );
 
-	} elsif ( $method eq 'ACK' ) {
-		# ACKs don't get a reply, but we need to cancel the retransmission
-		# of the final response
-		$endpoint->{dispatcher}->cancel_delivery( $request->tid );
-
 	} elsif ( $method eq 'BYE' || $method eq 'CANCEL' ) {
 		# if the peer wants to hangup we must confirm
 		my $response = $request->create_response( '200','Closing' );
