@@ -17,6 +17,14 @@ Addionally L<Net::SIP::Util> provides utility functions
 and L<Net::SIP::Debug> provides a debugging layer used 
 by all these packets.
 
+For first and simple applications you best start with L<Net::SIP::Simple>.
+If this is no longer enough you might look at the details of 
+L<Net::SIP::Dispatcher>, L<Net::SIP::Endpoint>, 
+L<Net::SIP::Register> and L<Net::SIP::StatelessProxy>.
+Although these packages are in itself well documented the functionality
+and the design is best understandable if you look how it gets used
+in tghe source of L<Net::SIP::Simple>.
+
 =head2 SIP packet handling
 
 =over 4
