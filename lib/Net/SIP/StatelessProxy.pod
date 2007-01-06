@@ -1,0 +1,98 @@
+
+=head1 NAME
+
+Net::SIP::StatelessProxy - Simple implementation of a stateless proxy
+
+=head1 SYNOPSIS
+
+..
+
+=head1 DESCRIPTION
+
+This package implements a simple stateless SIP proxy.
+Basic idea is that the proxy has either a single or two legs
+and that the packets are exchanged between those legs,
+e.g. packets incoming on one leg will be forwarded through the
+other leg.
+
+Because this is a stateless proxy no retransmits will be done
+by the proxy.
+
+The proxy can be used in connection with L<Net::SIP::Registrar>
+to work as a registrar too. In this case incoming packets from
+the dispatcher need to be forwarded to the registrar and only
+if the registrar does not handle the packet (method B<receive> 
+in L<Net::SIP::Registrar> returns C<()> ) it should be handled
+by the proxy.
+
+While forwarding the proxy will be insert itself into the packet,
+e.g. it will add B<Via> and B<Record-Route> header while
+forwarding requests.
+
+Additionally it will rewrite the B<Contact> header while forwarding
+packets, e.g. if the B<Contact> header points to some client
+it will rewrite it, so that it points to the proxy and if it
+already points to the proxy it will rewrite it back so that it again
+points to the client.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( %ARGS )
+
+Creates a new stateless proxy. With %ARGS the behavior can be
+influenced:
+
+=over 8
+
+=item dispatcher
+
+The L<Net::SIP::Dispatcher> object managing the proxy.
+
+=item registrar
+
+This is either a hash reference which can be used in the constructor
+of L<Net::SIP::Registrar> or a registrar object itself (only criteria
+is that it needs to have a method B<receive> with the behavior
+described for L<Net::SIP::Registrar>).
+
+If given all incoming REGISTER requests will be forwarded to the
+registrar (by calling it's method B<receive>) and only if the
+registrar does not handle the packet (method returns C<()>) it will 
+be handled by the proxy.
+
+=item at_marker
+
+Special marker string which is used in rewriting B<Contact> headers,
+if a B<Contact> header points to the proxy itself and contains this
+string it will rewritten, so that it points to the original B<Contact>
+header.
+
+=back
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item receive ( PACKET, LEG, FROM )
+
+PACKET is the incoming packet,
+LEG is the L<Net::SIP::Leg> where the packet arrived and FROM
+is the C<< "ip:port" >> of the sender. 
+
+Talled from the dispatcher on incoming packets. The packet
+will be rewritten (C<Via> and C<Record-Route> headers added,
+B<Contact> modified) and then the packet will be forwarded through
+the other leg (or through the same leg if there is only one leg).
+
+For requests it can determine the target of the forwarded
+packet by looking at the route or if no route it looks at
+the URI. For responses it looks at the next B<Via> header.
+
+=back
+
+
+

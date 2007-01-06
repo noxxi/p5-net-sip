@@ -23,10 +23,12 @@ use Net::SIP::Debug;
 # creates new stateless proxy
 # Args: ($class,%args)
 #   %args
+#     dispatcher: the Net::SIP::Dispatcher object managing the proxy
 #     registrar: \%hash with args for Net::SIP::Registrar
 #        if registrar is given it will try to handle all REGISTER
 #        requests using the registrar and fall back to the normal
-#        behavior if registrar cannot handle the request
+#        behavior if registrar cannot handle the request.
+#        can also be an existing Net::SIP::Registrar object
 #     at_marker: uniq marker which is used in rewriting contact headers
 #        if not given a reasonable default will be used
 # Returns: $self
@@ -38,10 +40,14 @@ sub new {
 	my $disp = $self->{dispatcher} = 
 		delete $args{dispatcher} || croak 'no dispatcher given';
 	if ( my $r = delete $args{registrar} ) {
-		$self->{registrar} = Net::SIP::Registrar->new(
-			dispatcher => $disp,
-			%$r
-		);
+		if ( UNIVERSAL::can( $r,'receive' )) {
+			$self->{registrar} = $r;
+		} else {
+			$self->{registrar} = Net::SIP::Registrar->new(
+				dispatcher => $disp,
+				%$r
+			);
+		}
 	}
 	$self->{at_marker} ||= '++'.md5_hex( 
 		map { $_->{proto}.':'.$_->{addr}.':'.$_->{port} } 
