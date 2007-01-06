@@ -27,6 +27,7 @@ lib/Net/SIP/Endpoint.pod
 lib/Net/SIP/Endpoint/Context.pm
 lib/Net/SIP/Endpoint/Context.pod
 lib/Net/SIP/Registrar.pm
+lib/Net/SIP/Registrar.pod
 lib/Net/SIP/StatelessProxy.pm
 lib/Net/SIP/Simple.pm
 lib/Net/SIP/Simple/Call.pm

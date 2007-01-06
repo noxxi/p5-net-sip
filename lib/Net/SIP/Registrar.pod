@@ -1,0 +1,88 @@
+
+=head1 NAME
+
+Net::SIP::Registrar - Endpoint for registering SIP clients
+
+=head1 SYNOPSIS
+
+  my $reg = Net::SIP::Registry->new(
+    dispatcher => $dispatcher,
+    min_expires => 10,
+    max_expires => 60,
+    domains => [ 'example.com','example.org' ],
+  );
+
+=head1 DESCRIPTION
+
+This package implements a simple SIP registrar. In the current implementation
+registry information are only kept in memory, e.g. they are not preserved over
+restarts.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( %ARGS )
+
+This creates a new registar object, %ARGS can have the following keys:
+
+=over 8
+
+=item dispatcher
+
+L<Net:SIP::Dispatcher> object manging the registar. Mandatory.
+
+=item max_expires
+
+Maximum expires time accepted. If the client requests a larger
+expires value it will be capped at B<max_expires>
+Defaults to 300.
+
+=item min_expires
+
+Minimum expires value. If the client requests a smaller value
+the registrar will return a response of C<< 423 Interval too brief >>.
+Defaults to 30.
+
+=item domains or domain
+
+Either string or reference to list of strings containing the names
+of the domains the registrar is responsable for. If not given the
+registrar accepts everything.
+
+=back
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item receive ( PACKET,LEG,FROM )
+
+PACKET is the incoming packet,
+LEG is the L<Net::SIP::Leg> where the packet arrived and FROM
+is the C<< "ip:port" >> of the sender. Responses will be send
+back to the sender through the same leg.
+
+Called from the managing L<Net::SIP::Dispatcher> object if a new
+packet arrives. Will return C<()> and ignore the packet if it's
+not a REGISTER request or if it is not responsable for the domain
+given in the C<From> heeader of the REGISTER request.
+
+If it is responsable for the packet it will create a response
+and return the code of the response. Responses are either 
+C<< 423 Interval too brief >> if the request expires time
+is too small, or C<< 200 Ok >> if the expires time is 0 (e.g. the
+client should be unregistered) or greater or equal B<min_expires>.
+
+In case of a successful response it wil also update the internal
+registry information.
+
+=item expire 
+
+Removes all expired entries from the internal registry.
+Called whenever the registry information gets updated from
+sub B<receive>.
+
+=back
