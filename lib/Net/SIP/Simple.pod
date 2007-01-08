@@ -1,0 +1,215 @@
+
+=head1 NAME
+
+Net::SIP::Simple - Simple interface for using Net::SIP
+
+=head1 SYNOPSIS
+
+  use Net::SIP;
+
+  # create new agent
+  my $ua = Net::SIP::Simple->new(
+    outgoing_proxy => '192.168.0.10',
+    registrar => '192.168.0.10',
+    domain => 'example.com',
+    from => 'me',
+    auth => [ 'me','secret' ],
+  );
+
+  # Register agent
+  $ua->register;
+
+  # Invite other party, send anncouncement once connected
+  $ua->invite( 'you', 
+    init_media => $ua->rtp( 'send_recv', 'announcement.pcmu-8000' ),
+    asymetric_rtp => 1,
+  );
+
+  # Mainloop
+  $ua->loop;
+
+=head1 DESCRIPTION
+
+This package implements a simple layer on top of L<Net::SIP::Endpoint>,
+L<Net::SIP::Registrar> and L<Net::SIP::StatelessProxy>.
+With the help of this package it is possible to write simple SIP applications
+with a few lines perl code.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( %ARGS )
+
+Creates new Net::SIP::Simple object. %ARGS can be:
+
+=over 8
+
+=item outgoing_proxy|proxy
+
+C<< "ip:port" >> of outgoing proxy. The necessary L<Net::SIP::Leg> to 
+the proxy will be created if no leg exists.
+
+=item registrar 
+
+C<< "ip:port" >> of registrar. Used in method B<register> if there is no
+other registrar given. 
+
+=item legs|leg
+
+\@List of legs or single leg. leg can be an existing L<Net::SIP:.Leg> (or derived)
+object, an L<IO::Handle> (existing socket), a hash reference which can be used
+in the constructor of L<Net::SIP::Leg> or a string of C<< "proto:ip:port" >>.
+In the latter case C<proto> can be ommitted (including the colon) and defaults
+to 'udp' and C<port> can be ommitted to (including the colon) defaulting to 5060.
+
+Either B<legs> or B<outgoing_proxy> has to be provided, e.g. it needs at least one
+leg.
+
+=item auth
+
+Authorization data, either C<< [ user,pass ] >> or reference to hash with realm as
+the key and C<< [ user,pass ] >> as the value.
+See method B<authorize> in L<Net::SIP::Request> for more details.
+
+=item domain
+
+Default domain for not fully qualified SIP addresses in C<from> and C<to> (method
+B<invite>).
+
+=item from
+
+SIP address of local sender, either full SIP address or only part before \@, in which
+case B<domain> has to be provided.
+
+=item loop
+
+Eventloop object for dispatcher, see L<Net::SIP::Dispatcher::Eventloop>. Usually
+not given, because the loop from the dispatcher will be used, but can be given 
+if no dispatcher was given.
+
+=item dispatcher
+
+L<Net::SIP::Dispatcher> object. Usually not given and will be created, but
+sometimes one need to share the same dispatcher between multiple L<Net::SIP::Simple>
+objects.
+
+=item domain2proxy|d2p
+
+Hash with mapping between domain and upstream proxy. See same key in the constructor
+of L<Net::SIP::Dispatcher> for more details.
+
+=back
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item error ( ERROR )
+
+Either sets current error (used internally) or returns last error.
+
+=item loop ( [ TIMEOUT, @STOPVAR ] )
+
+Calls the event loops (key B<loop> in constructor> B<loop> method.
+TIMEOUT is the timeout for the loop in seconds. If not given it will
+not stop because of timeout. @STOPVAR is a list of scalar references,
+will stop the loop if any of these references contains TRUE.
+See method B<loop> in L<Net::SIP::Dispatcher::Eventloop> for more
+details.
+
+The order of TIMEOUT or the STOPVARs is insignificant, e.g. if it
+finds a reference it will use it as stopvar, otherwise it's used as
+timeout.
+
+=item rtp ( METHOD,@ARGS )
+
+Calls the method METHOD in L<Net::SIP::Simple::RTP> with arguments
+@ARGS. Currently only does this and thus works as a shortcut.
+In the future one might add more ways to find the right method
+for RTP handling (e.g. plugins or similar).
+
+=item register ( %ARGS )
+
+Registers the user agent. %ARGS can have the key B<registrar> which
+has precedence over the same key in the constructor. 
+B<leg> specifies the leg where the register request will be send through.
+If not given it will pick the right leg.
+
+If B<cb_final> is specified it is a callback usable by B<invoke_callback>
+in L<Net::SIP::Util> which will be called, once the registration is
+completed (e.g. it succeeded or failed). If no B<cb_final> is specified
+the method will wait, until the registration is completed and return
+either the expires time given by the registrar or C<()> if registration
+failed.
+
+All other keys, like B<contact>, B<expires>
+will be forwarded to method B<register> in L<Net::SIP::Endpoint>.
+B<from> and B<auth> will be used from %ARGS or if not in %ARGS from
+the constructor.
+
+=item invite ( TO,%ARGS )
+
+Invite party TO. Creates a new L<Net::SIP::Simple::Call> object with
+TO and creates an INVITE request for this call using %ARGS.
+See B<reinvite> in L<Net::SIP::Simple::Call> for more info on %ARGS.
+
+Returns with the newly created L<Net::SIP::Simple::Call> object,
+which can later be used for reINVITEs or BYE etc.
+
+=item listen ( %ARGS )
+
+Sets up waiting on all legs in C<$self> for incoming calls, e.g. new INVITE
+requests. All other incoming packets will be dropped.
+If a call comes in a new L<Net::SIP::Simple::Call> object will
+be created using %ARGS.
+
+The method does not wait for the calls, its setting only the callback
+on the legs up. Thus it hash to be followed by a call to B<loop>.
+
+Special keys not described in L<Net::SIP::Simple::Call>:
+
+=over 8
+
+=item filter
+
+A callback usable by B<invoke_callback> in L<Net::SIP::Util> which gets
+called with the value of the B<From> header in the incoming request.
+If the callback returns TRUE the call gets accepted, otherwise not.
+
+=item cb_create
+
+Callback which will be called on accepting the call. Will be called
+with the newly created L<Net::SIP::Simple::Call> object as argument.
+
+=item cb_final
+
+Callback which will be called, after the call is established, e.g.
+after receiving the ACK from the peer.
+
+=item cb_cleanup
+
+Callback which will be called when the call gets closed to clean up
+allocated resources.
+
+=back
+
+=item create_registrar ( %ARGS )
+
+Sets up a simple registrar using L<Net::SIP::Registrar>.
+See there for the meaning of %ARGS.
+
+Like with B<listen> you need to B<loop> after calling this
+method, the method itself will not wait.
+
+=item create_stateless_proxy ( %ARGS )
+
+Sets up a simple proxy using L<Net::SIP::StatelessProxy>.
+See there for the meaning of %ARGS.
+
+Like with B<listen> you need to B<loop> after calling this
+method, the method itself will not wait.
+
+=back

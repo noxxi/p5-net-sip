@@ -39,11 +39,13 @@ use Net::SIP::Debug;
 # create UA
 # Args: ($class;%args)
 #   %args: misc args, all args are optional
-#     outgoing_proxy - specify outgoing proxy
+#     legs|leg       - \@list of legs or single leg.
+#                      leg can be (derived from) Net::SIP::Leg, a IO::Handle (socket),
+#                      a hash reference for constructing Net::SIP::Leg or a string of 
+#                      the form (proto:)?host(:port)? where proto defaults to udp and
+#                      port defaults to 5060.
+#     outgoing_proxy - specify outgoing proxy, will create leg if necessary
 #     proxy          - alias to outgoing_proxy
-#     legs|leg       - \@list of local sockets,ip:addr or ip, needed if no
-#                      outgoing proxy is given. if only one item does not need
-#                      to be a list
 #     registrar      - use registrar for registration 
 #     auth           - auth data: [ user,pass ] or { realm1 => [user,pass],.. }
 #     from           - myself, used for calls and registration
@@ -81,9 +83,14 @@ sub new {
 	$legs ||= [];
 
 	foreach ($legs ? @$legs : ()) {
-		if ( ref ) {
-			# assume file handle
+		if ( UNIVERSAL::isa( $_, 'Net::SIP::Leg' )) {
+			# keep
+		} elsif ( UNIVERSAL::isa( $_, 'IO::Handle' )) {
+			# socket
 			$_ = Net::SIP::Leg->new( sock => $_ )
+		} elsif ( UNIVERSAL::isa( $_, 'HASH' )) {
+			# create leg from hash
+			$_ = Net::SIP::Leg->new( %$_ )
 		} elsif ( m{^(?:(udp|tcp):)?([\w\-\.]+)(?::(\d+))?$} ) {
 			# host|udp:host|udp:host:port|host:port
 			$_ = Net::SIP::Leg->new(
@@ -206,8 +213,11 @@ sub register {
 		|| croak( "no registrar" );
 	my $leg = delete $args{leg};
 	if ( !$leg ) {
-		# use first leg
-		($leg) = $self->{dispatcher}->get_legs();
+		# use first leg which can deliver to registrar
+		($leg) = $self->{dispatcher}->get_legs( sub {
+			my ($addr,$leg) = @_;
+			return $leg->can_deliver_to($addr);
+		});
 	}
 
 	my $from = delete $args{from} || $self->{from} 
@@ -279,7 +289,6 @@ sub invite {
 	$to || croak( "need peer of call" );
 	$to = "$to <sip:$to\@$self->{domain}>" if $to !~m{\s} && $to !~m{\@};
 	my $call = Net::SIP::Simple::Call->new( $self,$to );
-	my $stopvar;
 	$call->reinvite(%args );
 	return $call;
 }
@@ -295,10 +304,9 @@ sub invite {
 #    cb_create: optional callback called on creation of newly created 
 #      Net::SIP::Simple::Call
 #    cb_final: callback called after receiving ACK
-#    call_cleanup: called on destroy of call object
+#    cb_cleanup: called on destroy of call object
 #    for all other args see Net::SIP::Simple::Call....
-# Returns: $call
-#   $call: Net::SIP::Simple::Call
+# Returns: NONE
 ###########################################################################
 sub listen {
 	my Net::SIP::Simple $self = shift;

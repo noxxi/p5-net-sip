@@ -239,7 +239,7 @@ sub get_legs {
 		next if $args{port} && $args{port} != $leg->{port};
 		next if $args{proto} && $args{proto} ne $leg->{proto};
 		next if $args{sock} && $args{sock} != $leg->{sock};
-		next if $args{sub} && !$args{sub}->($leg);
+		next if $args{sub} && !invoke_callback( $args{sub},$leg );
 		push @rv,$leg
 	}
 	return @rv;
