@@ -1,29 +1,14 @@
 
 ############################################################################
-############################################################################
 # Net::SIP::Endpoint::Context
-# the context for a call
-# Methods:
-# new_request - new request in this context
-# new_response - new response in this context
-# set_callback - set the callback for the context
-# id - get unique id to identity context (eg call-id)
-# ...
-#
-# callback will be called with (@arg,error,code,packet,leg,from) where 
-#  @arg are args given by the user
-#  error is an errno or 0 if no error, if the is an internal error the
-#   following parameters may be undef
-#  code is the response code for SIP responses, 0 for requests
-#  packet is the SIP packet (Net::SIP::Packet)
-#  leg is the leg where the packet came in
-#  from is the addr where the packet came from
-############################################################################
+# the calling context for a call managed by the endpoint
 ############################################################################
 
 use strict;
 use warnings;
+
 package Net::SIP::Endpoint::Context;
+
 use fields (
 
 	# ===== can be set with new()

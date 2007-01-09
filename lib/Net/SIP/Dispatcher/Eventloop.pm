@@ -1,6 +1,7 @@
 
 ###########################################################################
 # package Net::SIP::Dispatcher::Eventloop
+# simple event loop for Net::SIP
 ###########################################################################
 
 use strict;
@@ -15,6 +16,10 @@ use Net::SIP::Util 'invoke_callback';
 use Net::SIP::Debug;
 
 ###########################################################################
+# creates new event loop
+# Args: $class
+# Returns: $self
+###########################################################################
 sub new {
 	my $class = shift;
 	my $self = fields::new($class);
@@ -26,22 +31,44 @@ sub new {
 	return $self;
 }
 
+###########################################################################
+# adds callback for the event, that FD is readable
+# Args: ($self,$fd,$callback)
+#  $fd: file descriptor
+#  $callback: callback to be called, when fd is readable, will be called
+#    with fd as argument
+# Returns: NONE
+###########################################################################
 sub addFD {
 	my Net::SIP::Dispatcher::Eventloop $self = shift;
 	my ($fd,$callback) = @_;
 	defined( my $fn = fileno($fd)) || return;
-	DEBUG( "$self added fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
+	#DEBUG( "$self added fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
 	$self->{fd}[$fn] = [ $fd,$callback ];
 }
 
+###########################################################################
+# removes callback for readable for FD
+# Args: ($self,$fd)
+#  $fd: file descriptor
+# Returns: NONE
+###########################################################################
 sub delFD {
 	my Net::SIP::Dispatcher::Eventloop $self = shift;
 	my ($fd) = @_;
 	defined( my $fn = fileno($fd)) || return;
-	DEBUG( "$self delete fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
+	#DEBUG( "$self delete fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
 	delete $self->{fd}[$fn];
 }
 
+###########################################################################
+# add timer
+# Args: ($self,$when,$callback;$repeat)
+#  $when: absolute time_t or relative (smaller than a year), can be
+#    subsecond resolution
+#  $callback: callback to be called, gets timer object as argument
+#  $repeat: interval for repeated callbacks, optional
+###########################################################################
 sub addTimer {
 	my Net::SIP::Dispatcher::Eventloop $self = shift;
 	my ($when,$callback,$repeat ) = @_;
@@ -52,6 +79,11 @@ sub addTimer {
 	return $timer;
 }
 
+###########################################################################
+# return time of currentloop, e.g. when select(2) returned
+# Args: ()
+# Returns: time
+###########################################################################
 sub looptime {
 	my Net::SIP::Dispatcher::Eventloop $self = shift;
 	return $self->{now}
@@ -152,9 +184,18 @@ sub loop {
 }
 
 
-###########################################################################
+##########################################################################
+# Timer object which gets returned from addTimer and has method for
+# canceling the timer (by setting expire to 0)
+##########################################################################
 package Net::SIP::Dispatcher::Eventloop::TimerEvent;
 use fields qw( expire repeat callback );
+
+##########################################################################
+# create new timer object, see addTimer for description of Args
+# Args: ($class,$expire,$repeat,$callback)
+# Returns: $self
+##########################################################################
 sub new {
 	my ($class,$expire,$repeat,$callback) = @_;
 	my $self = fields::new( $class );
@@ -162,6 +203,12 @@ sub new {
 	return $self;
 }
 
+##########################################################################
+# cancel timer by setting expire to 0, it will be deleted next time
+# the timer queue is scanned in loop
+# Args: $self
+# Returns: NONE
+##########################################################################
 sub cancel {
 	my Net::SIP::Dispatcher::Eventloop::TimerEvent $self = shift;
 	$self->{expire} = 0;

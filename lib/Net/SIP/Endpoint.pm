@@ -1,29 +1,9 @@
 
 ############################################################################
-############################################################################
 # package Net::SIP::Endpoint
-# This is the layer above the dispatcher and handles the creation of new
-# connection contexts and the matching of incoming packets to existing
-# contexts.
-# Methods:
-# receive: receives packet from dispatcher. If it can associate an
-#   existing context with this packet (by using the call-id) it will
-#   do it and performe the resulting actions (e.g send ack or try request
-#   again with authorization applied)
-#   if the incoming packet is a response matching no context it will be
-#   dropped
-#   if the incoming packet is a request matching no context a new context
-#   will be created
-# the following methods create new requests and handle the delivery of the
-# requests etc. All of these requests take a callback into the upper layer
-# as an argument, so that the layer can be notified if responses for the
-# request were received.
-# invite: create a new context (unless one given), creates an INVITE
-#   request in this context and delivers it to the dispatcher
-# cancel: cancel the last request from the given context
-# bye: initiate ending of call for given context
-# new_request: generic new request, like 'option',...
-############################################################################
+# implements the behavior of an endpoint (SIP phone).
+# packet managment (lower layer) is done by Net::SIP::Dispatcher while
+# call managment is done with Net::SIP::Endpoint::Context
 ############################################################################
 
 use strict;

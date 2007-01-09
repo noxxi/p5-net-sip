@@ -74,6 +74,12 @@ The method will return an object which has a method B<cancel> which can be
 used to cancel the timer before it gets triggered (or gets triggered the next
 time in case of repeating timers).
 
+=item looptime
+
+Returns the current loop time in subseconds resolution (using B<gettimeofday>
+from L<Time::HiRes>). This is not the current time, but the time, when the
+last event in the loop occured (e.g. when the select(2) call returned)
+
 =item loop ( [ TIMEOUT, \@STOPVAR ] )
 
 The main loop, e.g. continuiosly checks timers and file handles for the

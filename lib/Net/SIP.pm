@@ -5,7 +5,7 @@ package Net::SIP;
 our $VERSION = '0.1';
 
 # this includes everything else
-require Net::SIP::Simple;
+use Net::SIP::Simple ();
 
 
 1;

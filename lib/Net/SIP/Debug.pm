@@ -16,6 +16,9 @@ my %level4package;
 ##############################################################
 # set level, scope etc from use. Usually used at the
 # start, e.g. perl -MNet::SIP::Debug=level program
+# Args: @args
+#  @args: something for sub level, rest to Exporter
+# Returns: NONE
 ##############################################################
 sub import {
 	my $class = shift;
@@ -38,7 +41,16 @@ sub import {
 }
 
 ##############################################################
-# setzt/liefert debuglevel: Debug->level
+# set/get debug level
+# Args: ($class,@spec)
+#  @spec: number|package|package=number for setting
+#   global|package specific debug level. If package
+#   is postfixed with '*' the level will be used for
+#   subpackages too.
+# Returns: NONE|level
+#   level: if not @spec level for the current package
+#      (first outside Net::SIP::Debug in caller stack) will
+#      be returned
 ##############################################################
 sub level {
 	shift; # class
@@ -52,11 +64,13 @@ sub level {
 				my $l = defined($3) ? $3: $level || 1;
 				my $name = $1;
 				my $below = $2;
-				$name = "Net::".$name if $name =m{^SIP\b};
-				$name = "Net::SIP::".$name if $name !~m{^Net::SIP\b};
-				$level4package{$name} = $l;
-				$level4package{$name.'::'} = $l if $below;
-
+				my @names = ( $name );
+				push @names, "Net::".$name if $name =m{^SIP\b};
+				push @names, "Net::SIP::".$name if $name !~m{^Net::SIP\b};
+				foreach (@names) {
+					$level4package{$_} = $l;
+					$level4package{$_.'::'} = $l if $below;
+				}
 			} 
 		}
 
@@ -87,8 +101,12 @@ sub level {
 }
 
 ################################################################
-# debug Ausgabe
-# debug( message ) oder debug( format, @args )
+# write debug output if debugging enabled for caller
+# Args: $message | $fmt,@arg
+#   $message: single message
+#   $fmt: format for sprintf
+#   @arg: arguments for sprintf after format
+# Returns: NONE
 ################################################################
 sub DEBUG { goto &debug }
 sub debug {
@@ -119,7 +137,10 @@ sub debug {
 }
 
 ################################################################
-# Dumps structure
+# Dumps structure if debugging enabled
+# Args: @data
+#  @data: what to be dumped, if @data>1 will dump \@data, else $data[0]
+# Returns: NONE
 ################################################################
 sub DEBUG_DUMP {
 	return unless Debug->level;
@@ -128,7 +149,10 @@ sub DEBUG_DUMP {
 }
 
 ################################################################
-# Stacktrace zurückgegeben
+# return stacktrace
+# Args: $message | $fmt,@arg
+# Returns: $stacktrace
+#   $stacktrace: stracktrace including debug info from args
 ################################################################
 sub stacktrace {
 	return Carp::longmess( debug(@_) );
@@ -145,6 +169,9 @@ sub stacktrace {
 # reference inside the object, but Devel::Peek dumps to STDERR
 # and I didn't found any other package to provide the necessary
 # functionality)
+# Args: $ref
+# Returns: $ref
+#  $ref: reblessed original reference if not reblessed yet
 ################################################################
 sub LEAK_TRACK {
 	my $class = ref($_[0]);

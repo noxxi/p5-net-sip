@@ -1,8 +1,5 @@
-use strict;
-use warnings;
-
 ###########################################################################
-# package Net::SIP::StatelessProxy
+# Net::SIP::StatelessProxy
 # implements a simple stateless proxy
 # all packets will be forwarded between Leg#1 to Leg#2. If there is
 # only one leg it will use only this leg.
@@ -10,8 +7,12 @@ use warnings;
 #   to know which leg to use as outgoing leg
 ###########################################################################
 
+use strict;
+use warnings;
+
 package Net::SIP::StatelessProxy;
 use fields qw( dispatcher registrar at_marker );
+
 use Net::SIP::Util ':all';
 use Net::SIP::Registrar;
 use Digest::MD5 'md5_hex';

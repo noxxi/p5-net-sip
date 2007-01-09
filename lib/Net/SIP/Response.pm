@@ -5,6 +5,7 @@
 
 use strict;
 use warnings;
+
 package Net::SIP::Response;
 use base 'Net::SIP::Packet';
 

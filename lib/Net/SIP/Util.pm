@@ -1,12 +1,14 @@
 
 ###########################################################################
-# package Net::SIP::Util
-# various functions for hlping in SIP programs
+# Net::SIP::Util
+# various functions for helping in SIP programs
 ###########################################################################
 
 use strict;
 use warnings;
+
 package Net::SIP::Util;
+
 use Digest::MD5 'md5_hex';
 use IO::Socket;
 use Net::SIP::Debug;

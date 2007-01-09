@@ -1,15 +1,16 @@
-# use strict;
-use warnings;
 
 ###########################################################################
-# manage a call
-# created by ua->invite
-# - invite: reinvite within existing call
-# - bye: close existing call
+# Net::SIP::Simple::Call
+# manages a call, contains Net::SIP::Endpoint::Context
+# has hooks for some RTP handling
 ###########################################################################
+
+use strict;
+use warnings;
 
 package Net::SIP::Simple::Call;
 use base 'Net::SIP::Simple';
+
 use fields qw( call_cleanup rtp_cleanup ctx param );
 
 ###########################################################################

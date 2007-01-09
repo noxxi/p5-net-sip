@@ -1,26 +1,7 @@
 ###########################################################################
 # package Net::SIP::Leg
-# a leg is associated with a socket. Alle SIP packets which gets received
-# or send through a socket get handled by the associated leg.
-#
-# the following actions are handled for incoming packets
-# - none if just receiving
-#
-# and for forwarding packets (handled by the incoming leg)
-# - check and decrease max-forwards 
-# - for forwarding response
-#   * remove my via
-# - for forwarding requests
-#   * add received tag to top via header
-#   * add myself as record-route
-#   * normalize uri/route when coming from strict router
-#   * remove my route
-#
-# and for outgoing packets:
-# - for outgoing requests
-#   * add my via
-#   * rewrite uri+route if next hop is strict router
-# 
+# a leg is a special kind of socket, which can send and receive SIP packets
+# and manipulate transport relevant SIP header (Via,Record-Route)
 ###########################################################################
 
 use strict;

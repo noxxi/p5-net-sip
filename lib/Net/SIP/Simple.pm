@@ -4,6 +4,8 @@
 # - register    register Address
 # - invite      create new call
 # - listen      UAS, wait for incoming requests
+# - create_registrar - create a simple registrar
+# - create_stateless_proxy - create a simple stateless proxy
 ###########################################################################
 
 use strict;

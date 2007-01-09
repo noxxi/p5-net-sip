@@ -1,16 +1,18 @@
-use strict;
-use warnings;
-
 ###########################################################################
-# RTP behaviors
-# only PCMU 8000 data will be handled at the moment
+# Net::SIP::Simple::RTP
+# implements some RTP behaviors
 # - media_recv_echo: receive and echo data with optional delay back
 #    can save received data
 # - media_send_recv: receive and optionally save data. Sends back data
 #    from file with optional repeat count
+# only PCMU 8000 data will be handled at the moment
 ###########################################################################
 
+use strict;
+use warnings;
+
 package Net::SIP::Simple::RTP;
+
 use Net::SIP::Util qw(invoke_callback);
 use Socket;
 use Net::SIP::Debug;

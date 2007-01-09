@@ -92,8 +92,9 @@ This function is exported by default.
 
 =item stacktrace ( MESSAGE | FMT,@ARG )
 
-Like B<debug>, but adds a stacktrace to the message.
-Not exported by default, but can be exported.
+Uses the arguments in B<debug>, but instead of writing a debug
+message to STDERR it will be used in Carp::longmess.
+Returns string with stacktrace.
 
 =item LEAK_TRACK ( REF )
 

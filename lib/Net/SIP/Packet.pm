@@ -1,6 +1,13 @@
+###########################################################################
+# Net::SIP::Packet
+# parsing, creating and manipulating of SIP packets
+###########################################################################
+
 use strict;
 use warnings;
+
 package Net::SIP::Packet;
+
 use Net::SIP::Debug;
 use Storable;
 use Net::SIP::SDP;

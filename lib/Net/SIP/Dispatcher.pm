@@ -1,36 +1,11 @@
 
 ###########################################################################
 # package Net::SIP::Dispatcher
-# manages the sending and receiving from packets through the Legs
-# packets will be send using the deliver() command, received packets
-# will be propageted to the upper layer using receiver->receive
-# This layer converts URI in outgoing requests to addr(s) and finds 
-# the associated leg, the delivery itself will be done using leg->deliver
-# This layer does not really care about timeouts, but the upper layer can give
-# a timeout when deliver()ing a packet and the dispatcher will call the
-# upper layer back, if the delivery wasn't definitly successful within the
-# timeframe (definitly successful was it only if it was send over a reliable
-# transport, eg tcp, or if the upper layer signaled that it received a response
-# using cancel_delivery())
-# The upper layer is responsible for retrying. Therefore it will receive
-# a *::Dispatcher::Packet back in the callback if an error occured and
-# can timely redeliver the packet. If all attempts to deliver the packet
-# to one address failed it can call dpacket->use_next_dstaddr for trying
-# the next address.
-# - deliver
-#   deliver the packet to dstaddr through the leg
-#   on definite success (only tcp) call callback
-#   on definite failure (no route, timeout,..) call callback
-#   if leg,addr not given determine them from the (request) packets URI
-#   packet gets send but if send not definitly successful it will stay for 
-#   timeout in the queue and notify the upper layer if timeout gone
-# - cancel_delivery
-#   cancel pending delivery/timeout of all packets with id
-#   used by the upper layer to remove packets from send queue if it
-#   received already a response to it
-# - mainloop
-#   mainloop: try delivery of packets in send-queue, handle timeouts
-#   and receive packets
+#
+# Manages the sending of SIP packets to the legs (and finding out which
+# leg can be used) and the receiving of SIP packets and forwarding to
+# the upper layer.
+# Handles retransmits
 ###########################################################################
 
 use strict;

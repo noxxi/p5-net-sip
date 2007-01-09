@@ -1,6 +1,3 @@
-use strict;
-use warnings;
-
 ###########################################################################
 # package Net::SIP::Registrar
 # implements a simple Registrar
@@ -9,6 +6,9 @@ use warnings;
 #  interface with a simple default implementation but a way for the
 #  user to provide its own implementation
 ###########################################################################
+
+use strict;
+use warnings;
 
 package Net::SIP::Registrar;
 use fields qw( store max_expires min_expires dispatcher domains _last_timer );

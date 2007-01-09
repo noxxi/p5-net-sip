@@ -8,8 +8,10 @@
 
 use strict;
 use warnings;
+
 package Net::SIP::Request;
 use base 'Net::SIP::Packet';
+
 use Digest::MD5 'md5_hex';
 
 ###########################################################################
