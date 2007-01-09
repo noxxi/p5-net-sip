@@ -9,13 +9,13 @@ our @EXPORT = qw( DEBUG DEBUG_DUMP LEAK_TRACK );
 our @EXPORT_OK = qw( debug stacktrace );
 
 
-our $level; # need for source filter
+our $level; # needed global for source filter
 my %level4package;
 
 
 ##############################################################
 # set level, scope etc from use. Usually used at the
-# start, e.g. perl -MDebug=level program
+# start, e.g. perl -MNet::SIP::Debug=level program
 ##############################################################
 sub import {
 	my $class = shift;
@@ -42,7 +42,6 @@ sub import {
 ##############################################################
 sub level {
 	shift; # class
-	# $::debug wg Abwärtskompatibilität mit berücksichtigen
 	if ( @_ ) {
 		my @level = @_ >1 ? split( m{[^\w:=\*]+}, $_[0] ): @_;
 		foreach (@level) {
@@ -51,16 +50,18 @@ sub level {
 			} elsif ( m{^([\w:]+)(\*)?(?:=(\d+))?$} ) {
 				# package || package=level
 				my $l = defined($3) ? $3: $level || 1;
-				$level4package{$1} = $l;
-				$level4package{$1.'::'} = $l if $2;
+				my $name = $1;
+				my $below = $2;
+				$name = "Net::".$name if $name =m{^SIP\b};
+				$name = "Net::SIP::".$name if $name !~m{^Net::SIP\b};
+				$level4package{$name} = $l;
+				$level4package{$name.'::'} = $l if $below;
 
 			} 
 		}
-		$::debug = $level;
 
 	} else {
 		# check
-		$level ||= $::debug;
 		if ( %level4package ) {
 			# check if there is a specific level for this package
 			my $pkg;

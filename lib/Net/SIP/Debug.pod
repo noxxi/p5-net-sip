@@ -1,0 +1,111 @@
+
+=head1 NAME
+
+Net::SIP::Debug - debugging of Net::SIP
+
+=head1 SYNOPSIS
+
+  use Net::SIP::Debug 1;
+  use Net::SIP::Debug qw( Net::SIP*=0 Registrar=1 );
+  Net::SIP::Debug->level(1);
+
+=head1 DESCRIPTION
+
+Provides debugging support for L<Net::SIP>.
+Debugging can be enabled/disabled globally or per package
+and optional per subpackage.
+
+=head1 CLASS METHODS
+
+=over 4
+
+=item import ( @ARGS )
+
+Extracts everything from arguments given to C<use> which might
+be usable by B<level> and forwards rest to L<Exporter>.
+
+=item level ( @ARGS )
+
+Enables/disables debugging depending on @ARGS. @ARGS might
+contain the following specifications:
+
+=over 8
+
+=item NUMBER
+
+NUMBER will be interpreted as the debugging level. Right now only
+one level is implemented, so everything !=0 will enable debugging.
+
+=item PACKAGE
+
+Enables debugging for package PACKAGE. PACKAGE might be a fully
+qualified package (e.g. C<Net::SIP::Registrar>) or the C<Net>
+or C<Net::SIP> might be ommited (C<Registrar>). If a C<*> is added
+the debugging will also be enabled for subpackages, e.g. 
+C<Endpoint*> will enable debugging for L<Net::SIP::Endpoint> and
+L<Net::SIP::Endpoint::Context> too.
+
+=item PACKAGE=NUMBER
+
+Similar to the previous item, but this sets debugging level to
+NUMBER for the specified packages and thus can also be used to
+selectivly disable debugging for some packages.
+
+=back
+
+If @ARGS is empty it will return the debugging level for the package
+which called this method (the first package in the caller stack
+which is not Net::SIP::Debug itself).
+
+=back
+
+=head1 SUBROUTINES
+
+=over 4
+
+=item DEBUG|debug ( MESSAGE | FMT,@ARG )
+
+If debugging is enabled it will print to STDERR debugging info.
+If multiple arguments are given to the function they will be
+fed into B<sprintf> to create a single message.
+
+The MESSAGE (or the result from C<< sprintf(FMT,@ARG) >>) will be
+prefixed by the callers package, the callers function and the line
+from which DEBUG was called. In front of the prefix the current time
+(as float time_t) and the string "DEBUG:" will be added. 
+
+If the message consists of multiple lines each line will be prefixed
+by the prefix and all but the first line will also have a TAB added
+between prefix and message data.
+
+The function is by default exported as B<DEBUG> and can by exported
+as B<debug> too.
+
+=item DEBUG_DUMP ( @DATA )
+
+Will call B<debug> with the output from L<Data::Dumper>s B<Dumper>
+if debugging is enabled. If @DATA has more than one item it will
+be fed as reference into B<Dumper>, otherwise only the single item
+will be fed to B<Dumper>.
+
+This function is exported by default.
+
+=item stacktrace ( MESSAGE | FMT,@ARG )
+
+Like B<debug>, but adds a stacktrace to the message.
+Not exported by default, but can be exported.
+
+=item LEAK_TRACK ( REF )
+
+This is used internally for tracking leaks. It will rebless REF into
+a new class which behaves like the old one. Calls of LEAK_TRACK
+and DESTROY on this class will be tracked and shown. If L<Devel::Peek>
+can be loaded it will B<Dump> information about the REF on each
+call to LEAK_TRACK.
+
+Exported by default.
+
+=back
+
+
+
