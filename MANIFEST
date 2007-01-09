@@ -35,6 +35,7 @@ lib/Net/SIP/Simple.pod
 lib/Net/SIP/Simple/Call.pm
 lib/Net/SIP/Simple/Call.pod
 lib/Net/SIP/Simple/RTP.pm
+lib/Net/SIP/Simple/RTP.pod
 samples/answer_machine.pl
 samples/register_and_invite.pl
 samples/register_and_listen.pl

@@ -17,13 +17,12 @@ use Net::SIP::Debug;
 
 ###########################################################################
 # creates function which will initialize Media for echo back
-# Args: ($self,$writeto,$delay)
+# Args: ($writeto,$delay)
 #   $delay: how much packets delay between receive and echo back (default 0)
 #   $writeto: where to save received data (default: don't save)
 # Returns: [ \&sub,@args ]
 ###########################################################################
 sub media_recv_echo {
-	my Net::SIP::Simple::RTP $self = shift;
 	my ($writeto,$delay) = @_;
 
 	my $sub = sub {
@@ -85,15 +84,14 @@ sub media_recv_echo {
 ###########################################################################
 # creates function which will initialize Media for saving received data
 # into file and sending data from another file
-# Args: ($self,$writeto,$readfrom;$repeat)
-#   $writeto: where to save received data (undef == don't save)
+# Args: ($readfrom;$repeat,$writeto)
 #   $readfrom: where to read data for sending from
 #   $repeat: if <= 0 the data in $readfrom will be send again and again
 #     if >0 the data in $readfrom will be send $repeat times
+#   $writeto: where to save received data (undef == don't save)
 # Returns: [ \&sub,@args ]
 ###########################################################################
 sub media_send_recv {
-	my Net::SIP::Simple::RTP $self = shift;
 	my ($readfrom,$repeat,$writeto) = @_;
 
 	my $sub = sub {

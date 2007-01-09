@@ -1,0 +1,59 @@
+
+=head1 NAME
+
+Net::SIP::Simple::RTP - simple RTP handling for L<Net::SIP::Simple>
+
+=head1 SYNOPSIS
+
+  my $echo_10 = Net::SIP::Simple->rtp( 'media_recv_echo', 'output.pcmu-8000', 10 );
+  my $announce = Net::SIP::Simple->rtp( 'media_send_recv', 'announce.pcmu-8000', 2 );
+
+=head1 DESCRIPTION
+
+This package handles simple RTP stuff for testing and small applications.
+It provides methods for receiving PCUM/8000 data and for echoing them back
+or for sending and receiving PCMU/8000 data.
+
+It's used from method B<rtp> in L<Net::SIP::Simple>.
+
+=head1 SUBROUTINES
+
+=over 4
+
+=item media_recv_echo ( [ OUTPUT, DELAY ] )
+
+Receives RTP data and echos them back to the sender.
+If OUTPUT is given it will be used as the file for saving the
+received data without the RTP header. 
+
+If DELAY is given the data will not be echoed
+back immediatly but with an delay of DELAY packets (e.g.
+with DELAY 10 it will send back the first packet after it
+received the 10th packet).
+
+If no traffic comes in for more then 10 seconds it will 
+hang up the call because of inactivity.
+
+=item media_send_recv ( INPUT, [ REPEAT, OUTPUT ] ) 
+
+Will read data from file INPUT and send them as RTP to peer.
+It will assume that each data block in INPUT consists
+of 160 bytes, which is right for PCMU/8000 without RTP
+header. The RTP header will be added to the data.
+
+If it reaches the end of the file it will stop unless REPEAT
+is given in which case it will repeat the sending REPEAT
+times (if REPEAT is less 0 it will repeat forever e.g. until the
+other party hangs up). On stopping it will invoke the 
+callback B<cb_rtp_done> from the connection params for
+the L<Net::SIP::Simple::Call> or if this is not given it will
+close the call by issuing a BYE.
+
+Incoming data will be written to the optional OUTPUT
+file like in B<media_recv_echo>. The content from OUTPUT
+has the same format as INPUT.
+
+If no traffic comes in for more then 10 seconds it will 
+hang up the call because of inactivity.
+
+=back

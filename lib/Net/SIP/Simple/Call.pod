@@ -5,7 +5,9 @@ Net::SIP::Simple::Call - call context for L<Net::SIP::Simple>
 
 =head1 SYNOPSIS
 
-...
+  my $call = $simple->invite(...);
+  $call->reinvite(... );
+  $call->bye();
 
 =head1 DESCRIPTION
 
@@ -46,6 +48,9 @@ the two parties.
 
 Callback used to initialize media for the connection, see method B<rtp>
 in L<Net::SIP::Simple> and L<Net::SIP::Simple::RTP>.
+
+Callback will be invoked with the connection parameter as an argument
+(as hash reference).
 
 =item sdp
 
@@ -122,6 +127,12 @@ Callback usable by B<invoke_callback> in L<Net::SIP::Util> which will be
 invoked, when it received the final answer on locally created INVITE requests.
 
 Callback will be invoked with C<< ( 'OK', SELF ) >>.
+
+=item ...
+
+More parameters may be specified and are accessable from the callbacks.
+For instance B<media_send_recv> in L<Net::SIP::Simple::RTP> uses a parameter
+B<cb_rtp_done>. See there.
 
 =back
 

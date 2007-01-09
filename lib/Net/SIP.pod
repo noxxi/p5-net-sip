@@ -15,7 +15,10 @@ and on top of all that a simplified layer for common tasks.
 
 Addionally L<Net::SIP::Util> provides utility functions 
 and L<Net::SIP::Debug> provides a debugging layer used 
-by all these packets.
+by all these packets. Especially it provides the function
+B<invoke_callback> which is used for all callback unless
+otherwise in the documentation specified. This function
+supports a variety of different callback styles.
 
 For first and simple applications you best start with L<Net::SIP::Simple>.
 If this is no longer enough you might look at the details of 

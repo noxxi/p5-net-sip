@@ -187,7 +187,7 @@ sub rtp {
 	my $sub = UNIVERSAL::can( 'Net::SIP::Simple::RTP',$method )
 		|| UNIVERSAL::can( 'Net::SIP::Simple::RTP','media_'.$method )
 		|| croak( "no such method '$method' in Net::SIP::Simple::RTP" );
-	return $sub->( 'Net::SIP::Simple::RTP',@arg );
+	return $sub->( @arg );
 }
 
 
