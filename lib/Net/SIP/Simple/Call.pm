@@ -38,9 +38,9 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       media_lsocks gets cleared on new invite, so that a new SDP session 
 #       need to be established
 #   cb_final: callback which will be called on final response in INVITE
-#       with (result,self,%args)
+#       with (result,status,self,%args) where status is OK|FAIL
 #   cb_established: callback which will be called on receiving ACK in INVITE
-#       with (result,self,%args)
+#       with (result,status,self) where status is OK|FAIL
 
 use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
 use Net::SIP::Debug;
@@ -104,11 +104,10 @@ sub DESTROY {
 # Args: ($self;%param)
 #   %param: see description of field 'param', gets merged with param
 #     already on object so that the values are valid for future use
-# Returns: NONE
+# Returns: Net::SIP::Endpoint::Context
 # Comment:
-# if callback was given it will return immediatly and the user has to handle
-# the responses itself, setup connection, care about BYE...
-# Otherwise it will loop until the end of the call.
+# If cb_final callback was not given it will loop until it got a final
+# response, otherwise it will return immediatly
 ###########################################################################
 sub reinvite {
 	my Net::SIP::Simple::Call $self = shift;
@@ -155,7 +154,7 @@ sub reinvite {
 				$self->rtp_cleanup;
 
 				$self->_setup_peer_rtp_socks( $packet ) || do {
-					invoke_callback( $param->{cb_final},$self,'FAIL' );
+					invoke_callback( $param->{cb_final},'FAIL',$self );
 					return;
 				};
 				if ( $param->{sdp_on_ack} && $ack ) {
@@ -185,7 +184,7 @@ sub reinvite {
 		# wait until final response
 		$self->loop( \$stopvar );
 	}
-	return $ctx;
+	return $self->{ctx};
 }
 
 
