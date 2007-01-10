@@ -184,15 +184,17 @@ If the callback returns TRUE the call gets accepted, otherwise not.
 Callback which will be called on accepting the call. Will be called
 with the newly created L<Net::SIP::Simple::Call> object as argument.
 
-=item cb_final
+=item cb_established
 
 Callback which will be called, after the call is established, e.g.
-after receiving the ACK from the peer.
+after receiving the ACK from the peer. Will be invoked with 'OK'
+and the L<Net::SIP::Simple::Call> object as argument.
 
 =item cb_cleanup
 
 Callback which will be called when the call gets closed to clean up
-allocated resources.
+allocated resources. Will be invoked with the  L<Net::SIP::Simple::Call> 
+object as argument.
 
 =back
 

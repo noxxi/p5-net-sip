@@ -1,6 +1,8 @@
-Changes
-MANIFEST
 README
+MANIFEST
+Changes
+TODO
+BUGS
 INSTALL
 Makefile.PL
 lib/Net/SIP.pm
@@ -37,12 +39,6 @@ lib/Net/SIP/Simple/Call.pm
 lib/Net/SIP/Simple/Call.pod
 lib/Net/SIP/Simple/RTP.pm
 lib/Net/SIP/Simple/RTP.pod
-t/01_load.pl
-t/02_listen_and_invite.pl
-t/03_register_listen_and_invite.pl
-t/04_call_via_proxy.pl
-samples/answer_machine.pl
-samples/register_and_invite.pl
-samples/register_and_listen.pl
-samples/stateless_proxy_and_registrar.pl
+t/01_load.t
+t/02_listen_and_invite.t
 META.yml                                 Module meta-data (added by MakeMaker)

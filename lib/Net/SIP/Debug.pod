@@ -9,6 +9,8 @@ Net::SIP::Debug - debugging of Net::SIP
   use Net::SIP::Debug qw( Net::SIP*=0 Registrar=1 );
   Net::SIP::Debug->level(1);
 
+  perl -MNet::SIP::Debug=1 app.pl
+
 =head1 DESCRIPTION
 
 Provides debugging support for L<Net::SIP>.
@@ -57,7 +59,14 @@ If @ARGS is empty it will return the debugging level for the package
 which called this method (the first package in the caller stack
 which is not Net::SIP::Debug itself).
 
+=item set_prefix ( PREFIX )
+
+Sets prefix used for debug messages to PREFIX. Default prefix
+is 'DEBUG:' but for instance for forking applications it might
+be useful to change this to "DEBUG($$):" or similar.
+
 =back
+
 
 =head1 SUBROUTINES
 

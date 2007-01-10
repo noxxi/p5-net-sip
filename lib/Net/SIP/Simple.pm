@@ -81,7 +81,7 @@ sub new {
 	}
 
 	my $legs = delete $args{legs} || delete $args{leg};
-	$legs = [ $legs ] if $legs && !ref($legs);
+	$legs = [ $legs ] if $legs && ref($legs) ne 'ARRAY';
 	$legs ||= [];
 
 	foreach ($legs ? @$legs : ()) {
@@ -131,6 +131,7 @@ sub new {
 	%$self = (
 		auth => $auth,
 		from => $from,
+		domain => $domain,
 		endpoint => $endpoint,
 		registrar => $registrar,
 		dispatcher => $disp,
@@ -149,7 +150,7 @@ sub error {
 	my Net::SIP::Simple $self = shift;
 	if ( @_ ) {
 		$self->{last_error} = shift;
-		DEBUG( Debug::stacktrace( "set error to ".$self->{last_error}) );
+		DEBUG( Net::SIP::Debug::stacktrace( "set error to ".$self->{last_error}) );
 	}
 	return $self->{last_error};
 }
@@ -289,7 +290,10 @@ sub invite {
 	my Net::SIP::Simple $self = shift;
 	my ($to,%args) = @_;
 	$to || croak( "need peer of call" );
-	$to = "$to <sip:$to\@$self->{domain}>" if $to !~m{\s} && $to !~m{\@};
+	if ( $to !~m{\s} && $to !~m{\@} ) {;
+		croak( "no domain and no fully qualified to" ) if ! $self->{domain};
+		$to = "$to <sip:$to\@$self->{domain}>" 
+	}
 	my $call = Net::SIP::Simple::Call->new( $self,$to );
 	$call->reinvite(%args );
 	return $call;
@@ -305,7 +309,7 @@ sub invite {
 #      if sub and sub returns 1 call gets accepted, if sub returns 0 it gets rejected
 #    cb_create: optional callback called on creation of newly created 
 #      Net::SIP::Simple::Call
-#    cb_final: callback called after receiving ACK
+#    cb_established: callback called after receiving ACK
 #    cb_cleanup: called on destroy of call object
 #    for all other args see Net::SIP::Simple::Call....
 # Returns: NONE
@@ -339,7 +343,7 @@ sub listen {
 		# notify caller about new call
 		invoke_callback( $args->{cb_create}, $call );
 		if ( my $ccb = $args->{cb_cleanup} ) {
-			push @{ $call->{cb_cleanup}}, $ccb;
+			push @{ $call->{call_cleanup}}, $ccb;
 		}
 
 		# setup callback on context and call it for this packet

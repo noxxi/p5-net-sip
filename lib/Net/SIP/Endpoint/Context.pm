@@ -264,9 +264,14 @@ sub handle_response {
 	# Don't care about the response for a CANCEL  or a BYE
 	# because this connection close is issued by this side
 	# and no matter what the peer wants the call be will closed
+	# But invoke callback to notify upper layer that the BYE was received
 	if ( $method eq 'CANCEL' or $method eq 'BYE' ) {
-		push @ntrans,$tr if $code >=100 and $code<=199;
-		$endpoint->close_context( $self );
+		if ( $code >=100 and $code<=199 ) {
+			push @ntrans,$tr
+		} else {
+			invoke_callback($cb,@arg,0,$code,$response,$leg,$from);
+			$endpoint->close_context( $self );
+		}
 		return;
 	}
 

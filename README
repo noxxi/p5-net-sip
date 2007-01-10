@@ -9,11 +9,16 @@ audio, but is has some support for RTP (no RTCP) and working
 with PCMU/8000 data, enough for sending PCMU/8000 encoded
 audio to a SIP peer and for receiving and saving PCMU/8000
 audio data. 
-See samples directory for projects like a simple answer machine.
 
 The module is designed to be completly asynchronous, e.g. you
 either integrate it in your own event handling or you can use 
 the simple event handling which is included.
 
-It was tested on OpenBSD 3.9, Linux (Ubuntu 6.10) and 
-MacOSX 10. with various perl versions starting with perl5.8.7.
+It was tested on Linux (Ubuntu 6.10) and MacOSX 10.3 with 
+various perl versions starting with perl5.8.7.
+
+Sample Code was tested with Snom 300 Phones, Asterisk 1.2,
+Fritz!Box and KPhone.
+
+See TODO for a list what still need to be done and BUGS for
+known bugs.

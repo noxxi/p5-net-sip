@@ -11,6 +11,7 @@ our @EXPORT_OK = qw( debug stacktrace );
 
 our $level; # needed global for source filter
 my %level4package;
+my $debug_prefix = 'DEBUG:'; # default prefix
 
 
 ##############################################################
@@ -101,6 +102,17 @@ sub level {
 }
 
 ################################################################
+# set prefix
+# default prefix is 'DEBUG:' but in forking apps it might
+# be useful to change it to "DEBUG($$):" or similar
+# Args: $class,$prefix
+# Returns: NONE
+################################################################
+sub set_prefix {
+	(undef,$debug_prefix) = @_
+}
+
+################################################################
 # write debug output if debugging enabled for caller
 # Args: $message | $fmt,@arg
 #   $message: single message
@@ -110,7 +122,7 @@ sub level {
 ################################################################
 sub DEBUG { goto &debug }
 sub debug {
-	return unless Debug->level;
+	return unless __PACKAGE__->level;
 	my ($msg,@arg) = @_;
 	return if !defined($msg);
 	if ( 1 || $msg !~ m{^\w+:} ) {
@@ -129,7 +141,7 @@ sub debug {
 	}
 
 	# alle Zeilen mit DEBUG: prefixen
-	my $prefix = sprintf "%.4f DEBUG($$):", scalar(gettimeofday());
+	my $prefix = sprintf "%.4f $debug_prefix", scalar(gettimeofday());
 	$msg = $prefix." ".$msg;
 	$msg =~s{\n}{\n$prefix\t}g;
 	return $msg if defined wantarray; # don't print
@@ -143,7 +155,7 @@ sub debug {
 # Returns: NONE
 ################################################################
 sub DEBUG_DUMP {
-	return unless Debug->level;
+	return unless __PACKAGE__->level;
 	@_ = Dumper( @_>1 ? \@_:$_[0] );
 	goto &debug;
 }
