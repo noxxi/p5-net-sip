@@ -124,6 +124,11 @@ The order of TIMEOUT or the STOPVARs is insignificant, e.g. if it
 finds a reference it will use it as stopvar, otherwise it's used as
 timeout.
 
+=item add_timer ( WHEN, CALLBACK, [ REPEAT ] )
+
+Calls same method from the L<Net::SIP::Dispatcher> object in C<$self>.
+See there for details on arguments.
+
 =item rtp ( METHOD,@ARGS )
 
 Calls the method METHOD in L<Net::SIP::Simple::RTP> with arguments

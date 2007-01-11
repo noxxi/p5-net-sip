@@ -177,6 +177,18 @@ sub loop {
 }
 
 ###########################################################################
+# add timer
+# propagates to add_timer of wNet::SIP::Dispatcher, see there for detailed 
+# explanation of args
+# Args: ($self,$when,$cb,$repeat) 
+# Returns: $timer
+###########################################################################
+sub add_timer {
+	my Net::SIP::Simple $self = shift;
+	$self->{dispatcher}->add_timer( @_ );
+}
+
+###########################################################################
 # control RTP behavior
 # Args: ($self,$method,@arg)
 #  $method: Method name for behavior, e.g. calls Net::SIP::Simple::RTP::$method

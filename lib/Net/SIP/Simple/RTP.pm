@@ -21,6 +21,7 @@ use Net::SIP::Debug;
 # creates function which will initialize Media for echo back
 # Args: ($writeto,$delay)
 #   $delay: how much packets delay between receive and echo back (default 0)
+#     if <0 no ddata will be send back (e.g. recv only)
 #   $writeto: where to save received data (default: don't save)
 # Returns: [ \&sub,@args ]
 ###########################################################################
@@ -46,9 +47,10 @@ sub media_recv_echo {
 			my $echo_back = sub {
 				my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
 				my $buf = _receive_rtp( $sock,$writeto,$targs,$didit );
-				push @$delay_buffer, $buf;
-				DEBUG( "$didit=$$didit" );
+				#DEBUG( "$didit=$$didit" );
 				$$didit = 1;
+				return if $delay<0;
+				push @$delay_buffer, $buf;
 				while ( @$delay_buffer > $delay ) {
 					send( $s_sock,shift(@$delay_buffer),0,$remote );
 				}

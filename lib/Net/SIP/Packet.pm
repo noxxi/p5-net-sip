@@ -115,7 +115,7 @@ sub new_from_parts {
 
 	if ( ref($body)) {
 		if ( !$self->get_header( 'content-type' )) {
-			my $sub = UNIVERSAL::can( $body, 'content-type' );
+			my $sub = UNIVERSAL::can( $body, 'content_type' );
 			$self->set_header( 'content-type' => $sub->($body) ) if $sub;
 		}
 		$body = $body->as_string;
@@ -339,7 +339,7 @@ sub set_body {
 	my ($self,$body) = @_;
 	if ( ref($body)) {
 		if ( !$self->get_header( 'content-type' )) {
-			my $sub = UNIVERSAL::can( $body, 'content-type' );
+			my $sub = UNIVERSAL::can( $body, 'content_type' );
 			$self->set_header( 'content-type' => $sub->($body) ) if $sub;
 		}
 		$body = $body->as_string;

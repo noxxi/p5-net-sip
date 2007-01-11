@@ -26,10 +26,13 @@ Receives RTP data and echos them back to the sender.
 If OUTPUT is given it will be used as the file for saving the
 received data without the RTP header. 
 
-If DELAY is given the data will not be echoed
+If DELAY is >0 the data will not be echoed
 back immediatly but with an delay of DELAY packets (e.g.
 with DELAY 10 it will send back the first packet after it
 received the 10th packet).
+If DELAY is <0 the data will not be echoed back.
+If DELAY is not given or equal 0 the data will be echoed
+back immediatly.
 
 If no traffic comes in for more then 10 seconds it will 
 hang up the call because of inactivity.

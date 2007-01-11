@@ -204,7 +204,7 @@ sub close_context {
 	my Net::SIP::Endpoint $self = shift;
 	my $id = shift;
 	$id = $id->callid if ref($id);
-	DEBUG( "close context call-id $id" );
+	DEBUG( "close context call-id $id " );
 	my $ctx = delete $self->{ctx}{$id} || do {
 		DEBUG( "no context for call-id $id found" );
 		return;

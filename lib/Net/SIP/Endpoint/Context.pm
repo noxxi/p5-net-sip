@@ -424,22 +424,29 @@ sub handle_request {
 	};
 	my @arg = ($endpoint,$self);
 
+	if ( $method eq 'BYE' || $method eq 'CANCEL' ) {
+		# if the peer wants to hangup we must confirm
+		my $response = $request->create_response( '200','Closing' );
+		$endpoint->new_response( $self,$response,$leg,$from );
+
+		# invoke callback before closing context, so that we have more
+		# information about the current call
+		invoke_callback($cb,@arg,0,0,$request,$leg,$from);
+		$endpoint->close_context($self);
+		return;
+	}
+
 	# If new INVITE, send 100 Trying
 	if ( $method eq 'INVITE' ) {
 		my $response = $request->create_response( '100','Trying' );
 		$endpoint->new_response( $self,$response,$leg,$from );
-
-	} elsif ( $method eq 'BYE' || $method eq 'CANCEL' ) {
-		# if the peer wants to hangup we must confirm
-		my $response = $request->create_response( '200','Closing' );
-		$endpoint->new_response( $self,$response,$leg,$from );
-		$endpoint->close_context($self);
 	}
+
 
 	# propagate to upper layer, which needs
 	# - for INVITE send 180 Ringing periodically and after some time a final response
 	# - for ACK to establish the call
-	# - for BYE|CANCEL to delete the local call
+	# - BYE|CANCEL is already handled above
 	# - for everything else to handle the Option fully, eg issue final response..
 
 	invoke_callback($cb,@arg,0,0,$request,$leg,$from);

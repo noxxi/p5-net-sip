@@ -1,3 +1,8 @@
 Revision history for Net::SIP
 
+0.11 
+  - samples/invite_and_recv.pl as new sample client
+    which can invite and record a message
+  - various small features and bug fixes
+
 0.1 - first public version

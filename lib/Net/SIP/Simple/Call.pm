@@ -142,8 +142,8 @@ sub reinvite {
 	my $cb = sub {
 		my ($self,$param,$endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
 		if ( $errno ) {
-			$self->error( "Failed with error $errno" );
-			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno );
+			$self->error( "Failed with error $errno code=$code" );
+			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,code => $code,packet => $packet );
 			return;
 		}
 		if ( $packet->is_response ) {
@@ -173,7 +173,6 @@ sub reinvite {
 			if ( $packet->method eq 'BYE' ) {
 				# Hangup
 				invoke_callback( $param->{recv_bye},$param);
-				$endpoint->close_context($packet);
 			}
 		}
 	};
