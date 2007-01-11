@@ -1,5 +1,11 @@
 Revision history for Net::SIP
 
+0.12
+  - samples/invite_and_send.pl as new sample client
+    which can invite and send multiple voice file
+    to peer (using re-invites)
+  - various small bug fixes
+
 0.11 
   - samples/invite_and_recv.pl as new sample client
     which can invite and record a message

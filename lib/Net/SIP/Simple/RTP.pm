@@ -118,15 +118,12 @@ sub media_send_recv {
 			$call->{loop}->addFD( $sock, [ $receive,$writeto,{},\$didit ] );
 
 			# sending need to be done with a timer
+			my $cb_done = $args->{cb_rtp_done} || sub { shift->bye };
 			my $timer = $call->{dispatcher}->add_timer( 
 				0, # start immediatly
 				[ \&_send_rtp,$s_sock,$addr,$readfrom, { 
 					repeat => $repeat || 1, 
-					cb_done => [ 
-						sub { invoke_callback(@_) },
-						$args->{cb_rtp_done} || sub { shift->bye }, 
-						$call 
-					] 
+					cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ] 
 				}],
 				160/8000, # 8000 bytes per second, 160 bytes per sample
 			);

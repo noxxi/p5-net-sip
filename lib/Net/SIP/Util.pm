@@ -12,6 +12,7 @@ package Net::SIP::Util;
 use Digest::MD5 'md5_hex';
 use IO::Socket;
 use Net::SIP::Debug;
+use Carp 'confess';
 use base 'Exporter';
 
 our @EXPORT_OK = qw( 
@@ -249,10 +250,6 @@ sub invoke_callback {
 	if ( UNIVERSAL::isa( $cb,'CODE' )) {
 		# anon sub
 		return $cb->(@more_args)
-	} elsif ( UNIVERSAL::isa( $cb,'SCALAR' )) {
-		# scalar ref, set to true
-		$$cb = @more_args ? shift(@more_args) : 1;
-		return $$cb;
 	} elsif ( my $sub = UNIVERSAL::can( $cb,'run' )) {
 		# Callback object
 		return $sub->( @more_args );
@@ -266,8 +263,12 @@ sub invoke_callback {
 			return 1 if m{$cb}
 		}
 		return 0;
+	} elsif ( UNIVERSAL::isa( $cb,'SCALAR' ) || UNIVERSAL::isa( $cb,'REF' )) {
+		# scalar ref, set to true
+		$$cb = @more_args ? shift(@more_args) : 1;
+		return $$cb;
 	} elsif ( $cb ) {
-		die "unknown handler $cb"
+		confess "unknown handler $cb";
 	}
 }
 

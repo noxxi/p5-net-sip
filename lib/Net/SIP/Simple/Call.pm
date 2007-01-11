@@ -183,6 +183,7 @@ sub reinvite {
 	if ( $param->{cb_final} == \$stopvar ) {
 		# wait until final response
 		$self->loop( \$stopvar );
+		$param->{cb_final} = undef;
 	}
 	return $self->{ctx};
 }

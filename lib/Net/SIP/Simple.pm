@@ -229,10 +229,13 @@ sub register {
 	my $leg = delete $args{leg};
 	if ( !$leg ) {
 		# use first leg which can deliver to registrar
-		($leg) = $self->{dispatcher}->get_legs( sub {
-			my ($addr,$leg) = @_;
-			return $leg->can_deliver_to($addr);
-		});
+		($leg) = $self->{dispatcher}->get_legs( sub => [ 
+			sub {
+				my ($addr,$leg) = @_;
+				return $leg->can_deliver_to($addr);
+			}, 
+			$registrar 
+		]);
 	}
 
 	my $from = delete $args{from} || $self->{from} 

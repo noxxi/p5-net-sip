@@ -1,10 +1,12 @@
 ###########################################################################
-# Invite other party, recv RTP data for some seconds or until other side 
-# hangs up, then BYE
-# optional registration
+# Invite other party, and send some files. Uses re-INVITEs to support
+# sending of multiple files. Exits once done or when peer hangs
+# up
 #
 # Most of the code is option parsing and usage, the Net::SIP related code
-# is at the end
+# is at the end. The code is very similar to samples/invite_and_recv.pl,
+# the main difference is at the end, using media_send_recv instead of
+# media_recv_echo and doing re-invites on the same call
 ###########################################################################
 
 use strict;
@@ -20,21 +22,22 @@ sub usage {
 	print STDERR "ERROR: @_\n" if @_;
 	print STDERR <<EOS;
 usage: $0 [ options ] FROM TO
-Makes SIP call from FROM to TO, optional record data
-and optional hang up after some time
+Makes SIP call from FROM to TO, sends voice from multiple
+files to peer. Content in files need to be PCMU/8000 and
+could be recorded with samples/invite_and_recv.pl
+
 Options:
   -d|--debug                   Enable debugging
   -h|--help                    Help (this info)
   -P|--proxy host[:port]       use outgoing proxy, register there unless registrar given
   -R|--registrar host[:port]   register at given address
-  -O|--outfile filename        write received RTP data to file
-  -T|--time interval           hang up after interval seconds
+  -S|--send filename           send content of file, can be given multiple times
   --username name              username for authorization
   --password pass              password for authorization
 
 Examples:
-  $0 -T 10 -O record.data sip:30\@192.168.178.4 sip:31\@192.168.178.1
-  $0 -U 30 -P secret --proxy=192.168.178.3 sip:30\@example.com 31
+  $0 -T 10 -S welcome.data -S announce.data sip:30\@192.168.178.4 sip:31\@192.168.178.1
+  $0 -U 30 -P secret -S holy_shit.data --proxy=192.168.178.3 sip:30\@example.com 31
 
 EOS
 	exit( @_ ? 1:0 );
@@ -45,14 +48,13 @@ EOS
 # Get options
 ###################################################
 
-my ($proxy,$outfile,$registrar,$username,$password,$hangup);
+my ($proxy,@files,$registrar,$username,$password,$hangup);
 GetOptions(
 	'd|debug' => sub { Net::SIP::Debug->level(1) },
 	'h|help' => sub { usage() },
 	'P|proxy=s' => \$proxy,
 	'R|registrar=s' => \$registrar,
-	'O|outfile=s' => \$outfile,
-	'T|time=i' => \$hangup,
+	'S|send=s' => \@files,
 	'username=s' =>\$username,
 	'password=s' =>\$password,
 ) || usage( "bad option" );
@@ -124,25 +126,42 @@ if ( $registrar && $registrar ne '-' ) {
 	die "registration failed: ".$ua->error if $ua->error
 }
 
-# invite peer
+# invite peer, send first file
 my $peer_hangup; # did peer hang up?
+my $rtp_done; # was sending file completed?
 my $call = $ua->invite( $to,
 	# echo back, use -1 instead of 0 for not echoing back
-	init_media => $ua->rtp( 'recv_echo', $outfile,0 ),
+	init_media => $ua->rtp( 'send_recv', $files[0] ),
+	cb_rtp_done => \$rtp_done,
 	recv_bye => \$peer_hangup,
 ) || die "invite failed: ".$ua->error;
 die "invite failed(call): ".$call->error if $call->error;
 
-# mainloop until other party hangs up or we hang up after
-# $hangup seconds
-my $stopvar;
-$ua->add_timer( $hangup, \$stopvar ) if $hangup;
-$ua->loop( \$stopvar,\$peer_hangup );
+DEBUG( "sending first file $files[0]" );
+$ua->loop( \$rtp_done,\$peer_hangup );
 
-# timeout, I need to hang up
-if ( $stopvar ) {
-	$stopvar = undef;
+# mainloop until other party hangs up or we are done
+# send one file after the other using re-invites
+while ( ! $peer_hangup ) {
+
+	shift(@files); # done with file
+	@files || last;
+
+	# re-invite on current call for next file
+	DEBUG( "rtp_done=$rtp_done" );
+	my $rtp_done;
+	$call->reinvite(
+		init_media => $ua->rtp( 'send_recv', $files[0] ),
+		cb_rtp_done => \$rtp_done,
+		recv_bye => \$peer_hangup, # FIXME: do we need to repeat this?
+	);
+	DEBUG( "sending next file $files[0]" );
+	$ua->loop( \$rtp_done,\$peer_hangup );
+}
+
+unless ( $peer_hangup ) {
+	# no more files: hangup
+	my $stopvar;
 	$call->bye( cb_final => \$stopvar );
 	$ua->loop( \$stopvar );
 }
-
