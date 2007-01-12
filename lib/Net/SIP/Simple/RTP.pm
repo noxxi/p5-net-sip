@@ -89,10 +89,12 @@ sub media_recv_echo {
 # creates function which will initialize Media for saving received data
 # into file and sending data from another file
 # Args: ($readfrom;$repeat,$writeto)
-#   $readfrom: where to read data for sending from
+#   $readfrom: where to read data for sending from (filename or callback
+#     which returns payload)
 #   $repeat: if <= 0 the data in $readfrom will be send again and again
 #     if >0 the data in $readfrom will be send $repeat times
-#   $writeto: where to save received data (undef == don't save)
+#   $writeto: where to save received data (undef == don't save), either
+#     filename or callback which gets packet as argument
 # Returns: [ \&sub,@args ]
 ###########################################################################
 sub media_send_recv {
@@ -139,15 +141,15 @@ sub media_send_recv {
 		# on RTP inactivity for at least 10 seconds close connection
 		my $timer = $call->{dispatcher}->add_timer( 10,
 			[ sub {
-				my ($call,$args,$timer) = @_;
-				if ( $args->{didit} ) {
-					$args->{didit} = 0;
+				my ($call,$args,$didit,$timer) = @_;
+				if ( $$didit ) {
+					$$didit = 0;
 				} else {
 					DEBUG( "closing call because if inactivity" );
 					$call->bye;
 					$timer->cancel;
 				}
-			}, $call,$args ],
+			}, $call,$args,\$didit ],
 			10
 		);
 		push @{ $call->{ rtp_cleanup }}, [ sub { shift->cancel }, $timer ];
@@ -158,10 +160,12 @@ sub media_send_recv {
 
 ###########################################################################
 # Helper to receive RTP and optionally save it to file
-# Args: ($sock,$writeto,$targs)
+# Args: ($sock,$writeto,$targs,$didit)
 #   $sock: RTP socket
-#   $writeto: filename for saving
+#   $writeto: filename for saving or callback which gets packet as argument
 #   $targs: \%hash to hold state info between calls of this function
+#   $didit: reference to scalar which gets set to TRUE on each received packet
+#     and which gets set to FALSE from a timer, thus detecting inactivity
 # Return: $packet
 #   $packet: received RTP packet (including header)
 ###########################################################################
@@ -200,8 +204,11 @@ sub _receive_rtp {
 	}
 	$targs->{rseq} = $seq;
 
-	# save into file
-	if ( $writeto ) {
+	if ( ref($writeto)) {
+		# callback
+		invoke_callback( $writeto,$payload );
+	} elsif ( $writeto ) {
+		# save into file
 		my $fd = $targs->{fdr};
 		if ( !$fd ) {
 			open( $fd,'>',$writeto ) || die $!;
@@ -219,11 +226,12 @@ sub _receive_rtp {
 # Args: ($sock,$addr,$readfrom,$targs)
 #   $sock: RTP socket
 #   $addr: where to send data
-#   $readfrom: filename for reading
+#   $readfrom: filename for reading or callback which will return payload
 #   $targs: \%hash to hold state info between calls of this function
 #     especially 'repeat' holds the number of times this data has to be
 #     send (<=0 means forever) and 'cb_done' holds a [\&sub,@arg] callback
 #     to end the call after sending all data
+#     'repeat' makes only sense if $readfrom is filename
 # Return: NONE
 ###########################################################################
 use Time::HiRes 'gettimeofday';
@@ -238,28 +246,37 @@ sub _send_rtp {
 		DEBUG( "send from $fa:$fp to $ta:$tp" );
 	}
 
-    # read from file
     my $buf;
-    for(my $tries = 0; $tries<2;$tries++ ) {
-        $targs->{wseq} ||= int( rand( 2**16 ));
-        my $fd = $targs->{fd};
-        if ( !$fd ) {
-			$targs->{repeat} = -1 if $targs->{repeat} < 0;
-			if ( $targs->{repeat} == 0 ) {
-				# no more sending
-				invoke_callback( $targs->{cb_done} );
-				return;
-			}
+	if ( ref($readfrom) ) {
+		# payload by callback
+		$buf = invoke_callback( $readfrom );
+		if ( !$buf ) {
+			invoke_callback( $targs->{cb_done} );
+			return;
+		}
+	} else {
+    	# read from file
+		for(my $tries = 0; $tries<2;$tries++ ) {
+			$targs->{wseq} ||= int( rand( 2**16 ));
+			my $fd = $targs->{fd};
+			if ( !$fd ) {
+				$targs->{repeat} = -1 if $targs->{repeat} < 0;
+				if ( $targs->{repeat} == 0 ) {
+					# no more sending
+					invoke_callback( $targs->{cb_done} );
+					return;
+				}
 
-            open( $fd,'<',$readfrom ) || die $!;
-            $targs->{fd} = $fd;
-        }
-        last if read( $fd,$buf,160 ) == 160;
-        # try to reopen file
-        close($fd);
-        $targs->{fd} = undef;
-		$targs->{repeat}--;
-    }
+				open( $fd,'<',$readfrom ) || die $!;
+				$targs->{fd} = $fd;
+			}
+			last if read( $fd,$buf,160 ) == 160;
+			# try to reopen file
+			close($fd);
+			$targs->{fd} = undef;
+			$targs->{repeat}--;
+		}
+	}
     $buf || die $!;
 
     # add RTP header

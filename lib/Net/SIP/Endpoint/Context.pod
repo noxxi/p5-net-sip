@@ -88,6 +88,11 @@ Defaults to 0, e.g. the first request will get the sequence number 1.
 
 Returns callid of current call.
 
+=item peer
+
+Returns peer of call. For incoming calls this is the sender, for
+outgoing calls the recipient of the call.
+
 =item new_request ( METHOD, [ BODY, %ARGS ] )
 
 Creates a new requests for method METHOD with body BODY and additional

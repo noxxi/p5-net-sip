@@ -172,7 +172,7 @@ If a call comes in a new L<Net::SIP::Simple::Call> object will
 be created using %ARGS.
 
 The method does not wait for the calls, its setting only the callback
-on the legs up. Thus it hash to be followed by a call to B<loop>.
+on the legs up. Thus it has to be followed by a call to B<loop>.
 
 Special keys not described in L<Net::SIP::Simple::Call>:
 
@@ -187,7 +187,8 @@ If the callback returns TRUE the call gets accepted, otherwise not.
 =item cb_create
 
 Callback which will be called on accepting the call. Will be called
-with the newly created L<Net::SIP::Simple::Call> object as argument.
+with the newly created L<Net::SIP::Simple::Call> object and the creating
+L<Net::SIP::Request> packet as argument.
 
 =item cb_established
 

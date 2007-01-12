@@ -212,6 +212,7 @@ sub new {
 sub cancel {
 	my Net::SIP::Dispatcher::Eventloop::TimerEvent $self = shift;
 	$self->{expire} = 0;
+	$self->{callback} = undef;
 }
 
 1;

@@ -101,6 +101,16 @@ sub DESTROY {
 		
 	
 ###########################################################################
+# return peer of call
+# Args: $self
+# Returns: $peer
+###########################################################################
+sub get_peer {
+	my Net::SIP::Simple::Call $self = shift;
+	return $self->{ctx}->peer;
+}
+
+###########################################################################
 # (Re-)Invite other party
 # Args: ($self;%param)
 #   %param: see description of field 'param', gets merged with param

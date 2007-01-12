@@ -37,7 +37,8 @@ Options:
 
 Examples:
   $0 -T 10 -S welcome.data -S announce.data sip:30\@192.168.178.4 sip:31\@192.168.178.1
-  $0 -U 30 -P secret -S holy_shit.data --proxy=192.168.178.3 sip:30\@example.com 31
+  $0 --username 30 -password secret --proxy=192.168.178.3 \
+     -S holy_shit.data sip:30\@example.com 31
 
 EOS
 	exit( @_ ? 1:0 );

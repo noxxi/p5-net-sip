@@ -1,5 +1,14 @@
 Revision history for Net::SIP
 
+0.13
+  - samples/answer_machine.pl as a sample implementation
+    of an answer machine
+  - new methods peer in Net::SIP::Endpoint::Context and
+    get_peer in Net::SIP::Simple::Call
+  - fix inactivity timeout for media_recv_send in Net::SIP::Simple::RTP
+  - media_send_recv, media_recv_echo in Net::SIP::Simple::RTP can use 
+    callback for read/write data instead of filenames
+
 0.12
   - samples/invite_and_send.pl as new sample client
     which can invite and send multiple voice file

@@ -49,8 +49,8 @@ the two parties.
 Callback used to initialize media for the connection, see method B<rtp>
 in L<Net::SIP::Simple> and L<Net::SIP::Simple::RTP>.
 
-Callback will be invoked with the connection parameter as an argument
-(as hash reference).
+Callback will be invoked with the call C<$self> and the connection 
+parameter as an argument (as hash reference).
 
 =item sdp
 
@@ -155,6 +155,10 @@ Works be invoking all callbacks which are stored as \@list in C<< $self->{call_c
 Cleanup of current RTP connection.
 Works be invoking all callbacks which are stored as \@list in C<< $self->{rtp_cleanup} >>
 (these callbacks are inserted by L<Net::SIP::Simple::RTP> etc).
+
+=item get_peer
+
+Returns peer of call, see B<peer> in L<Net::SIP::Endpoint::Context>.
 
 =item reinvite ( %ARGS )
 

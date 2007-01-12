@@ -90,6 +90,18 @@ sub callid {
 	return $self->{callid};
 }
 
+############################################################################
+# get peer
+# Args: $self
+# Returns: $peer
+#  $peer: for incoming calls this is 'from', for outgoing 'to'
+############################################################################
+sub peer {
+	my Net::SIP::Endpoint::Context $self = shift;
+	my $peer = $self->{incoming} ? $self->{from} : $self->{to};
+	my ($data) = sip_hdrval2parts( from => $peer ); # strip parameters like tag etc
+	return $data;
+}
 
 ############################################################################
 # creates a new SIP request packet within this context
