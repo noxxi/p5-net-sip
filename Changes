@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.14
+  - forgot to include samples to MANIFEST, this is fixed now
+    so that they get included into the distribution
+
 0.13
   - samples/answer_machine.pl as a sample implementation
     of an answer machine

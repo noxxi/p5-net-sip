@@ -356,7 +356,7 @@ sub listen {
 		my $cb = UNIVERSAL::can( $call,'receive' ) || die;
 
 		# notify caller about new call
-		invoke_callback( $args->{cb_create}, $call );
+		invoke_callback( $args->{cb_create}, $call, $request );
 		if ( my $ccb = $args->{cb_cleanup} ) {
 			push @{ $call->{call_cleanup}}, $ccb;
 		}

@@ -41,4 +41,7 @@ lib/Net/SIP/Simple/RTP.pm
 lib/Net/SIP/Simple/RTP.pod
 t/01_load.t
 t/02_listen_and_invite.t
+samples/answer_machine.pl
+samples/invite_and_recv.pl
+samples/invite_and_send.pl
 META.yml                                 Module meta-data (added by MakeMaker)
