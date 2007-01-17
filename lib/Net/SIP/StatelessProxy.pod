@@ -62,12 +62,13 @@ registrar (by calling it's method B<receive>) and only if the
 registrar does not handle the packet (method returns C<()>) it will 
 be handled by the proxy.
 
-=item at_marker
+=item rewrite_contact
 
-Special marker string which is used in rewriting B<Contact> headers,
-if a B<Contact> header points to the proxy itself and contains this
-string it will rewritten, so that it points to the original B<Contact>
-header.
+Callback which is used in rewriting B<Contact> headers.
+If one puts user@host in it should rewrite it and if one puts
+something without '@' it should try to rewrite it back
+(and return B<()> if it cannot rewrite it back). 
+A working default implementation is provided.
 
 =back
 

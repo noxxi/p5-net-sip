@@ -45,3 +45,4 @@ samples/answer_machine.pl
 samples/invite_and_recv.pl
 samples/invite_and_send.pl
 META.yml                                 Module meta-data (added by MakeMaker)
+lib/Net/SIP/NATHelper.pm

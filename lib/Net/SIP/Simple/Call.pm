@@ -52,6 +52,7 @@ use Socket;
 # Args: ($class,$control,$ctx;$param)
 #   $control: Net::SIP::Simple object which controls this call
 #   $ctx: SIP address of peer for new call or NET::SIP::Endpoint::Context
+#        or hashref for constructing NET::SIP::Endpoint::Context
 #   $param: see description of field 'param'
 # Returns: $self
 ###########################################################################
@@ -63,6 +64,7 @@ sub new {
 		to => $ctx,
 		from => $self->{from},
 		auth => $self->{auth},
+		route => $self->{route},
 	};
 	$self->{call_cleanup} = [];
 	$self->{rtp_cleanup}  = [];

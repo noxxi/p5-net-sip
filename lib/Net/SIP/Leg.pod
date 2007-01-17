@@ -72,6 +72,13 @@ top B<Via> header in requests, handles the difference between forwarding
 of requests to strict or loose routes and inserts B<Record-Route>
 header in requests.
 
+=item forward_outgoing ( PACKET, LEG_IN )
+
+Similar to B<forward_incoming>, but will be called on the outgoing
+leg. LEG_IN is the L<Net::SIP::Leg>, where the packet came in (and where
+B<forward_incoming> was called). Will add B<Record-Route> header and
+remove itself from B<Route>.
+
 =item deliver ( PACKET, ADDR, [ CALLBACK ] )
 
 Delivers L<Net::SIP::Packet> PACKET through the leg C<$self> to ADDR, which

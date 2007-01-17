@@ -17,6 +17,7 @@ use fields (
 	'dispatcher',         # Net::SIP::Dispatcher
 	'loop',               # Net::SIP::Dispatcher::Eventloop or similar
 	'outgoing_proxy',     # optional outgoing proxy (addr:port)
+	'route',              # more routes
 	'registrar',          # optional registrar (addr:port)
 	'auth',               # Auth data, see Net::SIP::Endpoint
 	'from',               # SIP address of caller
@@ -48,6 +49,7 @@ use Net::SIP::Debug;
 #                      port defaults to 5060.
 #     outgoing_proxy - specify outgoing proxy, will create leg if necessary
 #     proxy          - alias to outgoing_proxy
+#     route|routes   - \@list with SIP routes in right syntax "<sip:host:port;lr>"...
 #     registrar      - use registrar for registration 
 #     auth           - auth data: [ user,pass ] or { realm1 => [user,pass],.. }
 #     from           - myself, used for calls and registration
@@ -128,6 +130,7 @@ sub new {
 	my $endpoint = Net::SIP::Endpoint->new( $disp );
 
 	my $self = fields::new( $class );
+	my $routes = delete $args{routes} || delete $args{route};
 	%$self = (
 		auth => $auth,
 		from => $from,
@@ -136,6 +139,7 @@ sub new {
 		registrar => $registrar,
 		dispatcher => $disp,
 		loop => $loop,
+		route => $routes,
 	);
 	return $self;
 }

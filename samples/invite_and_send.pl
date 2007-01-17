@@ -66,7 +66,6 @@ $to || usage( "no target" );
 
 # register at proxy if proxy given and no registrar
 $registrar ||= $proxy; 
-DEBUG( "proxy=$proxy registrar=$registrar from=$from to=$to" );
 
 ###################################################
 # if no proxy is given we need to find out
@@ -94,6 +93,7 @@ if ( !$proxy ) {
 			LocalPort => 0
 		) || die "cannot create leg at $addr: $!";
 	}
+	$leg = Net::SIP::Leg->new( sock => $leg );
 }
 
 ###################################################

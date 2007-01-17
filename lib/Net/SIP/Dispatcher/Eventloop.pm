@@ -69,7 +69,7 @@ sub delFD {
 #  $callback: callback to be called, gets timer object as argument
 #  $repeat: interval for repeated callbacks, optional
 ###########################################################################
-sub addTimer {
+sub add_timer {
 	my Net::SIP::Dispatcher::Eventloop $self = shift;
 	my ($when,$callback,$repeat ) = @_;
 	$when += $self->{now} if $when < 3600*24*365;
@@ -128,13 +128,13 @@ sub loop {
 			while ( @$timer && $timer->[0]{expire} <= $looptime ) {
 				my $t = shift(@$timer);
 				DEBUG( "trigger timer %s repeat=%s",$t->{expire} || '<undef>', $t->{repeat} || '<undef>' );
-				if ( $t->{repeat} ) {
+				invoke_callback( $t->{callback},$t );
+				if ( $t->{expire} && $t->{repeat} ) {
 					$t->{expire} += $t->{repeat};
 					DEBUG( "timer gets repeated at $t->{expire}" );
 					push @$timer,$t;
 					$do_timer = 1; # rerun loop
 				}
-				invoke_callback( $t->{callback},$t );
 			}
 		}
 
@@ -185,14 +185,14 @@ sub loop {
 
 
 ##########################################################################
-# Timer object which gets returned from addTimer and has method for
+# Timer object which gets returned from add_timer and has method for
 # canceling the timer (by setting expire to 0)
 ##########################################################################
 package Net::SIP::Dispatcher::Eventloop::TimerEvent;
 use fields qw( expire repeat callback );
 
 ##########################################################################
-# create new timer object, see addTimer for description of Args
+# create new timer object, see add_timer for description of Args
 # Args: ($class,$expire,$repeat,$callback)
 # Returns: $self
 ##########################################################################

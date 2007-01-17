@@ -12,7 +12,7 @@ package Net::SIP::Util;
 use Digest::MD5 'md5_hex';
 use IO::Socket;
 use Net::SIP::Debug;
-use Carp 'confess';
+use Carp qw(confess croak);
 use base 'Exporter';
 
 our @EXPORT_OK = qw( 
@@ -36,6 +36,7 @@ our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 #   %parameter: additional parameter
 ###########################################################################
 sub sip_hdrval2parts {
+	croak( "usage: sip_hdrval2parts( key => val )" ) if @_!=2;
 	my ($key,$v) = @_;
 	return if !defined($v);
 	my $delim = ';';

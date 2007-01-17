@@ -11,7 +11,7 @@ use strict;
 use warnings;
 
 package Net::SIP::StatelessProxy;
-use fields qw( dispatcher registrar at_marker );
+use fields qw( dispatcher registrar rewrite_contact );
 
 use Net::SIP::Util ':all';
 use Net::SIP::Registrar;
@@ -30,8 +30,12 @@ use Net::SIP::Debug;
 #        requests using the registrar and fall back to the normal
 #        behavior if registrar cannot handle the request.
 #        can also be an existing Net::SIP::Registrar object
-#     at_marker: uniq marker which is used in rewriting contact headers
-#        if not given a reasonable default will be used
+#     rewrite_contact: callback to rewrite contact header. If called with from header
+#        it should return a string of form \w+. If called
+#        again with this string it should return the original header back.
+#        if called on a string without @ which cannot rewritten back it
+#        should return undef. If not given a reasonable default will be
+#        used.
 # Returns: $self
 ###########################################################################
 sub new {
@@ -50,12 +54,42 @@ sub new {
 			);
 		}
 	}
-	$self->{at_marker} ||= '++'.md5_hex( 
-		map { $_->{proto}.':'.$_->{addr}.':'.$_->{port} } 
-		$disp->get_legs 
-	).'++';
+	$self->{rewrite_contact} ||= [ \&_default_rewrite_contact, $self ];
 
 	return $self;
+}
+
+# default handler for rewriting, does simple XOR only,
+# this is not enough if you need to hide internal addresses
+sub _default_rewrite_contact {
+	my ($self,$contact) = @_;
+	my $secret = md5_hex( 
+		sort { $a cmp $b }
+		map { $_->{proto}.':'.$_->{addr}.':'.$_->{port} }
+		$self->{dispatcher}->get_legs 
+	);
+
+	my $new;
+	if ( $contact =~m{\@} ) {
+		# needs to be rewritten
+		$contact .= "MARKER";
+		my $lc = length($contact);
+		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
+		$new = unpack( 'H*',( $contact ^ $secret ));
+		DEBUG( "rewrite $contact -> $new" );
+	} elsif ( $contact =~m{^[0-9a-f]+$} ) {
+		# needs to be written back
+		$new = pack( 'H*',$contact );
+		my $lc = length($new);
+		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
+		$new = $new ^ $secret;
+		DEBUG( "rewrite back $contact -> $new" );
+		$new =~s{MARKER$}{} || return;
+	} else {
+		# invalid format
+		DEBUG( "no rewriting of $contact" );
+	}
+	return $new;
 }
 		
 ###########################################################################
@@ -82,12 +116,13 @@ sub receive {
 
 	# Prepare for forwarding, e.g adjust headers 
 	# (add record-route)
-	if ( my($code,$text) = $incoming_leg->forward_incoming( $packet )) {
+	if ( my $err = $incoming_leg->forward_incoming( $packet )) {
+		my ($code,$text) = @$err;
 		DEBUG( "ERROR while forwarding: $code, $text" );
 		return;
 	}
 
-	my $at_marker = $self->{at_marker};
+	my $rewrite_contact = $self->{rewrite_contact};
 	my $disp = $self->{dispatcher};
 
 	# find out how to forward packet
@@ -107,7 +142,7 @@ sub receive {
 		DEBUG( "get dst_addr from header: $first -> $dst_addr" );
 
 	} else {
-		# check if the URI contains the at_marker
+		# check if the URI was handled by rewrite_contact
 		# this is the case where the Contact-Header was rewritten
 		# (see below) and a new request came in using the new
 		# contact header. In this case we need to rewrite the URI
@@ -115,7 +150,9 @@ sub receive {
 
 		my ($to) = sip_hdrval2parts( uri => $packet->uri );
 		$to = $1 if $to =~m{<(\w+:\S+)>};
-		if ( $to =~s{\Q$at_marker\E([^@]+)(.*)}{\@$1} ) {
+		if ( $to =~m{^(.*?)(\w+)(\@.*)} 
+			&& ( my $back = invoke_callback( $rewrite_contact,$2 ) )) {
+			$to = $1.$back;
 			DEBUG( "rewrote URI from '%s' to '%s'", $packet->uri, $to );
 			$packet->set_uri( $to )
 		}
@@ -135,19 +172,21 @@ sub receive {
 			# rewrite all sip(s) contacts
 			my ($data,$p) = sip_hdrval2parts( contact => $c );
 			my ($pre,$addr,$post) = 
-				$data =~m{^(.*<)(sips?:[^>\s]+)(>.*)}i ? ($1,$2,$3) :
-				$data =~m{^(sips?:[^>\s]+)$}i ? ('',$1,'') :
+				$data =~m{^(.*<sips?:)([^>\s]+)(>.*)}i ? ($1,$2,$3) :
+				$data =~m{^(sips?:)([^>\s]+)$}i ? ($1,$2,'') :
 				next;
 			
-			# if contact contains my at_marker rewrite back
-			if ( $addr =~s{\Q$at_marker\E([^@]+)(.*)}{\@$1} ) {
+			# if contact was rewritten rewrite back
+			if ( $addr =~m{^(\w+)(\@.*)} &&
+				( my $back = $1 && invoke_callback($rewrite_contact,$1))) {
+				$addr = $back;
 				my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
 				DEBUG( "rewrote back '$c' to '$cnew'" );
 				$c = $cnew;
 
-			# otherwise introduce marker
+			# otherwise rewrite it
 			} else {
-				$addr =~s{\@}{$at_marker};
+				$addr = invoke_callback( $rewrite_contact,$addr);
 				$addr .= '@'.$outgoing_leg->{addr}.':'.$outgoing_leg->{port};
 				my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
 				DEBUG( "rewrote '$c' to '$cnew'" );
@@ -157,6 +196,12 @@ sub receive {
 		$packet->set_header( contact => \@contact );
 	}
 
+	# prepare outgoing packet
+	if ( my $err = $outgoing_leg->forward_outgoing( $packet,$incoming_leg )) {
+		my ($code,$text) = @$err;
+		DEBUG( "ERROR while forwarding: $code, $text" );
+		return;
+	}
 
 	# Just forward packet via the outgoing_leg
 	$disp->deliver( $packet, 

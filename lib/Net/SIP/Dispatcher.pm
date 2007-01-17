@@ -223,7 +223,7 @@ sub get_legs {
 
 ###########################################################################
 # add timer
-# propagates to addTimer of eventloop
+# propagates to add_timer of eventloop
 # Args: ($self,$when,$cb,$repeat) 
 #   $when: when callback gets called, can be absolute time (epoch, time_t)
 #     or relative time (seconds)
@@ -234,7 +234,7 @@ sub get_legs {
 ###########################################################################
 sub add_timer {
 	my Net::SIP::Dispatcher $self = shift;
-	return $self->{eventloop}->addTimer( @_ );
+	return $self->{eventloop}->add_timer( @_ );
 }
 	
 ###########################################################################

@@ -82,6 +82,10 @@ B<invite>).
 SIP address of local sender, either full SIP address or only part before \@, in which
 case B<domain> has to be provided.
 
+=item route
+
+Optional list of SIP routes which will be added to route requests.
+
 =item loop
 
 Eventloop object for dispatcher, see L<Net::SIP::Dispatcher::Eventloop>. Usually
