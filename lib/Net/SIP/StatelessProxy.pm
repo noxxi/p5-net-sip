@@ -76,18 +76,18 @@ sub _default_rewrite_contact {
 		my $lc = length($contact);
 		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 		$new = unpack( 'H*',( $contact ^ $secret ));
-		DEBUG( "rewrite $contact -> $new" );
+		DEBUG( 50,"rewrite $contact -> $new" );
 	} elsif ( $contact =~m{^[0-9a-f]+$} ) {
 		# needs to be written back
 		$new = pack( 'H*',$contact );
 		my $lc = length($new);
 		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 		$new = $new ^ $secret;
-		DEBUG( "rewrite back $contact -> $new" );
+		DEBUG( 50,"rewrite back $contact -> $new" );
 		$new =~s{MARKER$}{} || return;
 	} else {
 		# invalid format
-		DEBUG( "no rewriting of $contact" );
+		DEBUG( 100,"no rewriting of $contact" );
 	}
 	return $new;
 }
@@ -103,7 +103,7 @@ sub _default_rewrite_contact {
 ###########################################################################
 sub receive {
 	my ($self,$packet,$incoming_leg,$from) = @_;
-	DEBUG( "received ".$packet->as_string );
+	DEBUG( 10,"received ".$packet->dump );
 
 	if ( ( my $reg = $self->{registrar} ) 
 		and $packet->is_request
@@ -118,7 +118,7 @@ sub receive {
 	# (add record-route)
 	if ( my $err = $incoming_leg->forward_incoming( $packet )) {
 		my ($code,$text) = @$err;
-		DEBUG( "ERROR while forwarding: $code, $text" );
+		DEBUG( 10,"ERROR while forwarding: $code, $text" );
 		return;
 	}
 
@@ -132,14 +132,14 @@ sub receive {
 		# which should contain the addr of the next hop
 
 		my ($via) = $packet->get_header( 'via' ) or do {
-			DEBUG( "no via header in packet. DROP" );
+			DEBUG( 10,"no via header in packet. DROP" );
 			return;
 		};
 		my ($first,$param) = sip_hdrval2parts( via => $via );
 		my ($addr,$port) = $first =~m{([\w\-\.]+)(?::(\d+))?\s*$};
 		$port ||= 5060; # FIXME default for sip, not sips!
 		$dst_addr = "$addr:$port";
-		DEBUG( "get dst_addr from header: $first -> $dst_addr" );
+		DEBUG( 100,"get dst_addr from header: $first -> $dst_addr" );
 
 	} else {
 		# check if the URI was handled by rewrite_contact
@@ -153,7 +153,7 @@ sub receive {
 		if ( $to =~m{^(.*?)(\w+)(\@.*)} 
 			&& ( my $back = invoke_callback( $rewrite_contact,$2 ) )) {
 			$to = $1.$back;
-			DEBUG( "rewrote URI from '%s' to '%s'", $packet->uri, $to );
+			DEBUG( 10,"rewrote URI from '%s' to '%s'", $packet->uri, $to );
 			$packet->set_uri( $to )
 		}
 	}
@@ -181,7 +181,7 @@ sub receive {
 				( my $back = $1 && invoke_callback($rewrite_contact,$1))) {
 				$addr = $back;
 				my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
-				DEBUG( "rewrote back '$c' to '$cnew'" );
+				DEBUG( 50,"rewrote back '$c' to '$cnew'" );
 				$c = $cnew;
 
 			# otherwise rewrite it
@@ -189,7 +189,7 @@ sub receive {
 				$addr = invoke_callback( $rewrite_contact,$addr);
 				$addr .= '@'.$outgoing_leg->{addr}.':'.$outgoing_leg->{port};
 				my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
-				DEBUG( "rewrote '$c' to '$cnew'" );
+				DEBUG( 50,"rewrote '$c' to '$cnew'" );
 				$c = $cnew;
 			}
 		}
@@ -199,7 +199,7 @@ sub receive {
 	# prepare outgoing packet
 	if ( my $err = $outgoing_leg->forward_outgoing( $packet,$incoming_leg )) {
 		my ($code,$text) = @$err;
-		DEBUG( "ERROR while forwarding: $code, $text" );
+		DEBUG( 10,"ERROR while forwarding: $code, $text" );
 		return;
 	}
 

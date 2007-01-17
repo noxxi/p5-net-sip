@@ -100,7 +100,7 @@ sub new {
 		my ($self,$loop) = @_;
 		$self->queue_expire($loop->looptime);
 	};
-	$self->add_timer( 1,[ $sub,$self,$eventloop ],1 );
+	$self->add_timer( 1,[ $sub,$self,$eventloop ],1,'disp_expire' );
 
 	return $self;
 }
@@ -165,7 +165,7 @@ sub add_leg {
 			# which then will receive the packet (maybe over multiple
 			# read attempts)
 			my ($packet,$from) = $leg->receive or do {
-				DEBUG( "failed to receive" );
+				DEBUG( 50,"failed to receive on leg" );
 				return;
 			};
 
@@ -260,7 +260,7 @@ sub deliver {
 	my $do_retransmits = delete $more_args{do_retransmits};
 	$do_retransmits = $self->{do_retransmits} if !defined $do_retransmits;
 
-	DEBUG( "deliver $packet" );
+	DEBUG( 100,"deliver $packet" );
 
 	if ( $packet->is_response ) {
 		# cache response for 32 sec (64*T1)
@@ -295,11 +295,11 @@ sub cancel_delivery {
 	my $q = $self->{queue};
 	if ( ref($id)) {
 		# it's a *::Dispatcher::Packet
-		DEBUG( "cancel packet $id: $id->{id}" );
+		DEBUG( 100,"cancel packet $id: $id->{id}" );
 		@$q = grep { $_ != $id } @$q;
 	} else {
 		no warnings; # $_->{id} can be undef
-		DEBUG( "cancel packet $id" );
+		DEBUG( 100, "cancel packet $id" );
 		@$q = grep { $_->{id} ne $id } @$q;
 	}
 }
@@ -362,7 +362,7 @@ sub queue_expire {
 
 			if ( !@$retransmits ) {
 				# completly expired
-				DEBUG( "entry %s expired because expire=%.2f but now=%d", $qe->tid,$retransmit,$now );
+				DEBUG( 50,"entry %s expired because expire=%.2f but now=%d", $qe->tid,$retransmit,$now );
 				$changed++;
 				$qe->trigger_callback( ETIMEDOUT );
 
@@ -426,13 +426,13 @@ sub __deliver {
 
 		if ( ! $dst_addr ) {
 
-			DEBUG( "no dst_addr yet" );
+			DEBUG( 100,"no dst_addr yet" );
 
 			if ( my $addr = $self->{outgoing_proxy} ) {
 				# if we have a fixed outgoing proxy use it
 				$qentry->set_dstaddr( $addr );
 				$qentry->{leg} = $self->{outgoing_leg};
-				DEBUG( "setting dst_addr to $addr from outgoing_proxy" );
+				DEBUG( 50,"setting dst_addr to $addr from outgoing_proxy" );
 				next;
 			}
 
@@ -440,7 +440,7 @@ sub __deliver {
 
 		} elsif ( ! $leg ) {
 			# find leg for dst_addr
-			DEBUG( "no leg for dst_addr=$dst_addr yet" );
+			DEBUG( 100,"no leg for dst_addr=$dst_addr yet" );
 			$qentry->{leg} = $self->_find_leg4addr( $dst_addr )
 				|| return $qentry->trigger_callback( EHOSTUNREACH );
 			next;
@@ -458,7 +458,7 @@ sub __deliver {
 
 			# adds via on cloned packet, calls cb if definite success (tcp)
 			# or error
-			DEBUG( "deliver through leg $leg \@$dst_addr" );
+			DEBUG( 50,"deliver through leg $leg \@$dst_addr" );
 			$leg->deliver( $qentry->{packet},$dst_addr, [ $cb,$qentry ] );
 
 			if ( !$qentry->{retransmits} ) {
@@ -574,7 +574,7 @@ sub __resolve_uri {
 
 		$resp = \@resp;
 	}
-	DEBUG_DUMP( $resp );
+	DEBUG_DUMP( 100,$resp );
 	if ( ! @$resp ) {
 		$qentry->trigger_callback( EHOSTUNREACH );
 		return $self->cancel_delivery( $qentry );
@@ -700,7 +700,7 @@ sub prepare_retransmits {
 		$to = $t2 if $t2 && $to>$t2;
 		$rtm += $to
 	}
-	DEBUG( "retransmits $now + ".join( " ", map { $_ - $now } @retransmits ));
+	DEBUG( 100,"retransmits $now + ".join( " ", map { $_ - $now } @retransmits ));
 	$self->{retransmits} = \@retransmits;
 }
 

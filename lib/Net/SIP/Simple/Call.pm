@@ -86,7 +86,7 @@ sub cleanup {
 		invoke_callback($cb,$self)
 	}
 	%$self = ();
-	DEBUG( "done" );
+	DEBUG( 100,"done" );
 }
 
 sub rtp_cleanup {
@@ -94,11 +94,11 @@ sub rtp_cleanup {
 	while ( my $cb = shift @{ $self->{rtp_cleanup} } ) {
 		invoke_callback($cb,$self)
 	}
-	DEBUG( "done" );
+	DEBUG( 100,"done" );
 }
 
 sub DESTROY {
-	DEBUG( "done" );
+	DEBUG( 100,"done" );
 }
 		
 	
@@ -228,7 +228,7 @@ sub bye {
 			# in any case except for 1xx responses
 			# FIXME: should we check for 302 moved etc?
 			if ( $code && $code =~m{^1\d\d} ) {
-				DEBUG( "got prelimary response for BYE" );
+				DEBUG( 10,"got prelimary response for BYE" );
 				return;
 			}
 			invoke_callback( $cb,$args );
@@ -270,7 +270,7 @@ sub receive {
 
 			# can transport sdp data
 			if ( my $sdp_peer = $packet->sdp_body ) {
-				DEBUG( "got sdp data from peer: ".$sdp_peer->as_string );
+				DEBUG( 50,"got sdp data from peer: ".$sdp_peer->as_string );
 				$self->_setup_peer_rtp_socks( $sdp_peer );
 			}
 
@@ -287,7 +287,7 @@ sub receive {
 				# send 200 OK with sdp body
 				my $response = $packet->create_response(
 					'200','OK',{},$param->{sdp} );
-				DEBUG( 'created response '.$response->as_string );
+				DEBUG( 100,'created response '.$response->as_string );
 				$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
 
 			} elsif ( $method eq 'ACK' ) {
@@ -300,7 +300,7 @@ sub receive {
 		# don't expect any responses.
 		# Response to BYE is handled by Net::SIP::Endpoint::Context
 		# other responses from the peer I don't expect
-		DEBUG( "got response. WHY? DROP." );
+		DEBUG( 100,"got response. WHY? DROP." );
 	}
 }
 

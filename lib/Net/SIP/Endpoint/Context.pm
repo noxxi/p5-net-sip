@@ -72,12 +72,12 @@ sub new {
 		$self->{from}.=";tag=".md5_hex( time(), rand(2**32), $self->{from} );
 	}
 
-	DEBUG( "CREATE context $self" );
+	DEBUG( 100,"CREATE context $self" );
 	return $self
 }
 
 sub DESTROY {
-	DEBUG( "DESTROY context $_[0]" );
+	DEBUG( 100,"DESTROY context $_[0]" );
 }
 
 ############################################################################
@@ -242,18 +242,18 @@ sub handle_response {
 	}
 	$tr || do {
 		# no delivery pending
-		DEBUG( "got response for unkown transaction. DROP" );
+		DEBUG( 10,"got response for unkown transaction. DROP" );
 		return;
 	};
 	$self->{_transactions} = \@ntrans;
 
-	DEBUG( "got response for transaction ".$tr->{request}->as_string );
+	DEBUG( 10,"got response for transaction ".$tr->{request}->dump );
 
 	# match response to client transaction, RFC3261 17.1.3
 	# check if the response came in through the same leg, where the
 	# request was send, e.g that the branch tag is the same
 	$leg->check_via( $response ) || do {
-		DEBUG( "response came in through the wrong leg" );
+		DEBUG( 10,"response came in through the wrong leg" );
 		return;
 	};
 
@@ -265,7 +265,7 @@ sub handle_response {
 	my $method = $tr->{request}->method;
 	$response->cseq =~m{^\d+\s+(\w+)};
 	if ($method ne $1 ) {
-		DEBUG( "got response to method $1 but current method is $method. DROP" );
+		DEBUG( 10,"got response to method $1 but current method is $method. DROP" );
 		return;
 	}
 
@@ -294,7 +294,7 @@ sub handle_response {
 	# XXXXXXXXXXXXXX (e.g for 401,407,302..)
 	if ( $method eq 'INVITE' && $code>=300 ) {
 		# must create ACK
-		DEBUG( "code=$code, must generate ACK" );
+		DEBUG( 50,"code=$code, must generate ACK" );
 		my $ack = $tr->{request}->create_ack( $response );
 		$endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
 	}
@@ -396,10 +396,10 @@ sub handle_request {
 	my $cseq = $request->cseq;
 	my ($cseq_num) = $cseq=~m{^(\d+)};
 
-	DEBUG( "method=%s cseq=%s/%s inc=%d", $request->method, $cseq_num,$cseq, $self->{_cseq_incoming} );
+	DEBUG( 100,"method=%s cseq=%s/%s inc=%d", $request->method, $cseq_num,$cseq, $self->{_cseq_incoming} );
 	if ( $cseq_num < $self->{_cseq_incoming} ) {
 		# must be an retransmit of an really old request, drop
-		DEBUG( "retransmit of really old request? Dropping" );
+		DEBUG( 10,"retransmit of really old request? Dropping" );
 		return;
 	}
 
@@ -407,7 +407,7 @@ sub handle_request {
 	if ( my $trans = $self->{_last_transreq} ) {
 		my $last_cseq = $trans->cseq;
 		if ( $last_cseq eq $cseq ) {
-			DEBUG( "retransmit of last request. DROP" );
+			DEBUG( 10,"retransmit of last request. DROP" );
 			return;
 		}
 	}
@@ -418,20 +418,20 @@ sub handle_request {
 	if ( $method eq 'ACK' || $method eq 'CANCEL' ) {
 		# must be have same cseq_num as last request, otherwise drop
 		if ( $cseq_num != $self->{_cseq_incoming} ) {
-			DEBUG( "received $method for unreceived INVITE: $cseq_num|$self->{_cseq_incoming}" );
+			DEBUG( 10,"received $method for unreceived INVITE: $cseq_num|$self->{_cseq_incoming}" );
 			return;
 		}
 	} else {
 		# cannot have the same cseq_num as last request
 		if ( $cseq_num == $self->{_cseq_incoming} ) {
-			DEBUG( "reused cseq for $method" );
+			DEBUG( 10,"reused cseq for $method. DROP" );
 			return;
 		}
 	}
 	$self->{_cseq_incoming} = $cseq_num;
 
 	my $cb = $self->{_callback} || do {
-		DEBUG( "kein callback am Context!" );
+		DEBUG( 50,"no callback at context!" );
 		return;
 	};
 	my @arg = ($endpoint,$self);

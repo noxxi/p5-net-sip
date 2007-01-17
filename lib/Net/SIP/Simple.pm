@@ -154,7 +154,7 @@ sub error {
 	my Net::SIP::Simple $self = shift;
 	if ( @_ ) {
 		$self->{last_error} = shift;
-		DEBUG( Net::SIP::Debug::stacktrace( "set error to ".$self->{last_error}) );
+		DEBUG( 100,Net::SIP::Debug::stacktrace( "set error to ".$self->{last_error}) );
 	}
 	return $self->{last_error};
 }
@@ -341,7 +341,7 @@ sub listen {
 	my $receive = sub {
 		my ($self,$args,$endpoint,$ctx,$request,$leg,$from) = @_;
 		$request->method eq 'INVITE' or do {
-			DEBUG( "drop non-INVITE request" );
+			DEBUG( 10,"drop non-INVITE request: ".$request->dump );
 			$self->{endpoint}->close_context( $ctx );
 			return;
 		};
@@ -349,7 +349,7 @@ sub listen {
 		if ( my $filter = $args->{filter} ) {
 			my $rv = invoke_callback( $filter, $ctx->{from} );
 			if ( !$rv ) {
-				DEBUG( "call from '$ctx->{from}' rejected" );
+				DEBUG( 1, "call from '$ctx->{from}' rejected" );
 				$self->{endpoint}->close_context( $ctx );
 				return;
 			}

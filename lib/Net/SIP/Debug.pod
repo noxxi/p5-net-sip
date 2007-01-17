@@ -17,6 +17,38 @@ Provides debugging support for L<Net::SIP>.
 Debugging can be enabled/disabled globally or per package
 and optional per subpackage.
 
+It provides support for different debugging levels, e.g.
+the higher the level, the more debugging is done.
+The following levels are used:
+
+=over 4
+
+=item 1 
+
+Debug messages for users
+
+=item 2 
+
+Includes short SIP packet dumps of incoming and outgoing data
+
+=item 5
+
+Includes detailed SIP packet dumps for incoming and outgoing data
+
+=item 10
+
+Includes information about call flow, e.g. why packets get dropped etc.
+
+=item 50
+
+Detailed debugging for programmers using L<Net::SIP>.
+
+=item 100
+
+Detailed debugging for core developers of L<Net::SIP>.
+
+=back
+
 =head1 CLASS METHODS
 
 =over 4
@@ -35,8 +67,9 @@ contain the following specifications:
 
 =item NUMBER
 
-NUMBER will be interpreted as the debugging level. Right now only
-one level is implemented, so everything !=0 will enable debugging.
+NUMBER will be interpreted as the debugging level.
+It's used in B<debug> etc to print only debug message which a
+level lower or equal to NUMBER.
 
 =item PACKAGE
 
@@ -72,11 +105,16 @@ be useful to change this to "DEBUG($$):" or similar.
 
 =over 4
 
-=item DEBUG|debug ( MESSAGE | FMT,@ARG )
+=item DEBUG|debug ( [ LEVEL ],( MESSAGE | FMT,@ARG ))
 
 If debugging is enabled it will print to STDERR debugging info.
 If multiple arguments are given to the function they will be
 fed into B<sprintf> to create a single message.
+
+If the first argument looks like a number (see B<looks_like_number>
+in L<Scalar::Util>) it will be interpreted as the debug level
+for this message, e.g. if it is higher than the user specified
+debug level the message will not be printed.
 
 The MESSAGE (or the result from C<< sprintf(FMT,@ARG) >>) will be
 prefixed by the callers package, the callers function and the line
@@ -90,12 +128,13 @@ between prefix and message data.
 The function is by default exported as B<DEBUG> and can by exported
 as B<debug> too.
 
-=item DEBUG_DUMP ( @DATA )
+=item DEBUG_DUMP ( [ LEVEL ], @DATA )
 
 Will call B<debug> with the output from L<Data::Dumper>s B<Dumper>
 if debugging is enabled. If @DATA has more than one item it will
 be fed as reference into B<Dumper>, otherwise only the single item
 will be fed to B<Dumper>.
+For the meaning of LEVEL see B<debug>.
 
 This function is exported by default.
 

@@ -65,7 +65,7 @@ sub receive {
 	$packet->method eq 'REGISTER' || return;
 
 	my $from = $packet->get_header( 'from' ) or do {
-		DEBUG( "no from in register" );
+		DEBUG( 1,"no from in register request. DROP" );
 		return;
 	};
 
@@ -77,7 +77,7 @@ sub receive {
 	if ( my $rd = $self->{domains} ) {
 		my ($domain) = $from =~m{\@([\w\-\.]+)};
 		if ( ! first { $domain =~m{\.?\Q$_\E$}i || $_ eq '*' } @$rd ) {
-			DEBUG( "$domain matches none of my own domains" );
+			DEBUG( 1, "$domain matches none of my own domains. DROP" );
 			return;
 		}
 	}
@@ -116,7 +116,7 @@ sub receive {
 	
 	# expire now!
 	$self->expire();
-	DEBUG_DUMP( $store );
+	DEBUG_DUMP( 100,$store );
 
 	# send back a list of current contacts
 	my $response = $packet->create_response( '200','OK' );

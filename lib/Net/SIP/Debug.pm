@@ -4,6 +4,7 @@ use warnings;
 use Carp;
 use Data::Dumper;
 use Time::HiRes 'gettimeofday';
+use Scalar::Util 'looks_like_number';
 use base 'Exporter';
 our @EXPORT = qw( DEBUG DEBUG_DUMP LEAK_TRACK );
 our @EXPORT_OK = qw( debug stacktrace );
@@ -114,7 +115,8 @@ sub set_prefix {
 
 ################################################################
 # write debug output if debugging enabled for caller
-# Args: $message | $fmt,@arg
+# Args: ?$level, ( $message | $fmt,@arg )
+#  $level: if first arg is number it's interpreted as debug level
 #   $message: single message
 #   $fmt: format for sprintf
 #   @arg: arguments for sprintf after format
@@ -122,13 +124,19 @@ sub set_prefix {
 ################################################################
 sub DEBUG { goto &debug }
 sub debug {
-	return unless __PACKAGE__->level;
+	my $level = __PACKAGE__->level || return;
+	my $prefix = $debug_prefix;
+	if (@_>1 and looks_like_number($_[0])) {
+		my $when = shift;
+		return if $when>$level;
+		$prefix .= "<$when>";
+	}
 	my ($msg,@arg) = @_;
 	return if !defined($msg);
 	if ( 1 || $msg !~ m{^\w+:} ) {
 		# Message hat keinen eigenen "Prefix:", also mit Funktion[Zeile] prefixen
-		my ($pkg,$func,$sub) = (caller(1))[0,1,3];
-		my $line             = (caller(0))[2];
+		my ($sub) = (caller(1))[3];
+		my $line  = (caller(0))[2];
 		$sub =~s{^main::}{} if $sub;
 		$sub ||= 'Main';
 		$msg = "$sub\[$line]: ".$msg;
@@ -141,7 +149,7 @@ sub debug {
 	}
 
 	# alle Zeilen mit DEBUG: prefixen
-	my $prefix = sprintf "%.4f $debug_prefix", scalar(gettimeofday());
+	$prefix = sprintf "%.4f %s",scalar(gettimeofday()),$prefix;
 	$msg = $prefix." ".$msg;
 	$msg =~s{\n}{\n$prefix\t}g;
 	return $msg if defined wantarray; # don't print
@@ -150,13 +158,20 @@ sub debug {
 
 ################################################################
 # Dumps structure if debugging enabled
-# Args: @data
+# Args: ?$level,@data
+#  $level: if first arg is number it's interpreted as debug level
 #  @data: what to be dumped, if @data>1 will dump \@data, else $data[0]
 # Returns: NONE
 ################################################################
 sub DEBUG_DUMP {
-	return unless __PACKAGE__->level;
+	my $level = __PACKAGE__->level || return;
+	my $when;
+	if (@_>1 and looks_like_number($_[0])) {
+		$when = shift;
+		return if $when>$level;
+	}
 	@_ = Dumper( @_>1 ? \@_:$_[0] );
+	unshift @_,$when if defined $when;
 	goto &debug;
 }
 

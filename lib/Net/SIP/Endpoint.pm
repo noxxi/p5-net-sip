@@ -146,17 +146,17 @@ sub new_request {
 	die "cannot redefine call-id" if delete $args{ 'call-id' };
 	my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
 
-	DEBUG( "create new request for $method" );
+	DEBUG( 10,"create new request for $method" );
 
 	if ( ! UNIVERSAL::isa( $ctx,'Net::SIP::Endpoint::Context' )) {
 		$ctx = Net::SIP::Endpoint::Context->new($ctx);
 		$self->{ctx}{ $ctx->callid } = $ctx; # make sure we manage the context
-		DEBUG( "created new context $ctx with callid=".$ctx->callid );
+		DEBUG( 100,"created new context $ctx with callid=".$ctx->callid );
 	}
 	$ctx->set_callback( $callback ) if $callback;
 
 	my $request = $ctx->new_request( $method,$body,%args );
-	DEBUG( "request=".$request->as_string );
+	DEBUG( 50,"request=".$request->as_string );
 
 	my $tid = $request->tid;
 	$self->{dispatcher}->deliver( $request,
@@ -204,9 +204,9 @@ sub close_context {
 	my Net::SIP::Endpoint $self = shift;
 	my $id = shift;
 	$id = $id->callid if ref($id);
-	DEBUG( "close context call-id $id " );
+	DEBUG( 10,"close context call-id $id " );
 	my $ctx = delete $self->{ctx}{$id} || do {
-		DEBUG( "no context for call-id $id found" );
+		DEBUG( 50,"no context for call-id $id found" );
 		return;
 	};
 	return $ctx;
@@ -246,11 +246,11 @@ sub receive_response {
 	# find context for response or drop
 	my $callid = $response->get_header( 'call-id' );
 	my $ctx = $self->{ctx}{$callid} || do {
-		DEBUG("cannot find context for packet with callid=$callid. DROP");
+		DEBUG( 50,"cannot find context for packet with callid=$callid. DROP");
 		return;
 	};
 
-	DEBUG( "received reply for tid=".$response->tid );
+	DEBUG( 10,"received reply for tid=".$response->tid );
 	$self->{dispatcher}->cancel_delivery( $response->tid );
 	$ctx->handle_response( $response,$leg,$from,$self );
 }

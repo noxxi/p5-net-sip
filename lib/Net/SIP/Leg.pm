@@ -263,7 +263,7 @@ sub deliver {
 
 	if ( $self->{proto} ne 'udp' ) {
 		use Errno 'EINVAL';
-		DEBUG( "can only proto udp for now, but not $self->{proto}" );
+		DEBUG( 1,"can only proto udp for now, but not $self->{proto}" );
 		invoke_callback( $callback, EINVAL );
 	}
 
@@ -271,12 +271,13 @@ sub deliver {
 	$host = inet_aton( $host );
 	my $target = sockaddr_in( $port,$host );
 	unless ( $self->{sock}->send( $packet->as_string,0,$target )) {
-		DEBUG( "send failed: callback=$callback error=$!" );
+		DEBUG( 1,"send failed: callback=$callback error=$!" );
 		invoke_callback( $callback, $! );
 		return;
 	}
 
-	DEBUG( "delivery from $self->{addr}:$self->{port} to $addr OK:\n".$packet->as_string );
+	DEBUG( 2, "delivery from $self->{addr}:$self->{port} to $addr OK:\n",
+		$packet->dump( Net::SIP::Debug->level -2 ) );
 
 	# XXXX dont forget to call callback back with ENOERR if 
 	# delivery by tcp successful
@@ -296,23 +297,24 @@ sub receive {
 	my Net::SIP::Leg $self = shift;
 
 	if ( $self->{proto} ne 'udp' ) {
-		DEBUG( "only udp is supported at the moment" );
+		DEBUG( 1,"only udp is supported at the moment" );
 		return;
 	}
 
 	my $from = recv( $self->{sock}, my $buf, 2**16, 0 ) or do {
-		DEBUG( "recv failed: $!" );
+		DEBUG( 1,"recv failed: $!" );
 		return;
 	};
 
 	my $packet = eval { Net::SIP::Packet->new( $buf ) } or do {
-		DEBUG( "cannot parse buf as SIP: $@\n$buf" );
+		DEBUG( 3,"cannot parse buf as SIP: $@\n$buf" );
 		return;
 	};
 
 	my ($port,$host) = unpack_sockaddr_in( $from );
 	$host = inet_ntoa($host);
-	DEBUG( "received on $self->{addr}:$self->{port} from $host:$port packet\n".$packet->as_string );
+	DEBUG( 2,"received on $self->{addr}:$self->{port} from $host:$port packet\n",
+		$packet->dump( Net::SIP::Debug->level -2 ));
 
 	return ($packet,"$host:$port");
 }

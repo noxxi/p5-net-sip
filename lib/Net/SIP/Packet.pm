@@ -453,6 +453,28 @@ sub as_string {
 }
 
 ###########################################################################
+# packet dump in long or short form, used mainly for debuging
+# Args: ($self,?$level)
+#  $level: level of details: undef|0 -> one line, else -> as_string
+# Returns: $dump_as_string
+###########################################################################
+sub dump {
+	my Net::SIP::Packet $self = shift;
+	my $level = shift;
+	if ( !$level ) {
+		my ($code,$text,$header,$body) = $self->as_parts;
+		if ( $self->is_request ) {
+			return "REQ  $code $text ".( $body ? 'with body' :'' );
+		} else {
+			return "RESP $code '$text' ".( $body ? 'with body' :'' );
+		}
+	} else {
+		return $self->as_string
+	}
+}
+	
+
+###########################################################################
 # Return parts
 # Args: ($self)
 # Returns: ($code,$text,$header,$body)

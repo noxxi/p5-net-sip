@@ -159,6 +159,12 @@ objects see B<new_from_parts>.
 
 Returns string representation of SIP packet.
 
+=item dump ( [ LEVEL ] )
+
+Returns dump of packet as string for debugging. The higher LEVEL
+is the more details one gets. At the moment a LEVEL of 0 gets
+a one-line summary and the rest the result from B<as_string>.
+
 =item as_parts
 
 Returns Array with CODE|METHOD, TEXT|URI, \@HEADER and BODY like used
