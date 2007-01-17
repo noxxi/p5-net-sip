@@ -117,7 +117,7 @@ sub activate_session {
 
 	my $call = $self->{$callid};
 	unless ( $call ) {
-		DEBUG( "tried to activate non-existing call $callid" );
+		DEBUG( 10,"tried to activate non-existing call $callid" );
 		return;
 	}
 	return $call->activate_session( $cseq,$idfrom,$idto );
@@ -138,7 +138,7 @@ sub close_session {
 
 	my $call = $self->{$callid};
 	unless ( $call ) {
-		DEBUG( "tried to close non-existing call $callid" );
+		DEBUG( 10,"tried to close non-existing call $callid" );
 		return;
 	}
 	return $call->close_session( $cseq,$idfrom,$idto );
@@ -159,7 +159,7 @@ sub expire {
 		my $call = $self->{$callid};
 		$call->expire( $sock_expire ) && $rv++;
 		if ( $call->is_empty ) {
-			DEBUG( "remove call $callid" );
+			DEBUG( 50,"remove call $callid" );
 			delete $self->{$callid};
 		}
 	}
@@ -174,6 +174,20 @@ sub expire {
 sub callbacks {
 	my Net::SIP::NATHelper $self = shift;
 	return map { $_->callbacks } values %$self;
+}
+
+############################################################################
+# Dump debug information into string
+# Args: $self
+# Returns: $string
+############################################################################
+sub dump {
+	my Net::SIP::NATHelper $self = shift;
+	my $result = "";
+	foreach ( sort keys %$self ) {
+		$result.= $self->{$_}->dump;
+	}
+	return $result;
 }
 
 ############################################################################
@@ -208,13 +222,13 @@ sub new {
 		# allocate new sockets
 		my ($new_port,@socks) = create_rtp_sockets( $new_addr,$range );
 		unless (@socks) {
-			DEBUG( "allocation of RTP sockets failed: $!" );
+			DEBUG( 1,"allocation of RTP sockets failed: $!" );
 			return;
 		}
 		push @rtp_sockets,@socks;
 		push @new_media, [ $new_addr,$new_port,int(@socks) ];
 
-		DEBUG( "m_old=$addr $port/$range new_port=$new_port" );
+		DEBUG( 100,"m_old=$addr $port/$range new_port=$new_port" );
 
 		# and save targets, e.g. where data received on these new socks
 		# gets forwarded to.
@@ -226,7 +240,7 @@ sub new {
 	}
 
 	unless (@rtp_sockets) {
-		DEBUG( "no sockets to allocate for socketgroup" );
+		DEBUG( 100,"no sockets to allocate for socketgroup" );
 		return;
 	}
 
@@ -291,6 +305,19 @@ sub get_targets {
 	return $self->{targets};
 }
 
+############################################################################
+# Dump debug information into string
+# Args: $self
+# Returns: $string
+############################################################################
+sub dump {
+	my Net::SIP::NATHelper::SocketGroup $self = shift;
+	my $result = $self->{id}." >> ".join( ' ', 
+		map { "$_->[0]:$_->[1]/$_->[2]" } 
+		@{$self->{media}} ).
+		"\n";
+	return $result;
+}
 
 ############################################################################
 ############################################################################
@@ -318,7 +345,7 @@ sub new {
 
 	# sanity check that both use the same number of sockets
 	if ( @{ $sfrom->get_socks } != @{ $sto->get_socks } ) {
-		DEBUG( "different number of sockets in sfrom and sto" );
+		DEBUG( 1,"different number of sockets in request and response" );
 		return;
 	}
 
@@ -388,12 +415,12 @@ sub callbacks {
 sub _forward_data {
 	my ($read_socket,$write_socket,$dstaddr,$group) = @_;
 	recv( $read_socket, my $buf,2**16,0 ) || do {
-		DEBUG( "recv data failed: $!" );
+		DEBUG( 10,"recv data failed: $!" );
 		return;
 	};
 	$group->didit;
 	send( $write_socket, $buf,0,$dstaddr ) || do {
-		DEBUG( "send data failed: $!" );
+		DEBUG( 10,"send data failed: $!" );
 		return;
 	};
 	my $name = sub {
@@ -402,12 +429,22 @@ sub _forward_data {
 		my ($port,$addr) = unpack_sockaddr_in( $bin );
 		return inet_ntoa($addr).':'.$port;
 	};
-	DEBUG( "transferred %d bytes on %s via %s to %s",
+	DEBUG( 50,"transferred %d bytes on %s via %s to %s",
 		length($buf), $name->( getsockname($read_socket )),
 		$name->(getsockname( $write_socket )),$name->($dstaddr));
 }
 
 
+############################################################################
+# Dump debug information into string
+# Args: $self
+# Returns: $string
+############################################################################
+sub dump {
+	my Net::SIP::NATHelper::Session $self = shift;
+	return ( $self->{sfrom} && $self->{sfrom}{id} || 'NO.SFROM' ).",".
+	 	( $self->{sto} && $self->{sto}{id} || 'NO.STO' )."\n";
+}
 
 ############################################################################
 ############################################################################
@@ -421,6 +458,7 @@ sub _forward_data {
 
 package Net::SIP::NATHelper::Call;
 use fields qw( callid by_cseq );
+use Hash::Util 'lock_keys';
 use Net::SIP::Debug;
 
 sub new {
@@ -449,7 +487,7 @@ sub allocate_sockets {
 		# if it is not known check if cseq is too small (retransmit of old packet)
 		foreach ( keys %{$self->{by_cseq}} ) {
 			if ( $_ > $cseq ) {
-				DEBUG( "retransmit? cseq $cseq is smaller than $_ in call $self->{callid}" );
+				DEBUG( 10,"retransmit? cseq $cseq is smaller than $_ in call $self->{callid}" );
 				return;
 			}
 		}
@@ -459,6 +497,7 @@ sub allocate_sockets {
 			socket_groups => {},    # indexed by idx=idfrom|idto
 			sessions => {},         # indexed by idfrom+idto
 		};
+		lock_keys( %$data );
 	}
 
 	# if SocketGroup already exists return it's media
@@ -484,7 +523,7 @@ sub activate_session {
 
 	my $data = $self->{by_cseq}{$cseq};
 	unless ( $data ) {
-		DEBUG( "tried to activate non-existing cseq $cseq in call $self->{callid}" );
+		DEBUG( 10,"tried to activate non-existing cseq $cseq in call $self->{callid}" );
 		return;
 	}
 
@@ -498,11 +537,12 @@ sub activate_session {
 	my $gfrom    = $sgroups->{$idfrom};
 	my $gto      = $sgroups->{$idto};
 	if ( !$gfrom || !$gto ) {
-		DEBUG( "session $self->{callid},$cseq $idfrom -> $idto not complete " );
+		DEBUG( 50,"session $self->{callid},$cseq $idfrom -> $idto not complete " );
 		return;
 	}
 
 	$sessions->{"$idfrom\0$idto"} = Net::SIP::NATHelper::Session->new( $gfrom,$gto );
+	DEBUG( 10,"new session $self->{callid},$cseq $idfrom -> $idto" );
 	return 1;
 }
 
@@ -518,30 +558,31 @@ sub close_session {
 	my ($cseq,$idfrom,$idto) = @_;
 
 	my $by_cseq = $self->{by_cseq};
-	my @sessions;
+	#DEBUG( 100,$self->dump );
 	if ( $cseq ) {
 		# close initiated by CANCEL
 		my $sess = delete $by_cseq->{$cseq}{session}{"$idfrom\0$idto"};
 		unless ( $sess ) {
-			DEBUG( "tried to CANCEL non existing session in $self->{callid}|$cseq" );
+			DEBUG( 10,"tried to CANCEL non existing session in $self->{callid}|$cseq" );
 			return;
 		}
-		push @sessions,$sess;
+		DEBUG( 10,"close session $self->{callid}|$cseq $idto,$idfrom success" );
 	} else {
 		# close from BYE (which has different cseq then the INVITE)
 		# need to go through all cseq to find session
+		my @sessions;
 		foreach my $cseq ( keys %$by_cseq ) {
 			# BYE can be initiated by UAC or UAS
 			my $sess;
-			my $s = $by_cseq->{$cseq}{session};
+			my $s = $by_cseq->{$cseq}{sessions};
 			push @sessions,$sess if $sess = delete $s->{"$idfrom\0$idto"};
-			push @sessions,$sess if $sess = delete $s->{$idto,$idfrom};
+			push @sessions,$sess if $sess = delete $s->{"$idto\0$idfrom"};
 		}
 		unless (@sessions) {
-			DEBUG( "tried to BYE non existing session in %s|%s",
-				$self->{callid},$cseq||'<any>' );
+			DEBUG( 10,"tried to BYE non existing session in $self->{callid}" );
 			return;
 		}
+		DEBUG( 10,"close session $self->{callid} $idto,$idfrom success" );
 	}
 
 	return 1;
@@ -566,7 +607,7 @@ sub expire {
 		foreach ( keys %$sessions ) {
 			my $lastmod = $sessions->{$_}->lastmod;
 			if ( $lastmod < $expire ) {
-				DEBUG( "expired session $_ because lastmod($lastmod) < expire($expire)" );
+				DEBUG( 10,"expired session $_ because lastmod($lastmod) < expire($expire)" );
 				delete $sessions->{$_};
 				$modified++;
 			}
@@ -587,7 +628,7 @@ sub expire {
 			next if $used{ $v }; # used in not expired session
 			my $lastmod = $v->lastmod;
 			if ( $lastmod < $expire ) {
-				DEBUG( "expired socketgroup $id because lastmod($lastmod) < expire($expire)" );
+				DEBUG( 10,"expired socketgroup $id because lastmod($lastmod) < expire($expire)" );
 				delete $groups->{$id};
 				$modified++;
 			}
@@ -628,5 +669,29 @@ sub callbacks {
 	return @cb;
 
 }
+############################################################################
+# Dump debug information into string
+# Args: $self
+# Returns: $string
+############################################################################
+sub dump {
+	my Net::SIP::NATHelper::Call $self = shift;
+	my $result = "-- DUMP of call $self->{callid} --\n";
+	my $by_cseq = $self->{by_cseq};
+	foreach ( sort { $a <=> $b } keys %$by_cseq ) {
+		$result.= "-- Socket groups in cseq $_ --\n";
+		my $sgroups = $by_cseq->{$_}{socket_groups};
+		foreach ( sort keys %$sgroups ) {
+			$result.= $sgroups->{$_}->dump;
+		}
+		$result.= "-- Sessions in cseq $_ --\n";
+		my $sessions = $by_cseq->{$_}{sessions};
+		foreach ( sort keys %$sessions ) {
+			$result.= $sessions->{$_}->dump;
+		}
+	}
+	return $result;
+}
+
 
 1;

@@ -68,16 +68,16 @@ sub media_recv_echo {
 		my $timer = $call->{dispatcher}->add_timer( 10,
 			[ sub {
 				my ($call,$didit,$timer) = @_;
-				DEBUG( "$didit=$$didit" );
 				if ( $$didit ) {
 					$$didit = 0;
 				} else {
-					DEBUG( "closing call because if inactivity" );
+					DEBUG(10, "closing call because if inactivity" );
 					$call->bye;
 					$timer->cancel;
 				}
 			}, $call,\$didit ],
-			10
+			10,
+			'rtp_inactivity',
 		);
 		push @{ $call->{ rtp_cleanup }}, [ sub { shift->cancel }, $timer ];
 	};
@@ -128,9 +128,9 @@ sub media_send_recv {
 					cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ] 
 				}],
 				160/8000, # 8000 bytes per second, 160 bytes per sample
+				'rtpsend',
 			);
 
-			DEBUG( "$call $sock $timer" );
 			push @{ $call->{ rtp_cleanup }}, [ sub {
 				my ($call,$sock,$timer) = @_;
 				$call->{loop}->delFD( $sock );
@@ -145,12 +145,13 @@ sub media_send_recv {
 				if ( $$didit ) {
 					$$didit = 0;
 				} else {
-					DEBUG( "closing call because if inactivity" );
+					DEBUG( 10,"closing call because if inactivity" );
 					$call->bye;
 					$timer->cancel;
 				}
 			}, $call,$args,\$didit ],
-			10
+			10,
+			'rtp_inactivity',
 		);
 		push @{ $call->{ rtp_cleanup }}, [ sub { shift->cancel }, $timer ];
 	};
@@ -173,7 +174,7 @@ sub _receive_rtp {
 	my ($sock,$writeto,$targs,$didit) = @_;
 
 	recv( $sock,my $buf,2**16,0 );
-	DEBUG( "received %d bytes from RTP", length($buf));
+	DEBUG( 50,"received %d bytes from RTP", length($buf));
 	$buf || return;
 
 	$$didit = 1;
@@ -182,7 +183,7 @@ sub _receive_rtp {
 	my ($vpxcc,$mpt,$seq,$tstamp,$ssrc) = unpack( 'CCnNN',substr( $buf,0,12,'' ));
 	my $version = ($vpxcc & 0xc0) >> 6;
 	if ( $version != 2 ) {
-		DEBUG( "RTP version $version" );
+		DEBUG( 100,"RTP version $version" );
 		return
 	}
 	# skip csrc headers
@@ -197,9 +198,9 @@ sub _receive_rtp {
 	my $padding = $vpxcc & 0x20 ? unpack( 'C', substr($buf,-1,1)) : 0;
 	my $payload = $padding ? substr( $buf,0,length($buf)-$padding ): $buf;
 
-	DEBUG( "payload=$seq/%d xh=%d padding=%d cc=%d", length($payload),$xh,$padding,$cc );
+	DEBUG( 100,"payload=$seq/%d xh=%d padding=%d cc=%d", length($payload),$xh,$padding,$cc );
 	if ( $targs->{rseq} && $seq<= $targs->{rseq} ) {
-		DEBUG( "seq=$seq last=$targs->{rseq} - dropped" );
+		DEBUG( 10,"seq=$seq last=$targs->{rseq} - dropped" );
 		return;
 	}
 	$targs->{rseq} = $seq;
@@ -236,21 +237,15 @@ sub _receive_rtp {
 ###########################################################################
 use Time::HiRes 'gettimeofday';
 sub _send_rtp {
-	my ($sock,$addr,$readfrom,$targs) = @_;
-
-	{
-		my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );
-		$fa = inet_ntoa($fa);
-		my ($tp,$ta) = unpack_sockaddr_in( $addr );
-		$ta = inet_ntoa($ta);
-		DEBUG( "send from $fa:$fp to $ta:$tp" );
-	}
+	my ($sock,$addr,$readfrom,$targs,$timer) = @_;
 
     my $buf;
 	if ( ref($readfrom) ) {
 		# payload by callback
 		$buf = invoke_callback( $readfrom );
 		if ( !$buf ) {
+			DEBUG( 50, "no more data from callback" );
+			$timer && $timer->cancel;
 			invoke_callback( $targs->{cb_done} );
 			return;
 		}
@@ -263,6 +258,8 @@ sub _send_rtp {
 				$targs->{repeat} = -1 if $targs->{repeat} < 0;
 				if ( $targs->{repeat} == 0 ) {
 					# no more sending
+					DEBUG( 50, "no more data from file" );
+					$timer && $timer->cancel;
 					invoke_callback( $targs->{cb_done} );
 					return;
 				}
@@ -283,7 +280,15 @@ sub _send_rtp {
     my ($high,$low) = gettimeofday();
     my $timestamp = ( $high << 16 ) | ( $low >> 16 );
     $targs->{wseq}++;
-    DEBUG( "seq=$targs->{wseq} ts=%x",$timestamp );
+
+	{
+		my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );
+		$fa = inet_ntoa($fa);
+		my ($tp,$ta) = unpack_sockaddr_in( $addr );
+		$ta = inet_ntoa($ta);
+    	DEBUG( 50, "$fa:$fp -> $ta:$tp seq=$targs->{wseq} ts=%x",$timestamp );
+	}
+
     my $header = pack('CCnNN',
         0b10000000, # Version 2
         0b00000000, # PMCU 8000

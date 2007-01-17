@@ -162,10 +162,10 @@ sub loop {
 			# Select which fds are readable or timeout
 			my $rin = '';
 			map { vec( $rin,fileno($_->[0]),1 ) = 1 } @to_read;
-			DEBUG( 50, "handles=".join( " ",map { fileno($_->[0]) } @to_read ));
+			DEBUG( 100, "handles=".join( " ",map { fileno($_->[0]) } @to_read ));
 			die $! if select( my $rout = $rin,undef,undef,$to ) < 0;
 			my @can_read = grep { vec($rout,fileno($_->[0]),1) } @to_read;
-			DEBUG( 50, "can_read=".join( " ",map { fileno($_->[0]) } @can_read ));
+			DEBUG( 100, "can_read=".join( " ",map { fileno($_->[0]) } @can_read ));
 
 			# returned from select
 			$looptime = $self->{now} = gettimeofday();

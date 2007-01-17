@@ -29,7 +29,7 @@ Listens on SIP address FROM for incoming calls. Sends
 welcome message and records data from user in PCMU/800 format.
 
 Options:
-  -d|--debug                   Enable debugging
+  -d|--debug [level]           Enable debugging
   -h|--help                    Help (this info)
   -R|--registrar host[:port]   register at given address
   -W|--welcome filename        welcome message
@@ -54,9 +54,9 @@ my $welcome_default = 'welcome.pmcu-8000';
 
 my $hangup = 60;
 my $savedir = '.';
-my ($welcome,$registrar,$username,$password);
+my ($welcome,$registrar,$username,$password,$debug);
 GetOptions(
-	'd|debug' => sub { Net::SIP::Debug->level(1) },
+	'd|debug:i' => \$debug,
 	'h|help' => sub { usage() },
 	'R|registrar=s' => \$registrar,
 	'W|welcome=s' => \$welcome,
@@ -67,6 +67,7 @@ GetOptions(
 ) || usage( "bad option" );
 
 
+Net::SIP::Debug->level( $debug || 1 ) if defined $debug;
 my $from = shift(@ARGV);
 $from || usage( "no local address" );
 $welcome ||= -f $welcome_default && $welcome_default;

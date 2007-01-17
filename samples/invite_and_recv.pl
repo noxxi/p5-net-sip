@@ -23,7 +23,7 @@ usage: $0 [ options ] FROM TO
 Makes SIP call from FROM to TO, optional record data
 and optional hang up after some time
 Options:
-  -d|--debug                   Enable debugging
+  -d|--debug [level]           Enable debugging
   -h|--help                    Help (this info)
   -P|--proxy host[:port]       use outgoing proxy, register there unless registrar given
   -R|--registrar host[:port]   register at given address
@@ -47,9 +47,9 @@ EOS
 ###################################################
 
 my ($proxy,$outfile,$registrar,$username,$password,$hangup);
-my @routes;
+my (@routes,$debug);
 GetOptions(
-	'd|debug' => sub { Net::SIP::Debug->level(1) },
+	'd|debug:i' => \$debug,
 	'h|help' => sub { usage() },
 	'P|proxy=s' => \$proxy,
 	'R|registrar=s' => \$registrar,
@@ -61,6 +61,7 @@ GetOptions(
 ) || usage( "bad option" );
 
 
+Net::SIP::Debug->level( $debug || 1 ) if defined $debug;
 my ($from,$to) = @ARGV;
 $to || usage( "no target" );
 

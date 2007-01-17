@@ -76,14 +76,14 @@ sub _default_rewrite_contact {
 		my $lc = length($contact);
 		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 		$new = unpack( 'H*',( $contact ^ $secret ));
-		DEBUG( 50,"rewrite $contact -> $new" );
+		DEBUG( 100,"rewrite $contact -> $new" );
 	} elsif ( $contact =~m{^[0-9a-f]+$} ) {
 		# needs to be written back
 		$new = pack( 'H*',$contact );
 		my $lc = length($new);
 		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 		$new = $new ^ $secret;
-		DEBUG( 50,"rewrite back $contact -> $new" );
+		DEBUG( 100,"rewrite back $contact -> $new" );
 		$new =~s{MARKER$}{} || return;
 	} else {
 		# invalid format

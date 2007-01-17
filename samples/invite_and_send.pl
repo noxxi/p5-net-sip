@@ -49,9 +49,10 @@ EOS
 # Get options
 ###################################################
 
-my ($proxy,@files,$registrar,$username,$password,$hangup);
+my ($proxy,@files,$registrar,$username,$password);
+my ($debug,$hangup);
 GetOptions(
-	'd|debug' => sub { Net::SIP::Debug->level(1) },
+	'd|debug:i' => \$debug,
 	'h|help' => sub { usage() },
 	'P|proxy=s' => \$proxy,
 	'R|registrar=s' => \$registrar,
@@ -61,6 +62,7 @@ GetOptions(
 ) || usage( "bad option" );
 
 
+Net::SIP::Debug->level( $debug || 1 ) if defined $debug;
 my ($from,$to) = @ARGV;
 $to || usage( "no target" );
 

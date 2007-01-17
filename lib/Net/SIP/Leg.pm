@@ -276,7 +276,7 @@ sub deliver {
 		return;
 	}
 
-	DEBUG( 2, "delivery from $self->{addr}:$self->{port} to $addr OK:\n",
+	DEBUG( 2, "delivery from $self->{addr}:$self->{port} to $addr OK:\n%s",
 		$packet->dump( Net::SIP::Debug->level -2 ) );
 
 	# XXXX dont forget to call callback back with ENOERR if 
@@ -313,7 +313,7 @@ sub receive {
 
 	my ($port,$host) = unpack_sockaddr_in( $from );
 	$host = inet_ntoa($host);
-	DEBUG( 2,"received on $self->{addr}:$self->{port} from $host:$port packet\n",
+	DEBUG( 2,"received on $self->{addr}:$self->{port} from $host:$port packet\n%s",
 		$packet->dump( Net::SIP::Debug->level -2 ));
 
 	return ($packet,"$host:$port");
