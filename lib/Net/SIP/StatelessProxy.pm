@@ -98,8 +98,7 @@ sub _default_rewrite_contact {
 #    $packet: Net::SIP::Request
 #    $leg: incoming leg
 #    $from: ip:port where packet came from
-# Returns: bool
-#    true if successfully handeled, false if not handled
+# Returns: NONE
 ###########################################################################
 sub receive {
 	my ($self,$packet,$incoming_leg,$from) = @_;
@@ -126,7 +125,7 @@ sub receive {
 	my $disp = $self->{dispatcher};
 
 	# find out how to forward packet
-	my $dst_addr;
+	my ($dst_addr,$outgoing_leg);
 	if ( $packet->is_response ) {
 		# find out where to send packet by parsing the upper via
 		# which should contain the addr of the next hop
@@ -140,6 +139,12 @@ sub receive {
 		$port ||= 5060; # FIXME default for sip, not sips!
 		$dst_addr = "$addr:$port";
 		DEBUG( 100,"get dst_addr from header: $first -> $dst_addr" );
+
+		if ( my $received = $param->{received} ) {
+			my ($addr,$port) = split( ':',$received,2 );
+			($outgoing_leg) = $disp->get_legs( addr => $addr, port => $port );
+			# FIXME: should we drop packet if we don't have the specified leg?
+		}
 
 	} else {
 		# check if the URI was handled by rewrite_contact
@@ -156,17 +161,54 @@ sub receive {
 			DEBUG( 10,"rewrote URI from '%s' to '%s'", $packet->uri, $to );
 			$packet->set_uri( $to )
 		}
+
+		# if the top route header points to a local leg we use this as
+		# outgoing leg
+		if ( my ($route) = $packet->get_header( 'route' ) ) {
+			my ($data) = sip_hdrval2parts( route => $route );
+			my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+			($outgoing_leg) = $disp->get_legs( addr => $addr, port => $port );
+		}
 	}
 
-	# FIXME: if it's a response use $param->{received} to find out 
-	# the leg through which the request got send
-	# instead of simply using the other leg
-	my $outgoing_leg = first { $_ != $incoming_leg } $disp->get_legs;
-	$outgoing_leg ||= $incoming_leg; # if only one leg is used
+	my @args = ( $dst_addr,$outgoing_leg );
+
+	if ( !$outgoing_leg || ! $dst_addr ) {
+		# try to get leg based on URI: ask dispatcher
+		return $self->{dispatcher}->resolve_uri(
+			$packet->uri,
+			\$args[0],
+			\$args[1],
+			[ \&__forward,$self,$packet,$incoming_leg,\@args ]
+
+		)
+	} else {
+		return __forward( $self,$packet,$incoming_leg,\@args );
+	}
+}
+
+###########################################################################
+# second part of receive
+# will be called either directly from receive or from a callback while
+# resolving the URI. In this case @error has to be checked
+# Args: ($self,$packet,$incoming_leg,$args,@eror)
+#   $args: [ $dst_addr,$outgoing_leg ]
+#   @error: set if resolving URI failed
+# Returns: NONE
+###########################################################################
+sub __forward {
+	my ($self,$packet,$incoming_leg,$args,@error) = @_;
+	my ($dst_addr,$outgoing_leg) = @$args;
+
+	if (@error) {
+		DEBUG( 10,"cannot resolve URI '%s: %s' for forwarding",$packet->uri,$error[0] );
+		return;
+	}
 
 	# rewrite contact header
 	if ( my @contact = $packet->get_header( 'contact' ) ) {
 
+		my $rewrite_contact = $self->{rewrite_contact};
 		foreach my $c (@contact) {
 
 			# rewrite all sip(s) contacts
@@ -204,7 +246,7 @@ sub receive {
 	}
 
 	# Just forward packet via the outgoing_leg
-	$disp->deliver( $packet, 
+	$self->{dispatcher}->deliver( $packet, 
 		leg => $outgoing_leg, 
 		dst_addr => $dst_addr, 
 		do_retransmits => 0 

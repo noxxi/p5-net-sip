@@ -10,7 +10,7 @@ our @EXPORT = qw( DEBUG DEBUG_DUMP LEAK_TRACK );
 our @EXPORT_OK = qw( debug stacktrace );
 
 
-our $level; # needed global for source filter
+our $level = 0; # needed global for source filter
 my %level4package;
 my $debug_prefix = 'DEBUG:'; # default prefix
 

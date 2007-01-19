@@ -86,8 +86,7 @@ is the C<< "ip:port" >> of the sender.
 
 Talled from the dispatcher on incoming packets. The packet
 will be rewritten (C<Via> and C<Record-Route> headers added,
-B<Contact> modified) and then the packet will be forwarded through
-the other leg (or through the same leg if there is only one leg).
+B<Contact> modified) and then the packet will be forwarded.
 
 For requests it can determine the target of the forwarded
 packet by looking at the route or if no route it looks at

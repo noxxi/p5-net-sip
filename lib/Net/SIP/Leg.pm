@@ -50,7 +50,11 @@ sub new {
 
 	} elsif ( my $addr = $self->{addr} = delete $args{addr} ) {
 		my $port = delete $args{port};
-		$port = 5060 if ! defined $port; # port = 0 -> get port from system
+		# port = 0 -> get port from system
+		if ( ! defined $port ) { 
+			$port = $1 if $addr =~s{:(\d+)$}{};
+			$port ||= 5060; 
+		} 
 		my $proto = $self->{proto} = delete $args{proto} || 'udp';
 		$self->{sock} = IO::Socket::INET->new(
 			Proto => $proto,

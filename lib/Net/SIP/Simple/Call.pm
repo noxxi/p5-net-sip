@@ -42,6 +42,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       with (result,status,self,%args) where status is OK|FAIL
 #   cb_established: callback which will be called on receiving ACK in INVITE
 #       with (result,status,self) where status is OK|FAIL
+#   sip_header: hashref of SIP headers to add
 
 use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
 use Net::SIP::Debug;
@@ -191,7 +192,10 @@ sub reinvite {
 
 	my $stopvar = 0;
 	$param->{cb_final} ||= \$stopvar;
-	$self->{ctx} = $self->{endpoint}->invite( $ctx, [ $cb,$self,$param ], $sdp );
+	$self->{ctx} = $self->{endpoint}->invite( 
+		$ctx, [ $cb,$self,$param ], $sdp, 
+		$param->{sip_header} ? %{ $param->{sip_header} } : ()
+	);
 	if ( $param->{cb_final} == \$stopvar ) {
 		# wait until final response
 		$self->loop( \$stopvar );

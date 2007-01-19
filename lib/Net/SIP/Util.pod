@@ -142,6 +142,25 @@ Example for key 'www-authenticate':
 Inverse function to B<sip_hdrval2parts>, e.g constructs header value for KEY from
 PREFIX and %PARAMETER and returns value.
 
+=item sip_uri2parts ( URI )
+
+Returns parts from URI. If called in scalar context it returns only the domain
+part. In array context it returns an array with the following values:
+
+=over 4
+
+=item domain - The domain part (including ports if any)
+
+=item user - The user part of the SIP address
+
+=item proto - The protocol, e.g. "sip" or "sips".
+
+=item data - The part before any parameter, includes SIP address
+
+=item param - A hash reference to any parameter, like in B<sip_hdrval2parts>.
+
+=back
+
 =back
 
 

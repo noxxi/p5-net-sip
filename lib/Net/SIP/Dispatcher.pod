@@ -62,8 +62,23 @@ sub B<deliver>.
 
 Optional mapping between target SIP domain and proxy to use.
 This is usually a hash of C<< ( domain, "ip_proxy:port_proxy" ) >> 
-pairs. Special domain '*' can be used to specify a fallback.
+pairs. Special domain '*' can be used to specify a fallback
+and '*.domain' to include not only the domain but the subdomains
+too.
 See sub B<deliver> for more details.
+
+=item domain2leg
+
+Optional mapping between target SIP domain and leg to use, similar
+to B<domain2proxy>. It is a reference to a hash where the key
+is the domain and the value the L<Net::SIP::Leg> object.
+
+=item leg2proxy
+
+Optional mapping between legs and outgoing proxies. This is a 
+reference to a list of \@pairs, where the first part of the
+pair is the L<Net::SIP::Leg> object and the second part is the
+C<< "ip:port" >> of the proxy.
 
 =back
 
@@ -193,26 +208,68 @@ If a leg is specified it will be used for delivery. B<dst_addr> needs to
 be specified in this case too.
 This is usually the case for locally generated responses.
 
+=item * 
+
+Otherwise leg and dst_addr will be retrieved using B<resolve_uri>.
+See there.
+
+
+=back
+
+If the packets could be retransmitted appropriate setups
+will be done. Retransmission will be done until final failure
+or until B<cancel_delivery> will be called for the packet, which
+usually means, that the packet was successfully delivered because
+a response to the packet was received.
+
+=item resolve_uri ( URI, ADDR_REF, LEG_REF, CALLBACK )
+
+Resolves URI to get the destination address and the outgoing leg.
+ADDR_REF and LEG_REF are references which will get filled with
+the computed values. 
+
+Because the method can be asynchronous (DNS lookups can be involved)
+it will call CALLBACK once it is done. If no errors occured
+CALLBACK will be invoked without additional arguments, otherwise
+with the errno as additional argument.
+
+Resolving will be done as follows:
+
+=over 8
+
 =item *
 
-Otherwise the global outgoing proxy will be used if specified.
+If B<domain2proxy> is given it will try to get the dst_addr
+from this, e.g. the address of the proxy responsable for the domain 
+(if any). From dst_addr it will then get the leg.
 
 =item *
 
-If B<dst_addr> is not given needs to be computed from the URI.
-Naturally this works only for requests.
-See sub B<__resolve_uri> in the source code.
+If still no leg is known but B<domain2leg> it will try to get the leg
+from this (but still no dst_addr). This option makes usually only
+sense in connection with B<leg2proxy> and without B<domain2proxy>.
 
-If the URI contains an IP address this will be used.
+=item *
 
-If B<domain2proxy> was given in the constructor it will be used
-to lookup an outgoing proxy. 
-If SIP domain for outgoing request is not in the mapping but
-an upper domain is in the mapping then this entry will be used.
+If no dst_addr is known but a leg (mostly when B<domain2leg>
+is used) it will try to use B<leg2proxy> to find out the outgoing proxy
+for the leg.
 
-If no outgoing proxy could be found it will be looked up using 
-a partial implementation of RFC3263, e.g. DNS SRV records will
-be used (but not DNS NAPTR records).
+=item *
+
+If still no dst_addr is known it will use B<outgoing_proxy>
+as the dst_addr.
+
+=item *
+
+If still no dst_addr is known but the SIP domain is an
+IP address this will be used as dst_addr.
+
+=item *
+
+The last effort will be made by looking up the SIP domain using
+DNS with a partial implementation of RFC3263, e.g. it looks at 
+the DNS SRV records but not at NAPTR records.
 
 =item *
 
@@ -222,12 +279,6 @@ all legs and checking, if the leg could deliver to this
 address by calling B<can_deliver_to> on the leg (see L<Net::SIP::Leg>).
 
 =back
-
-If the packets could be retransmitted appropriate setups
-will be done. Retransmission will be done until final failure
-or until B<cancel_delivery> will be called for the packet, which
-usually means, that the packet was successfully delivered because
-a response to the packet was received.
 
 =item cancel_delivery ( ID )
 

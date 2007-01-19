@@ -1,8 +1,6 @@
 - more examples
-  * simple client
-  * simple server
   * simple proxy + registrar
-  * simple answer machine
+  * NAT proxy
 
 - more tests
   * invite + listen using proxy + registrar
@@ -12,6 +10,9 @@
   * tests, where either the UAC or the UAS issues a BYE
   * tests with bad relay in between, which forgets
     packets, so that retransmits will be tested
+  * proxy with NAT where SDP data come in
+     * 18x + 2xx + INVITE
+     * 2xx + ACK
 
 - more documentation
   * describe mechanism to use another Leg implementation
@@ -20,3 +21,5 @@
 - implementation
   * better async handling of DNS SRV in Net::SIP::Dispatcher::__resolve_uri
   * full support for TCP
+  * maybe add Contact header by default for Endpoint?
+  * proxy: use infos from Route header too

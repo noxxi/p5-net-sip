@@ -128,6 +128,10 @@ invoked, when it received the final answer on locally created INVITE requests.
 
 Callback will be invoked with C<< ( 'OK', SELF ) >>.
 
+=item sip_header
+
+A reference to a hash with additional SIP headers for the INVITE requests.
+
 =item ...
 
 More parameters may be specified and are accessable from the callbacks.

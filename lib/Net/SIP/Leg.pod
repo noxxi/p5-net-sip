@@ -35,7 +35,8 @@ will be determined from this object and not from %ARGS.
 
 =item addr
 
-The local address of the socket.
+The local address of the socket. If this is given but no port it
+will extract port from addr, if it's in the format C<< host:port >>.
 
 =item port
 
