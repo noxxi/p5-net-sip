@@ -111,4 +111,11 @@ Returns TRUE if the leg can deliver to ADDR (IP), else FALSE.
 Rigth now returns TRUE in all cases, because it cannot use the route
 information from the underlying OS.
 
+=item fd
+
+Returns socket of leg. In some special environments (like tests) there might
+be legs, which don't have a socket associated. In this case you need to call
+B<receive> from L<Net::SIP::Dispatcher> yourself, because it cannot be
+called automatically once it receives data on the socket.
+
 =back

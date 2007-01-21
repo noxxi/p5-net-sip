@@ -353,6 +353,15 @@ sub can_deliver_to {
 	return 1
 }
 
+###########################################################################
+# returns FD on Leg
+# Args: $self
+# Returns: socket of leg
+###########################################################################
+sub fd {
+	my Net::SIP::Leg $self = shift;
+	return $self->{sock};
+}
 
 	
 1;

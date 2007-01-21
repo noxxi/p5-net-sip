@@ -166,23 +166,25 @@ sub add_leg {
 
 		push @$legs, $leg;
 
-		my $cb = sub {
-			my ($self,$leg) = @_;
+		if ( my $fd = $leg->fd ) {
+			my $cb = sub {
+				my ($self,$leg) = @_;
 
-			# leg->receive might return undef if the packet wasnt
-			# read successfully. for tcp connections the receive
-			# on a listening socket might cause a new leg to be added
-			# which then will receive the packet (maybe over multiple
-			# read attempts)
-			my ($packet,$from) = $leg->receive or do {
-				DEBUG( 50,"failed to receive on leg" );
-				return;
+				# leg->receive might return undef if the packet wasnt
+				# read successfully. for tcp connections the receive
+				# on a listening socket might cause a new leg to be added
+				# which then will receive the packet (maybe over multiple
+				# read attempts)
+				my ($packet,$from) = $leg->receive or do {
+					DEBUG( 50,"failed to receive on leg" );
+					return;
+				};
+
+				# handle received packet
+				$self->receive( $packet,$leg,$from );
 			};
-
-			# handle received packet
-			$self->receive( $packet,$leg,$from );
-		};
-		$self->{eventloop}->addFD( $leg->{sock}, [ $cb,$self,$leg ]);
+			$self->{eventloop}->addFD( $fd, [ $cb,$self,$leg ]);
+		}
 	}
 }
 
@@ -530,25 +532,22 @@ sub resolve_uri {
 	if ( ! $leg ) {
 		my $d2l = $self->{domain2leg};
 		if ( $d2l && %$d2l ) {
-			my $leg_addr;
 			my $dom = $domain;
-			$leg_addr = $d2l->{$dom};
+			$leg = $d2l->{$dom};
 			while ( ! $leg ) {
 				$dom =~s{^[^\.]+\.}{} or last;
-				$leg_addr = $d2l->{ "*.$dom" };
+				$leg = $d2l->{ "*.$dom" };
 			}
-			$leg_addr ||= $d2l->{'*'}; # catch-all
-			if ( $leg_addr ) {
+			$leg ||= $d2l->{ $dom = '*'}; # catch-all
+			if ( $leg ) {
 				DEBUG( 50,"setting leg from domain '$dom'" );
-				my ($addr,$port) = split( m{:},$leg_addr,2 );
-				($leg) = $self->get_legs( addr => $addr, port => $port );
 			}
 		}
 	}
 
 	# do we have a fixed proxy for the leg?
 	if ( ! $dst_addr and
-		( my $addr = $leg && $self->{leg2proxy}{"$leg->{addr}:$leg->{port}"} )) {
+		( my $addr = $leg && $self->{leg2proxy}{"$leg"} )) {
 		# set dst_addr from proxy on leg
 		$dst_addr = $addr;
 		DEBUG( 50,"setting dst_addr to $addr from leg specific proxy" );
@@ -564,8 +563,10 @@ sub resolve_uri {
 				$dom =~s{^[^\.]+\.}{} or last;
 				$dst_addr = $d2p->{ "*.$dom" };
 			}
-			$dst_addr ||= $d2p->{'*'}; # catch-all
-			DEBUG( 50,"setting dst_addr from domain specific proxy" );
+			$dst_addr ||= $d2p->{ $dom = '*'}; # catch-all
+			if ( $dst_addr ) {
+				DEBUG( 50,"setting dst_addr from domain specific proxy for domain $dom" );
+			}
 		}
 	}
 
