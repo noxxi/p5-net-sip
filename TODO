@@ -13,13 +13,16 @@
   * proxy with NAT where SDP data come in
      * 18x + 2xx + INVITE
      * 2xx + ACK
+  * tests for delivering packets using Net::SIP::Dispatcher:resolve_uri
+  * tests for forwarding packets in stateless proxy 
+    based on route, via, uri,...
+  * tests for the examples
 
 - more documentation
   * describe mechanism to use another Leg implementation
   * samples for integration with other loops
 
 - implementation
-  * better async handling of DNS SRV in Net::SIP::Dispatcher::__resolve_uri
+  * better async handling of DNS SRV in Net::SIP::Dispatcher::resolve_uri
   * full support for TCP
   * maybe add Contact header by default for Endpoint?
-  * proxy: use infos from Route header too
