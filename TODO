@@ -19,6 +19,7 @@
   * tests for the examples
 
 - more documentation
+  * document Net::SIP::NATHelper
   * describe mechanism to use another Leg implementation
   * samples for integration with other loops
 

@@ -1,5 +1,33 @@
 Revision history for Net::SIP
 
+0.15
+  - various bugfixes
+  - limit Max-Forwards header to 70 while forwarding packets
+    for security reasons (to avoid bad clients which will set
+    it to something very high and then try to force loop)
+  - do not add Record-Route header to REGISTER requests
+  - major changes and enhancements on Net::SIP::StatelessProxy
+  - rename Net::SIP::Dispatcher::Eventloop::addTimer to add_timer
+    so that it is the same name like in the other modules
+  - Net::SIP::Simple: way to add explicit Route headers#
+  - new package Net::SIP::NATHelper do aid in the writing of 
+    SIP proxies which do NAT (no documentation yet)
+  - support for debug levels in Net::SIP::Debug
+    sample scripts support various debug levels, see doc to
+    Net::SIP::Debug for meaning of different levels
+  - samples/stateless_proxy.pl as sample implementation for
+    slightly complex stateless proxy (not fully tested yet)
+  - new function sip_uri2parts in Net::SIP::Util
+  - ways to specify custom headers in Net::SIP::Simple using
+    option 'sip_header'
+  - new keys domain2leg and leg2proxy in Net::SIP::Dispatcher
+    which influence routing
+  - new method resolve_uri in Net::SIP::Dispatcher to asnychronously
+    resolve URI (was __resolve_uri, but now public with slightly
+    different interface)
+  - new test 03_forward_stateless which tests parts of routing
+    for stateless proxy
+
 0.14
   - forgot to include samples to MANIFEST, this is fixed now
     so that they get included into the distribution
