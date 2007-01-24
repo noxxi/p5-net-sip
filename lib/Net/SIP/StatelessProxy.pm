@@ -125,28 +125,19 @@ sub receive {
 	my $disp = $self->{dispatcher};
 
 	# find out how to forward packet
-	my ($dst_addr,$outgoing_leg);
+
+	my %entry = (
+		packet => $packet,
+		incoming_leg => $incoming_leg,
+		from => $from,
+		outgoing_leg => [],
+		dst_addr => [],
+	);
+
 	if ( $packet->is_response ) {
-		# find out where to send packet by parsing the upper via
-		# which should contain the addr of the next hop
-
-		my ($via) = $packet->get_header( 'via' ) or do {
-			DEBUG( 10,"no via header in packet. DROP" );
-			return;
-		};
-		my ($first,$param) = sip_hdrval2parts( via => $via );
-		my ($addr,$port) = $first =~m{([\w\-\.]+)(?::(\d+))?\s*$};
-		$port ||= 5060; # FIXME default for sip, not sips!
-		$dst_addr = "$addr:$port";
-		DEBUG( 100,"get dst_addr from header: $first -> $dst_addr" );
-
-		if ( my $received = $param->{received} ) {
-			my ($addr,$port) = split( ':',$received,2 );
-			($outgoing_leg) = $disp->get_legs( addr => $addr, port => $port );
-			# FIXME: should we drop packet if we don't have the specified leg?
-		}
-
+		__forward_response( $self, \%entry );
 	} else {
+
 		# check if the URI was handled by rewrite_contact
 		# this is the case where the Contact-Header was rewritten
 		# (see below) and a new request came in using the new
@@ -162,49 +153,240 @@ sub receive {
 			$packet->set_uri( $to )
 		}
 
-		# if the top route header points to a local leg we use this as
-		# outgoing leg
-		if ( my ($route) = $packet->get_header( 'route' ) ) {
-			my ($data) = sip_hdrval2parts( route => $route );
-			my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
-			($outgoing_leg) = $disp->get_legs( addr => $addr, port => $port );
-		}
-	}
-
-	my @args = ( $dst_addr,$outgoing_leg );
-
-	if ( !$outgoing_leg || ! $dst_addr ) {
-		# try to get leg based on URI: ask dispatcher
-		return $self->{dispatcher}->resolve_uri(
-			$packet->uri,
-			\$args[0],
-			\$args[1],
-			[ \&__forward,$self,$packet,$incoming_leg,\@args ]
-
-		)
-	} else {
-		return __forward( $self,$packet,$incoming_leg,\@args );
+		__forward_request( $self, \%entry );
 	}
 }
 
 ###########################################################################
-# second part of receive
-# will be called either directly from receive or from a callback while
-# resolving the URI. In this case @error has to be checked
-# Args: ($self,$packet,$incoming_leg,$args,@eror)
-#   $args: [ $dst_addr,$outgoing_leg ]
-#   @error: set if resolving URI failed
-# Returns: NONE
+# Get destination address from Via: header in response
+# Calls __forward_response_1 either directly or after resolving hostname
+# of destination to IP
 ###########################################################################
-sub __forward {
-	my ($self,$packet,$incoming_leg,$args,@error) = @_;
-	my ($dst_addr,$outgoing_leg) = @$args;
+sub __forward_response {
+	my Net::SIP::StatelessProxy $self = shift;
+	my $entry = shift;
+	my $packet = $entry->{packet};
 
-	if (@error) {
-		DEBUG( 10,"cannot resolve URI '%s: %s' for forwarding",$packet->uri,$error[0] );
+	# find out where to send packet by parsing the upper via
+	# which should contain the addr of the next hop
+
+	my ($via) = $packet->get_header( 'via' ) or do {
+		DEBUG( 10,"no via header in packet. DROP" );
 		return;
+	};
+	my ($first,$param) = sip_hdrval2parts( via => $via );
+	my ($addr,$port) = $first =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+	$port ||= 5060; # FIXME default for sip, not sips!
+	@{ $entry->{dst_addr}} = ( "$addr:$port" );
+	DEBUG( 50,"get dst_addr from via header: $first -> $addr:$port" );
+
+	$entry->{via_received} = $param->{received};
+	if ( $addr !~m{^[0-9\.]+$} ) {
+		$self->{dispatcher}->dns_host2ip(
+			$addr,
+			[ \&__forward_response_1,$self,$entry ]
+		);
+	} else {
+		__forward_response_1($self,$entry);
+	}
+}
+
+###########################################################################
+# Called from _forward_response directly or inderectly after resolving
+# hostname of destination.
+# If received parameter was in Via header it will try to find the leg
+# based on it.
+# Calls __forward_packet_final at the end to deliver packet
+###########################################################################
+sub __forward_response_1 {
+	my Net::SIP::StatelessProxy $self = shift;
+	my $entry = shift;
+	if ( @_ ) {
+		my ($errno,$ip) = @_;
+		unless ( $ip ) {
+			DEBUG( 10,"cannot resolve address $entry->{dst_addr}[0]" );
+			return;
+		}
+		# replace host part in dst_addr with ip
+		$entry->{dst_addr}[0] =~s{^(udp:|tcp:)?([^:]+)}{$1$ip};
 	}
 
+	if ( my $received = $entry->{via_received} ) {
+		# FIXME: we assume that the received entry is done by us
+		# and that we only put IP addresses inside
+		my ($addr,$port) = split( ':',$received,2 );
+		my @received_legs = $self->{dispatcher}->get_legs( 
+			addr => $addr, port => $port );
+		my $dst_addr = $entry->{dst_addr};
+		my @legs;
+		foreach my $addr (@$dst_addr) {
+			push @legs, grep { $_->can_deliver_to( $addr ) } @received_legs;
+		}
+
+		if ( !@legs ) {
+			# FIXME: should we really drop packet if we don't have the specified leg?
+			# or should we use any leg which could deliver to $dst_addr
+			DEBUG( 10,"cannot find leg for $received which can deliver to $dst_addr" );
+			return;
+		}
+
+		@{ $entry->{outgoing_leg} } = @legs;
+		DEBUG( 50,"getting leg from received=$received" );
+	}
+
+	__forward__packet_final( $self,$entry );
+}
+
+
+###########################################################################
+# Forwards request
+# try to find outgoing_leg from Route header
+# if there are more Route headers it picks the destination address from next
+# if it cannot get a destination address tries to resolve URI and then
+# calls __forward_request_1
+###########################################################################
+sub __forward_request {
+	my Net::SIP::StatelessProxy $self = shift;
+	my $entry = shift;
+	my $packet = $entry->{packet};
+	my $disp = $self->{dispatcher};
+
+	# if the top route header points to a local leg we use this as outgoing leg
+	if ( my @route = $packet->get_header( 'route' ) ) {
+		my ($data) = sip_hdrval2parts( route => $route[0] );
+		my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+		my @legs = $disp->get_legs( addr => $addr, port => $port );
+		if ( @legs ) {
+			DEBUG( 50,"setting leg from our route header" );
+			$entry->{outgoing_leg} = \@legs;
+			shift(@route);
+		} 
+		if ( @route ) {
+			# still routing infos. Use next route as dst_addr
+			my ($data) = sip_hdrval2parts( route => $route[0] );
+			my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+			@{ $entry->{dst_addr} } = ( "$addr:$port" );
+			DEBUG( 50, "setting dst_addr from route to $addr:$port" );
+		}
+	}
+
+	if ( ! @{ $entry->{dst_addr}} ) {
+		my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
+		return $disp->resolve_uri(
+			$packet->uri,
+			$entry->{dst_addr},
+			$entry->{outgoing_leg},
+			[ \&__forward_request_1,$self,$entry ],
+			$proto,
+		);
+	}
+
+	__forward_request_1( $self,$entry );
+}
+
+###########################################################################
+# should have dst_addr now, but this might be still with non-IP hostname
+# resolve it and go to __forward_request_2 or directly to __forward_packet_final
+###########################################################################
+sub __forward_request_1 {
+	my Net::SIP::StatelessProxy $self = shift;
+	my $entry = shift;
+
+	my $dst_addr = $entry->{dst_addr};
+	if ( ! @$dst_addr ) {
+		DEBUG( 10,"cannot find dst for uri ".$entry->{packet}->uri );
+		return;
+	}
+	my %hostnames;
+	foreach (@$dst_addr) {
+		my ($addr) = m{^(?:udp:|tcp:)?([^:]+)};
+		$hostnames{$addr} = undef if $addr !~m{^[0-9\.]+$};
+	}
+	if ( %hostnames ) {
+		$self->{dispatcher}->dns_host2ip(
+			\%hostnames,
+			[ \&__forward_request_2,$self,$entry ]
+		);
+	} else {
+		__forward_packet_final($self,$entry);
+	}
+}
+
+
+###########################################################################
+# called after hostname for destination address got resolved
+# calls __forward_packet_final
+###########################################################################
+sub __forward_request_2 {
+	my Net::SIP::StatelessProxy $self = shift;
+	my ($entry,$errno,$host2ip) = @_;
+	my $dst_addr = $entry->{dst_addr};
+	while ( my ($host,$ip) = each %$host2ip ) {
+		unless ( $ip ) {
+			DEBUG( 10,"cannot resolve address $host" );
+			@$dst_addr = grep { !m{^(?:\w*:)?\Q$host\E(?::)?} } @$dst_addr;
+			next;
+		} else {
+			DEBUG( 50,"resolved $host -> $ip" );
+			s{^(\w*:)?\Q$host\E(:)?}{$1$ip$2} for (@$dst_addr);
+		}
+	}
+
+	return unless @$dst_addr; # nothing could be resolved
+
+	__forward_packet_final( $self,$entry );
+}
+
+
+###########################################################################
+# dst_addr is known and IP
+# if no legs given use the one which can deliver to dst_addr
+# if there are more than one try to pick best based on protocol
+# but finally pick simply the first
+# rewrite contact header
+# call forward_outgoing on the outgoing_leg
+# and finally deliver the packet
+###########################################################################
+sub __forward_packet_final {
+	my ($self,$entry) = @_;
+
+	my $dst_addr = $entry->{dst_addr};
+	my $legs = $entry->{outgoing_leg};
+	if ( !@$legs == @$dst_addr ) {
+		# get legs from dst_addr
+		my @all_legs = $self->{dispatcher}->get_legs;
+		@$legs = ();
+		my @addr;
+		foreach my $addr (@$dst_addr) {
+			my $leg = first { $_->can_deliver_to( $addr ) } @all_legs;
+			if ( ! $leg ) {
+				DEBUG( 50,"no leg for $addr" );
+				next;
+			} 
+			push @addr,$addr;
+			push @$legs,$leg
+		}
+		@$dst_addr = @addr;
+		@$legs or do {
+			DEBUG( 10,"cannot find any legs" );
+			return;
+		};
+	}
+
+	my $incoming_leg = $entry->{incoming_leg};
+	if ( @$legs > 1 ) {
+		if ( $incoming_leg->{proto} eq 'tcp' ) {
+			# prefer tcp legs
+			my @tcp_legs = grep { $_->{proto} eq 'tcp' } @$legs;
+			@$legs = @tcp_legs if @tcp_legs;
+		}
+	}
+
+	# pick first
+	my $outgoing_leg = $legs->[0]; 
+	$dst_addr = $dst_addr->[0];
+
+	my $packet = $entry->{packet};
 	# rewrite contact header
 	if ( my @contact = $packet->get_header( 'contact' ) ) {
 

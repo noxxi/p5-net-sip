@@ -103,17 +103,6 @@ objects.
 Hash with mapping between domain and upstream proxy. See same key in the constructor
 of L<Net::SIP::Dispatcher> for more details.
 
-=item domain2leg|d2l
-
-Hash with mapping between domain and outgoing leg. See same key in the constructor
-of L<Net::SIP::Dispatcher> for more details.
-
-=item leg2proxy|l2p
-
-Reference to list if \@pairs containing the leg and the outgoing proxy to map
-a leg to an outgoing proxy.  See same key in the constructor
-of L<Net::SIP::Dispatcher> for more details.
-
 =back
 
 =back

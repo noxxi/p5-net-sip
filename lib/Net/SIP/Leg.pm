@@ -255,6 +255,28 @@ sub deliver {
 	#DEBUG( "%s -> %s %s %s",$addr,$proto||'',$host, $port||'' );
 	$port ||= 5060; # only right for sip, not sips!
 
+
+	$self->sendto( $packet->as_string, $host,$port,$callback )
+		|| return;
+	DEBUG( 2, "delivery from $self->{addr}:$self->{port} to $addr OK:\n%s",
+		$packet->dump( Net::SIP::Debug->level -2 ) );
+}
+
+###########################################################################
+# send data to peer
+# Args: ($self,$data,$host,$port,$callback)
+#   $data: string representation of SIP packet
+#   $host: target ip
+#   $port: target port
+#   $callback: callback for error|success, see method deliver
+# Returns: $success
+#   $success: true if no problems occured while sending (this does not
+#     mean that the packet was delivered reliable!)
+###########################################################################
+sub sendto {
+	my Net::SIP::Leg $self = shift;
+	my ($data,$host,$port,$callback) = @_;
+
 	# XXXXX for now udp only
 	# for tcp the delivery might be done over multiple callbacks
 	# (eg whenever I can write on the socket)
@@ -271,20 +293,17 @@ sub deliver {
 		invoke_callback( $callback, EINVAL );
 	}
 
-	# XXXXX if host is not IP but hostname this might block!
 	$host = inet_aton( $host );
 	my $target = sockaddr_in( $port,$host );
-	unless ( $self->{sock}->send( $packet->as_string,0,$target )) {
+	unless ( $self->{sock}->send( $data,0,$target )) {
 		DEBUG( 1,"send failed: callback=$callback error=$!" );
 		invoke_callback( $callback, $! );
 		return;
 	}
 
-	DEBUG( 2, "delivery from $self->{addr}:$self->{port} to $addr OK:\n%s",
-		$packet->dump( Net::SIP::Debug->level -2 ) );
-
 	# XXXX dont forget to call callback back with ENOERR if 
 	# delivery by tcp successful
+	return 1;
 }
 
 ###########################################################################
@@ -339,12 +358,28 @@ sub check_via {
 
 ###########################################################################
 # check if the leg could deliver to the specified addr
-# Args: ($self,$addr)
-# Returns: 1|0
+# Args: ($self,($addr|%spec))
+#  $addr: addr|proto:addr|addr:port|proto:addr:port
+#  %spec: hash with keys addr,proto,port
+# Returns: $bool
+#  $bool: true if we can deliver to $ip with $proto
 ###########################################################################
 sub can_deliver_to {
 	my Net::SIP::Leg $self = shift;
-	my $addr = shift;
+	my %spec;
+	if (@_>1) {
+		%spec = @_
+	} else {
+		my $spec = shift;
+		my ($proto,$addr) = $spec =~m{^(?:(udp|tcp):)?([^:]+)}
+			or return; # wrong spec?
+		$spec{proto} = $proto if $proto;
+		$spec{addr}  = $addr;
+		# ignore port
+	}
+
+	# check against proto of leg
+	return if ( $spec{proto} && $spec{proto} ne $self->{proto} );
 
 	# XXXXX dont know how to find out if I can deliver to this addr from this
 	# leg without lookup up route

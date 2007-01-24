@@ -105,11 +105,18 @@ Returns TRUE if the top B<Via> header in the L<Net::SIP::Packet> PACKET contains
 the B<branch>-tag from C<$self>, otherwise FALSE. Used to check if the response
 came in through the same leg the response was send.
 
-=item can_deliver_to ( ADDR )
+=item can_deliver_to ( ADDR|%SPEC )
 
-Returns TRUE if the leg can deliver to ADDR (IP), else FALSE.
-Rigth now returns TRUE in all cases, because it cannot use the route
-information from the underlying OS.
+Returns TRUE if the leg can deliver address specified by ADDR or %SPEC.
+ADDR is a hostname which can be prefixed by the protocol ( e.g. C<udp:host> )
+and postfixed by the port ( C<host:port>, C<tcp:host:port>,... ).
+
+If the caller has 'proto','addr' and 'port' already as seperate items
+it can call the method with %SPEC instead.
+
+Right now it has now way to check if the leg can deliver to a specific
+host because it has no access to the routing information of the underlying
+OS, so that only proto will be checked.
 
 =item fd
 

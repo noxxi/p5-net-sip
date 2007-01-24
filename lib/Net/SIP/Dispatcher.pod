@@ -67,19 +67,6 @@ and '*.domain' to include not only the domain but the subdomains
 too.
 See sub B<deliver> for more details.
 
-=item domain2leg
-
-Optional mapping between target SIP domain and leg to use, similar
-to B<domain2proxy>. It is a reference to a hash where the key
-is the domain and the value the L<Net::SIP::Leg> object.
-
-=item leg2proxy
-
-Optional mapping between legs and outgoing proxies. This is a 
-reference to a list of \@pairs, where the first part of the
-pair is the L<Net::SIP::Leg> object and the second part is the
-C<< "ip:port" >> of the proxy.
-
 =back
 
 The constructor will create a timer using the eventloop which
@@ -222,11 +209,20 @@ or until B<cancel_delivery> will be called for the packet, which
 usually means, that the packet was successfully delivered because
 a response to the packet was received.
 
-=item resolve_uri ( URI, ADDR_REF, LEG_REF, CALLBACK )
+=item resolve_uri ( URI, ADDR, LEGS, CALLBACK, [ ALLOWED_PROTO, ALLOWED_LEGS ] )
 
 Resolves URI to get the destination address and the outgoing leg.
-ADDR_REF and LEG_REF are references which will get filled with
+ADDR and LEGS are references to lists which will get filled with
 the computed values. 
+
+If ALLOWED_PROTO is given it will be interpreted as a \@list of protocols.
+Only the protocols given in the list will be considered and the
+it will try them in the order from the list, e.g. C<< ('tcp','udp') >>
+means that tcp is tried first and only if there is no way to do tcp
+it will try udp. Default is to first try udp and then tcp.
+
+If ALLOWED_LEGS is given it will be interpreted as a \@list of L<Net::SIP::Leg>
+objects and only these legs are allowed.
 
 Because the method can be asynchronous (DNS lookups can be involved)
 it will call CALLBACK once it is done. If no errors occured
@@ -242,18 +238,6 @@ Resolving will be done as follows:
 If B<domain2proxy> is given it will try to get the dst_addr
 from this, e.g. the address of the proxy responsable for the domain 
 (if any). From dst_addr it will then get the leg.
-
-=item *
-
-If still no leg is known but B<domain2leg> it will try to get the leg
-from this (but still no dst_addr). This option makes usually only
-sense in connection with B<leg2proxy> and without B<domain2proxy>.
-
-=item *
-
-If no dst_addr is known but a leg (mostly when B<domain2leg>
-is used) it will try to use B<leg2proxy> to find out the outgoing proxy
-for the leg.
 
 =item *
 
@@ -273,7 +257,8 @@ the DNS SRV records but not at NAPTR records.
 
 =item *
 
-The outgoing leg will be computed based on B<dst_addr>.
+For each destination address (e.g. proto,addr,port) the outgoing
+leg will be computed.
 This will be done in sub B<__find_leg4addr> by going through
 all legs and checking, if the leg could deliver to this
 address by calling B<can_deliver_to> on the leg (see L<Net::SIP::Leg>).

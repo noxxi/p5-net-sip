@@ -19,8 +19,6 @@ use fields (
 	'eventloop',      # Net::SIP::Dispatcher::Eventloop or similar
 	'outgoing_proxy', # optional fixed outgoing proxy
 	'domain2proxy',   # optional mapping between SIP domains and proxies (otherwise use DNS)
-	'domain2leg',     # optional mapping between SIP domains and legs (otherwise use DNS)
-	'leg2proxy',      # optional mapping which leg uses an outgoing proxy
 	# internals
 	'do_retransmits', # flag if retransmits will be done (false for stateless proxy)
 	'outgoing_leg',   # Leg for outgoing_proxy
@@ -30,7 +28,7 @@ use fields (
 
 use Net::SIP::Leg;
 use Net::SIP::Util qw( invoke_callback sip_uri2parts );
-use Errno qw(EHOSTUNREACH ETIMEDOUT);
+use Errno qw(EHOSTUNREACH ETIMEDOUT ENOPROTOOPT);
 use IO::Socket;
 use List::Util 'first';
 use Net::DNS;
@@ -53,19 +51,13 @@ use Net::SIP::Debug;
 #       in the DNS SRV record.
 #       with special domain '*' a default can be specified, so that DNS
 #       will not be used at all
-#   domain2leg: mapping { domain => leg }, similar to domain2proxy
-#   leg2proxy: \@list of [ leg => host[:port] ] to map outgoing proxy to leg
 # Returns: $self
 ###########################################################################
 sub new {
 	my ($class,$legs,$eventloop,%args) = @_;
 
-	my ($outgoing_proxy,$do_retransmits,$domain2proxy,$domain2leg) 
-		= delete @args{qw( outgoing_proxy do_retransmits domain2proxy domain2leg )};
-	my %leg2proxy;
-	if ( my $l2p = delete $args{leg2proxy} ) {
-		%leg2proxy = map { ( "$_->[0]" => $_->[1] ) } @$l2p;
-	}
+	my ($outgoing_proxy,$do_retransmits,$domain2proxy) 
+		= delete @args{qw( outgoing_proxy do_retransmits domain2proxy )};
 	die "bad args: ".join( ' ',keys %args ) if %args;
 
 	$eventloop ||= Net::SIP::Dispatcher::Eventloop->new;
@@ -75,8 +67,11 @@ sub new {
 	$domain2proxy ||= {};
 	foreach ( values %$domain2proxy ) {
 		if ( ref($_) ) { # should be \@list of [ prio,proto,ip,port ]
-		} elsif ( m{^([\d\.]+)(?::(\d+))} ) {
-			$_ = [ [ -1,'udp',$1,$2 ||5060 ] ]
+		} elsif ( m{^(?:(udp|tcp):)?([^:]+)(?::(\d+))?$} ) {
+			my @proto = $1 ? ( $1 ) : ( 'udp','tcp' );
+			my $host = $2;
+			my $port = $3 || 5060;
+			$_ = [ map { [ -1, $_, $host, $port ] } @proto ];
 		} else {
 			croak( "invalid entry in domain2proxy: $_" );
 		}
@@ -92,8 +87,6 @@ sub new {
 		do_retransmits => defined( $do_retransmits ) ? $do_retransmits : 1,
 		eventloop => $eventloop,
 		domain2proxy => $domain2proxy,
-		domain2leg => $domain2leg,
-		leg2proxy => \%leg2proxy,
 	);
 
 	$self->add_leg( @$legs );
@@ -199,7 +192,9 @@ sub remove_leg {
 	my $legs = $self->{legs};
 	foreach my $leg (@_) {
 		@$legs = grep { $_ != $leg } @$legs;
-		$self->{eventloop}->delFD( $leg->{sock} );
+		if ( my $fd = $leg->fd ) {
+			$self->{eventloop}->delFD( $fd );
+		}
 	}
 }
 
@@ -219,6 +214,8 @@ sub remove_leg {
 ###########################################################################
 sub get_legs {
 	my Net::SIP::Dispatcher $self = shift;
+	return @{ $self->{legs} } if ! @_; # shortcut
+
 	my %args = @_;
 	my @rv;
 	foreach my $leg (@{ $self->{legs} }) {
@@ -431,12 +428,12 @@ sub __deliver {
 	my $qentry = shift;
 
 	# loop until leg und dst_addr are known, when we call leg->deliver
-	my $leg = $qentry->{leg};
+	my $leg = $qentry->{leg}[0];
 	my $dst_addr = $qentry->{dst_addr}[0];
 
 	if ( ! $dst_addr || ! $leg) {
 
-		DEBUG( 100,"no dst_addr yet" );
+		DEBUG( 100,"no dst_addr or leg yet" );
 
 		my $callback = sub {
 			my ($self,$qentry,@error) = @_;
@@ -449,9 +446,10 @@ sub __deliver {
 		};
 		return $self->resolve_uri(
 			$qentry->{packet}->uri,
-			\$qentry->{dst_addr},
-			\$qentry->{leg},
-			[ $callback, $self,$qentry ]
+			$qentry->{dst_addr},
+			$qentry->{leg},
+			[ $callback, $self,$qentry ],
+			$qentry->{proto},
 		);
 	}
 
@@ -480,22 +478,27 @@ sub __deliver {
 
 ###########################################################################
 # resolve URI, determine dst_addr and outgoing leg
-# Args: ($self,$uri,$dst_addr_ref,$leg_ref,$callback)
+# Args: ($self,$uri,$dst_addr,$legs,$callback;$allowed_proto,$allowed_legs)
 #   $uri: URI to resolve
-#   $dst_addr_ref: reference to scalar where to put dst_addr
-#   $leg_ref: reference to scalar where to put leg
+#   $dst_addr: reference to list where to put dst_addr
+#   $legs: reference to list where to put leg
 #   $callback: called with () if resolved successfully, else called
 #      with @error
+#   $allowed_proto: optional \@list of protocols (default udp,tcp). If given only
+#      only these protocols will be considered and in this order.
+#   $allowed_legs: optional list of legs which are allowed
 # Returns: NONE
 ###########################################################################
 sub resolve_uri {
 	my Net::SIP::Dispatcher $self = shift;
-	my ($uri,$dst_addr_ref,$leg_ref,$callback) = @_;
+	my ($uri,$dst_addr,$legs,$callback,$allowed_proto,$allowed_legs) = @_;
 
-	# we need to get dst_addr from URI
 	# packet should be a request packet (see constructor of *::Dispatcher::Packet)
 	my ($domain,$user,$sip_proto,undef,$param) = sip_uri2parts($uri);
-	$domain || return invoke_callback($callback, EHOSTUNREACH ); # bad URI!
+	$domain or do {
+		DEBUG( 50,"bad URI '$uri'" );
+		return invoke_callback($callback, EHOSTUNREACH );
+	};
 
 	my @proto;
 	my $default_port = 5060;
@@ -512,9 +515,31 @@ sub resolve_uri {
 		@proto = ( 'udp','tcp' );
 	}
 
-	my $dst_addr = $$dst_addr_ref;
-	$dst_addr = undef if ref($dst_addr) && !@$dst_addr;
-	my $leg = $$leg_ref;
+	# change @proto so that only the protocols from $allowed_proto are ini it
+	# and that they are tried in the order from $allowed_proto
+	if ( $allowed_proto && @$allowed_proto ) {
+		my @proto_new;
+		foreach my $ap ( @$allowed_proto ) {
+			my $p = first { $ap eq $_ } @proto;
+			push @proto_new,$p if $p;
+		}
+		@proto = @proto_new;
+		@proto or do {
+			DEBUG( 50,"no protocols allowed for $uri" );
+			return invoke_callback( $callback, ENOPROTOOPT ); # no proto available
+		};
+	}
+
+	$dst_addr ||= [];
+	$allowed_legs ||= [ $self->get_legs ];
+	if ( @$legs ) {
+		my %allowed = map { $_ => 1 } @$legs;
+		@$allowed_legs = grep { $allowed{$_} } @$allowed_legs;
+	}
+	@$allowed_legs or do {
+		DEBUG( 50,"no legs allowed for '$uri'" );
+		return invoke_callback($callback, EHOSTUNREACH );
+	};
 
 	my $ip_addr;
 	if ( $domain =~m{^(\d+\.\d+\.\d+\.\d+)(:\d+)?$} ) {
@@ -528,64 +553,50 @@ sub resolve_uri {
 	}
 	DEBUG( 100,"domain=$domain" );
 
-	# do we have a fixed leg for the domain or upper domain?
-	if ( ! $leg ) {
-		my $d2l = $self->{domain2leg};
-		if ( $d2l && %$d2l ) {
-			my $dom = $domain;
-			$leg = $d2l->{$dom};
-			while ( ! $leg ) {
-				$dom =~s{^[^\.]+\.}{} or last;
-				$leg = $d2l->{ "*.$dom" };
-			}
-			$leg ||= $d2l->{ $dom = '*'}; # catch-all
-			if ( $leg ) {
-				DEBUG( 50,"setting leg from domain '$dom'" );
-			}
-		}
-	}
-
-	# do we have a fixed proxy for the leg?
-	if ( ! $dst_addr and
-		( my $addr = $leg && $self->{leg2proxy}{"$leg"} )) {
-		# set dst_addr from proxy on leg
-		$dst_addr = $addr;
-		DEBUG( 50,"setting dst_addr to $addr from leg specific proxy" );
-	}
-
 	# do we have a fixed proxy for the domain or upper domain?
-	if ( ! $dst_addr ) {
+	if ( ! @$dst_addr ) {
 		my $d2p = $self->{domain2proxy};
 		if ( $d2p && %$d2p ) {
 			my $dom = $domain;
-			$dst_addr = $d2p->{$dom}; # exact match
-			while ( ! $dst_addr) {
+			my $addr = $d2p->{$dom}; # exact match
+			while ( ! $addr) {
 				$dom =~s{^[^\.]+\.}{} or last;
-				$dst_addr = $d2p->{ "*.$dom" };
+				$addr = $d2p->{ "*.$dom" };
 			}
-			$dst_addr ||= $d2p->{ $dom = '*'}; # catch-all
-			if ( $dst_addr ) {
+			$addr ||= $d2p->{ $dom = '*'}; # catch-all
+			if ( $addr ) {
 				DEBUG( 50,"setting dst_addr from domain specific proxy for domain $dom" );
+				@$dst_addr = @$addr;
 			}
 		}
 	}
 
 	# do we have a global outgoing proxy?
-	if ( ! $dst_addr and 
-		( my $addr = $self->{outgoing_proxy} )) {
+	if ( !@$dst_addr 
+		&& ( my $addr = $self->{outgoing_proxy} )) {
 		# if we have a fixed outgoing proxy use it
-		$dst_addr = $addr;
-		$leg = $self->{outgoing_leg};
 		DEBUG( 50,"setting dst_addr+leg to $addr from outgoing_proxy" );
+		@$dst_addr = ( $addr );
+	}
+
+	# is it an IP address?
+	if ( $ip_addr ) {
+		DEBUG( 50,"setting dst_addr from URI because IP address given" );
+		@$dst_addr = ( $ip_addr );
 	}
 
 	# entries in form [ prio,proto,ip,port ]
 	my @resp;
-	if ( ref($dst_addr) ) {
-		@resp = @$dst_addr
-	} elsif ( $dst_addr ) {
-		$default_port = $1 if $dst_addr =~s{:(\d+)$}{};
-		@resp = map { [ -1,$_,$dst_addr,$default_port ] } @proto;
+	foreach my $addr ( @$dst_addr ) {
+		if ( ref($addr)) {
+			push @resp,$addr; # right format: see domain2proxy
+		} else {
+			$addr =~m{^(?:(udp|tcp):)?([^:]+)(?::(\d+))?$} || next;
+			my $host = $2;
+			my $proto = $1 ? [ $1 ] : \@proto;
+			my $port = $3 ? $3 : $default_port;
+			push @resp, map { [ -1,$_,$host,$port ] } @$proto;
+		}
 	}
 
 	# If no fixed mapping DNS need to be used
@@ -628,21 +639,27 @@ sub resolve_uri {
 	@resp || return invoke_callback( $callback,EHOSTUNREACH );
 
 	# sort by prio
+	# FIXME: can contradict order in @proto
 	@resp = sort { $a->[0] <=> $b->[0] } @resp;
-	my @addr = map { "$_->[1]:$_->[2]:$_->[3]" } @resp;
 
-	if ( ! $leg ) {
-		# find leg for dst_addr
-		DEBUG( 100,"no leg for dst_addr=@addr yet" );
-		foreach (@addr) {
-			$leg = $self->_find_leg4addr( $_ );
-			last if $leg;
+	@$dst_addr = ();
+	@$legs = ();
+	foreach my $r ( @resp ) {
+		my $leg = first { $_->can_deliver_to( 
+			proto => $r->[1],
+			addr  => $r->[2],
+			port  => $r->[3]
+		)} @$allowed_legs;
+		
+		if ( $leg ) {
+			push @$dst_addr, "$r->[1]:$r->[2]:$r->[3]";
+			push @$legs,$leg;
+		} else {
+			DEBUG( 50,"no leg for $r->[1]:$r->[2]:$r->[3]" );
 		}
-		$leg || return invoke_callback( $callback, EHOSTUNREACH );
 	}
 
-	$$leg_ref = $leg;
-	$$dst_addr_ref = \@addr;
+	return invoke_callback( $callback, EHOSTUNREACH ) if !@$dst_addr;
 	invoke_callback( $callback );
 }
 
@@ -650,12 +667,41 @@ sub resolve_uri {
 sub _find_leg4addr {
 	my Net::SIP::Dispatcher $self = shift;
 	my $dst_addr = shift;
-	my $legs = $self->{legs};
-	return $legs->[0] if @$legs == 1;
-	foreach my $leg (@$legs) {
-		return $leg if $leg->can_deliver_to( $dst_addr );
+	my ($proto,$ip) = $dst_addr =~m{^(?:(tcp|udp):)?([^:]+)};
+	my @legs;
+	foreach my $leg (@{ $self->{legs} }) {
+		push @legs,$leg if $leg->can_deliver_to( addr => $ip, proto => $proto );
 	}
-	return; # nothing found
+	return @legs;
+}
+
+###########################################################################
+# resolve hostname to IP using DNS
+# FIXME: should work asynchronously
+# Args: ($self,$host,$callback)
+#   $host: hostname or hash with hostname as keys
+#   $callback: gets called with (h_errno) or (undef,result) once finished
+#     result is IP for single hosts or the input hash ref where the
+#     IPs are filled in as values
+# Returns: NONE
+###########################################################################
+sub dns_host2ip {
+	my Net::SIP::Dispatcher $self = shift;
+	my ($host,$callback) = @_;
+	if ( ref($host)) {
+		my $err;
+		foreach ( keys %$host ) {
+			if ( my $addr = gethostbyname( $_ )) {
+				$host->{$_} = inet_ntoa($addr);
+			} else {
+				$err = $?
+			}
+		}
+		invoke_callback( $callback, $err,$host );
+	} else {
+		my $addr = gethostbyname( $host );
+		invoke_callback( $callback, $addr ? ( undef,inet_ntoa($addr) ) : ( $? ));
+	}
 }
 
 ###########################################################################
@@ -666,14 +712,16 @@ package Net::SIP::Dispatcher::Packet;
 use fields ( 
 	'id',           # transaction id, used for canceling delivery if response came in
 	'packet',       # the packet which nees to be delivered
-	'leg',          # through which leg the packet gets delivered
 	'dst_addr',     # to which adress the packet gets delivered, is array-ref because
 	                # the DNS/SRV lookup might return multiple addresses and protocols
+	'leg',          # through which leg the packet gets delivered, same number
+	                # of items like dst_addr
 	'retransmits',  # array of retransmit time stamps, if undef no retransmit will be
 	                # done, if [] no more retransmits can be done (trigger ETIMEDOUT)
 					# the last element in this array will not used for retransmit, but
 					# is the timestamp, when the delivery fails permanently
 	'callback',     # callback for DSN (success, ETIMEDOUT...)
+	'proto',        # list of possible protocols, default tcp and udp for sip:
 );
 
 use Net::SIP::Debug;
@@ -697,6 +745,12 @@ sub new {
 	if ( my $addr = $self->{dst_addr} ) {
 		$self->{dst_addr} = [ $addr ] if !ref($addr)
 	}
+	if ( my $leg = $self->{leg} ) {
+		$self->{leg} = [ $leg ] if UNIVERSAL::can( $leg,'deliver' );
+	}
+
+	$self->{dst_addr} ||= [];
+	$self->{leg} ||= [];
 
 	# figure out retransmit times
 	my $p = $self->{packet} || die "no packet for delivery";
@@ -773,6 +827,8 @@ sub use_next_dstaddr {
 	my Net::SIP::Dispatcher::Packet $self = shift;
 	my $addr = $self->{dst_addr} || return;
 	shift(@$addr);
+	my $leg = $self->{leg} || return;
+	shift(@$leg);
 	return @$addr && $addr->[0];
 }
 

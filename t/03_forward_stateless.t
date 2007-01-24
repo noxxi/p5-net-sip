@@ -20,25 +20,16 @@ use Test::More tests => 6;
 ################################################################
 
 
-my $dummy = '127.0.0.5:5060'; # never used for delivery
-my $delivered_via;
-{
-	package myLeg;
-	use base 'Net::SIP::Leg';
-	use Net::SIP::Debug;
-	use Net::SIP::Util 'invoke_callback';
-	sub deliver {
-		my ($self,$packet,$addr,$callback) = @_;
-		$delivered_via = $self;
-		DEBUG( "deliver through $self" );
-		invoke_callback( $callback,0 );
-	}
-}
-
 my %leg_setup = ( addr => '127.0.0.1', port => 0 );
-my $leg_default     = myLeg->new( %leg_setup ) || die;
-my $leg_example_com = myLeg->new( %leg_setup ) || die;
-my $leg_example_org = myLeg->new( %leg_setup ) || die;
+my $leg_default     = myLeg->new( 
+	outgoing_proxy => '10.0.3.4:28',
+	%leg_setup ) || die;
+my $leg_example_com = myLeg->new( 
+	outgoing_proxy => '10.0.3.9:28',
+	%leg_setup ) || die;
+my $leg_example_org = myLeg->new( 
+	outgoing_proxy => '10.0.3.12:28',
+	%leg_setup ) || die;
 
 my $loop = Net::SIP::Dispatcher::Eventloop->new;
 my $disp = Net::SIP::Dispatcher->new( 
@@ -48,19 +39,15 @@ my $disp = Net::SIP::Dispatcher->new(
 		$leg_example_org 
 	],
 	$loop,
-	domain2leg => {
-		'example.com'   => $leg_example_com,
-		'example.org'   => $leg_example_org,
-		'*.example.org' => $leg_example_org,
-		'*'             => $leg_default,
+	domain2proxy => {
+		'example.com'   => $leg_example_com->{outgoing_proxy},
+		'example.org'   => $leg_example_org->{outgoing_proxy},
+		'*.example.org' => $leg_example_org->{outgoing_proxy},
+		'*'             => $leg_default->{outgoing_proxy},
 	},
-	leg2proxy => [
-		[ $leg_example_com, $dummy ],
-		[ $leg_example_org, $dummy ],
-		[ $leg_default,     $dummy ],
-	]
 ) || die;
 
+our $delivered_via;
 my $proxy = Net::SIP::StatelessProxy->new(
 	dispatcher => $disp 
 );
@@ -89,9 +76,47 @@ sub fw {
 		'call-id' => sprintf( "%8x\@somewhere.com", rand(2**16 )),
 		from => 'me@somewhere.com',
 	});
-	$disp->receive( $request,$incoming_leg,$dummy );
+	$disp->receive( $request,$incoming_leg,'127.0.0.1:282' );
 	$loop->loop(1,\$delivered_via );
 	ok( $delivered_via, $expected_outgoing_leg );
+}
+
+
+# -------------------------------------------------------------------------
+package myLeg;
+use base 'Net::SIP::Leg';
+use Net::SIP::Debug;
+use Net::SIP::Util 'invoke_callback';
+use fields qw( outgoing_proxy );
+
+sub new {
+	my ($class,%args) = @_;
+	my $p = delete $args{outgoing_proxy};
+	my $self = $class->SUPER::new(%args);
+	$self->{outgoing_proxy} = $p;
+	return $self;
+}
+
+sub can_deliver_to {
+	my $self = shift;
+	my ($proto,$addr,$port) = do {
+		if ( @_>1 ) {
+			my %args = @_;
+			@args{ qw/proto addr port/ }
+		} else {
+			$_[0] =~m{^(?:(udp|tcp):)?([^:]+)(?::(\d+))$}
+		}
+	};
+	return 1 if ! $addr || ! $port;
+	return 1 if "$addr:$port" eq $self->{outgoing_proxy};
+	return 0;
+}
+
+sub deliver {
+	my ($self,$packet,$addr,$callback) = @_;
+	$::delivered_via = $self;
+	DEBUG( "deliver through $self" );
+	invoke_callback( $callback,0 );
 }
 
 

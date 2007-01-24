@@ -62,10 +62,6 @@ use Net::SIP::Debug;
 #                      used to find proxy for domain. If nothing matches here
 #                      DNS need to be used. Special domain '*' catches all
 #     d2p            - alias for domain2proxy
-#     domain2leg|d2l - hash of { domain => leg } similar to domain2proxy
-#                      leg is the Net::SIP::Leg object which can deliver for domain
-#     leg2proxy|l2p  - \@list of [ leg, ip:port ] for associating an leg with 
-#                      an outgoing proxy
 # Returns: $self
 # Comment: 
 # FIXME
@@ -123,15 +119,12 @@ sub new {
 		|| Net::SIP::Dispatcher::Eventloop->new;
 
 	my $d2p = delete $args{domain2proxy} || delete $args{d2p};
-	my $d2l = delete $args{domain2leg} || delete $args{d2l};
-	my $l2p = delete $args{leg2proxy} || delete $args{l2p};
 	my $disp = delete $args{dispatcher}
 		|| Net::SIP::Dispatcher->new(
 			$legs,
 			$loop,
 			outgoing_proxy => $ob,
 			domain2proxy => $d2p,
-			domain2leg => $d2l,
 		);
 
 	my $endpoint = Net::SIP::Endpoint->new( $disp );
