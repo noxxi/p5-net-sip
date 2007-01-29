@@ -71,7 +71,10 @@ sub receive {
 
 	# what address will be registered
 	($from) = sip_hdrval2parts( from => $from );
-	$from = $1 if $from =~m{<(sips?:\S+)>}i;
+	if ( my ($domain,$user,$proto) = sip_uri2parts( $from ) ) {
+		# normalize if possible
+		$from = "$proto:$user\@$domain";
+	}
 
 	# check if domain is allowed
 	if ( my $rd = $self->{domains} ) {
@@ -128,6 +131,19 @@ sub receive {
 	# send back where it came from
 	$disp->deliver( $response, leg => $leg, dst_addr => $addr );
 	return 200;
+}
+
+###########################################################################
+# return information for SIP address
+# Args: ($self,$addr)
+# Returns: @sip_contacts
+###########################################################################
+sub query {
+	my Net::SIP::Registrar $self = shift;
+	my $addr = shift;
+	DEBUG( 50,"lookup of $addr" );
+	my $contacts = $self->{store}{$addr} || return;
+	return grep { m{^sips?:} } keys %$contacts;
 }
 
 ###########################################################################

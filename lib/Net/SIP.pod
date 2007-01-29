@@ -118,8 +118,48 @@ is possible to handle simple RTP data (PCMU/8000).
 
 =back
 
-=head1 EXAMPLES
+=head1 EXPORTS
 
-..
+By default nothing is exported. There are various arguments for 
+exporting:
+
+=over 4
+
+=item :alias
+
+Exports constants as aliases for the Net::SIP::* packages, e.g.
+'Simple' for 'Net::SIP::Simple', 'Registrar' for 'Net::SIP::Registrar',
+'Packet' for 'Net::SIP::Packet' etc.
+
+=item :util
+
+Exports everything (tag ':all') from L<Net::SIP::Util>.
+
+=item :debug
+
+Exports the default exports from L<Net::SIP::Debug>.
+
+=item :all
+
+Everything from ':debug', ':util' and ':alias'.
+
+=item string
+
+Strings where the first character is upper case will be interpreted
+as aliases for Net::SIP::* and it will try to export it. If 
+the first character is lower case it will try to import it from
+L<Net::SIP::Util>.
+
+=back
+
+=head2 EXAMPLES
+
+  use Net::SIP 'invoke_callback'; # use Net::SIP::Util 'invoke_callback'
+  use Net::SIP ':debug';          # use Net::SIP::Debug
+  use Net::SIP ':util';           # use Net::SIP::Util ':all'
+
+  use Net::SIP ':alias';
+  Packet->new( ... );             # Net::SIP::Packet->new( ... )
+
 
 

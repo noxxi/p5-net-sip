@@ -7,6 +7,7 @@ our $VERSION = '0.16';
 # this includes everything else
 use Net::SIP::Simple ();
 use Net::SIP::Simple::Call ();
+use Net::SIP::NATHelper ();
 
 use base 'Exporter';
 our (@EXPORT_OK, %EXPORT_TAGS);
@@ -22,6 +23,7 @@ BEGIN {
 		Net::SIP::Registrar
 		Net::SIP::StatelessProxy
 		Net::SIP::Endpoint
+		Net::SIP::NATHelper
 		)) {
 		my $pkg = $_; # copy from alias
 		my ($sub) = $pkg =~m{::(\w+)$};
@@ -40,9 +42,11 @@ sub import {
 	my @tags = @_;
 	while ( my $tag = shift(@tags)) {
 		if ( $tag eq ':all' ) {
-			push @tags,':alias',':util';
+			push @tags,':alias',':util',':debug';
 		} elsif ( $tag eq ':util' ) {
-			Net::SIP::Util->export_to_level(2,$class,':all')
+			Net::SIP::Util->export_to_level(1,$class,':all')
+		} elsif ( $tag eq ':debug' ) {
+			Net::SIP::Debug->export_to_level(1,$class,':DEFAULT')
 		} elsif ( $tag eq ':alias' ) {
 			$class->export_to_level(1,$class,$tag);
 		} elsif ( $tag =~m{^debug=(.*)}i ) {
@@ -52,7 +56,7 @@ sub import {
 			$class->export_to_level(1,$class,$tag);
 		} else {
 			# default try to import from Net::SIP::Util
-			Net::SIP::Util->export_to_level(2,$class,$tag)
+			Net::SIP::Util->export_to_level(1,$class,$tag)
 		}
 	}
 }

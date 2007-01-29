@@ -542,12 +542,12 @@ sub resolve_uri {
 	};
 
 	my $ip_addr;
-	if ( $domain =~m{^(\d+\.\d+\.\d+\.\d+)(:\d+)?$} ) {
+	if ( $domain =~m{^(\d+\.\d+\.\d+\.\d+)(?::(\d+))?$} ) {
 		# if domain part of URI is IPv4[:port]
 		$default_port = $2;
 		$ip_addr = $1;
 		# e.g. 10.0.3.4 should match *.3.0.10.in-addr.arpa
-		$domain = join( '.', reverse split( m{\.},$ip_addr )).'in-addr.arpa';
+		$domain = join( '.', reverse split( m{\.},$ip_addr )).'.in-addr.arpa';
 	} else {
 		$domain =~s{\.*(?::(\d+))?$}{}; # remove trailing dots + port
 		$default_port = $1 if $1;
@@ -581,7 +581,7 @@ sub resolve_uri {
 	}
 
 	# is it an IP address?
-	if ( $ip_addr ) {
+	if ( !@$dst_addr && $ip_addr ) {
 		DEBUG( 50,"setting dst_addr from URI because IP address given" );
 		@$dst_addr = ( $ip_addr );
 	}

@@ -71,6 +71,7 @@ use warnings;
 
 package Net::SIP::NATHelper;
 use Net::SIP::Util ':all';
+use Net::SIP::Debug;
 use List::Util 'first';
 
 ############################################################################
@@ -188,6 +189,16 @@ sub dump {
 		$result.= $self->{$_}->dump;
 	}
 	return $result;
+}
+
+############################################################################
+# return number of reserved calls
+# Args: $self
+# Returns: $n
+############################################################################
+sub number_of_calls {
+	my Net::SIP::NATHelper $self = shift;
+	return scalar( keys %$self )
 }
 
 ############################################################################

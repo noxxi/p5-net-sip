@@ -142,7 +142,7 @@ sub sip_uri2parts {
 	my $uri = shift;
 	my ($data,$param) = sip_hdrval2parts( uri => $uri );
 	if ( $data =~m{<(sips?):([^\s\@]*)\@([^>\s]+)>}i
-		|| $data =~m{^(?:(sips?):)?([^\s\@]*)\@([\w\-\.:]+)}i ) {
+		|| $data =~m{^(?:(sips?):)?(?:([^\s\@]*)\@)?([\w\-\.:]+)}i ) {
 		my ($proto,$user,$domain) = ($1,$2,$3);
 		$proto ||= 'sip';
 		return wantarray

@@ -48,7 +48,7 @@ sub new {
 		$self->{addr}  = inet_ntoa( $addr );
 		$self->{proto} = ( $sock->socktype == SOCK_STREAM ) ? 'tcp':'udp'
 
-	} elsif ( my $addr = $self->{addr} = delete $args{addr} ) {
+	} elsif ( my $addr = delete $args{addr} ) {
 		my $port = delete $args{port};
 		# port = 0 -> get port from system
 		if ( ! defined $port ) {
@@ -65,6 +65,7 @@ sub new {
 		# get the assigned port
 		($port) = unpack_sockaddr_in( getsockname( $self->{sock} ));
 		$self->{port} = $port;
+		$self->{addr} = $addr;
 	}
 
 	unless ( $self->{contact}  = delete $args{contact} ) {
@@ -403,6 +404,17 @@ sub fd {
 	my Net::SIP::Leg $self = shift;
 	return $self->{sock};
 }
+
+###########################################################################
+# some info about the Leg for debugging
+# Args: $self
+# Returns: string
+###########################################################################
+sub dump {
+	my Net::SIP::Leg $self = shift;
+	return ref($self)." $self->{proto}:$self->{addr}:$self->{port}";
+}
+	
 
 
 1;

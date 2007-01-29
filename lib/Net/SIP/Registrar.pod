@@ -79,6 +79,12 @@ client should be unregistered) or greater or equal B<min_expires>.
 In case of a successful response it wil also update the internal
 registry information.
 
+=item query ( ADDR )
+
+Search for ADDR (which has format C<< proto:user@domain >>) 
+in the registry. Returns @List of all sip or sips contacts
+for ADDR.
+
 =item expire
 
 Removes all expired entries from the internal registry.

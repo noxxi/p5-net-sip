@@ -125,4 +125,9 @@ be legs, which don't have a socket associated. In this case you need to call
 B<receive> from L<Net::SIP::Dispatcher> yourself, because it cannot be
 called automatically once it receives data on the socket.
 
+=item dump
+
+Returns string containing information about the leg. 
+Used for debugging.
+
 =back

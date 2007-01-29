@@ -79,7 +79,7 @@ $welcome || usage( "no welcome message" );
 ###################################################
 my $leg;
 if ( !$registrar ) {
-	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?:(\d+))?} 
+	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?} 
 		or die "cannot find SIP domain in '$from'";
 	my $addr = gethostbyname( $host )
 		|| die "cannot get IP from SIP domain '$host'";
