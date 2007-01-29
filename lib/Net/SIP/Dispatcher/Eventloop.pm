@@ -75,8 +75,8 @@ sub add_timer {
 	my Net::SIP::Dispatcher::Eventloop $self = shift;
 	my ($when,$callback,$repeat,$name ) = @_;
 	$when += $self->{now} if $when < 3600*24*365;
-		
-	my $timer = Net::SIP::Dispatcher::Eventloop::TimerEvent->new( 
+
+	my $timer = Net::SIP::Dispatcher::Eventloop::TimerEvent->new(
 		$when, $repeat, $callback,$name );
 	push @{ $self->{timer}}, $timer;
 	return $timer;
@@ -153,7 +153,7 @@ sub loop {
 			DEBUG( 50, "stopvar triggered" );
 			return;
 		}
-		
+
 		# wait for selected fds
 		my $fds = $self->{fd};
 		my $rin;

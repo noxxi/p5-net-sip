@@ -12,12 +12,12 @@ Net::SIP::Dispatcher - dispatch SIP packets between legs and endpoint
 
 This module dispatches L<Net::SIP::Packet>s between L<Net::SIP::Leg>s
 and endpoints like L<Net::SIP::Endpoint>, L<Net::SIP::Registrar> and
-L<Net::SIP::StatelessProxy>. 
+L<Net::SIP::StatelessProxy>.
 
 It manages retransmission of outgoing packets and redelivery of responses
 to incoming requests.
 
-It is asssociated with an event handling like 
+It is asssociated with an event handling like
 L<Net::SIP::Dispatcher::Eventloop>.
 
 =head1 CONSTRUCTOR
@@ -61,7 +61,7 @@ sub B<deliver>.
 =item domain2proxy
 
 Optional mapping between target SIP domain and proxy to use.
-This is usually a hash of C<< ( domain, "ip_proxy:port_proxy" ) >> 
+This is usually a hash of C<< ( domain, "ip_proxy:port_proxy" ) >>
 pairs. Special domain '*' can be used to specify a fallback
 and '*.domain' to include not only the domain but the subdomains
 too.
@@ -95,9 +95,9 @@ incoming packets.
 
 =item remove_leg ( LEG )
 
-Removes L<Net::SIP::Leg> object LEG from the dispatcher. 
+Removes L<Net::SIP::Leg> object LEG from the dispatcher.
 
-=item get_legs ( %ARGS ) 
+=item get_legs ( %ARGS )
 
 Get a list of all L<Net::SIP::Leg> objects matching the
 criteria given by %ARGS. %ARGS can be a combination of:
@@ -167,7 +167,7 @@ See sub B<deliver> in L<Net::SIP::Leg>.
 =item leg
 
 Specifies outgoing L<Net::SIP::Leg> object. For responses created by the
-endpoint the outgoing leg is usually known, because it's the same as the 
+endpoint the outgoing leg is usually known, because it's the same as the
 incoming leg for the request.
 
 =item dst_addr
@@ -195,7 +195,7 @@ If a leg is specified it will be used for delivery. B<dst_addr> needs to
 be specified in this case too.
 This is usually the case for locally generated responses.
 
-=item * 
+=item *
 
 Otherwise leg and dst_addr will be retrieved using B<resolve_uri>.
 See there.
@@ -213,7 +213,7 @@ a response to the packet was received.
 
 Resolves URI to get the destination address and the outgoing leg.
 ADDR and LEGS are references to lists which will get filled with
-the computed values. 
+the computed values.
 
 If ALLOWED_PROTO is given it will be interpreted as a \@list of protocols.
 Only the protocols given in the list will be considered and the
@@ -236,7 +236,7 @@ Resolving will be done as follows:
 =item *
 
 If B<domain2proxy> is given it will try to get the dst_addr
-from this, e.g. the address of the proxy responsable for the domain 
+from this, e.g. the address of the proxy responsable for the domain
 (if any). From dst_addr it will then get the leg.
 
 =item *
@@ -252,7 +252,7 @@ IP address this will be used as dst_addr.
 =item *
 
 The last effort will be made by looking up the SIP domain using
-DNS with a partial implementation of RFC3263, e.g. it looks at 
+DNS with a partial implementation of RFC3263, e.g. it looks at
 the DNS SRV records but not at NAPTR records.
 
 =item *

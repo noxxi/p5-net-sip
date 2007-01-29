@@ -9,20 +9,20 @@ Net::SIP::Simple - Simple interface for using Net::SIP
 
   # create new agent
   my $ua = Net::SIP::Simple->new(
-    outgoing_proxy => '192.168.0.10',
-    registrar => '192.168.0.10',
-    domain => 'example.com',
-    from => 'me',
-    auth => [ 'me','secret' ],
+	outgoing_proxy => '192.168.0.10',
+	registrar => '192.168.0.10',
+	domain => 'example.com',
+	from => 'me',
+	auth => [ 'me','secret' ],
   );
 
   # Register agent
   $ua->register;
 
   # Invite other party, send anncouncement once connected
-  $ua->invite( 'you', 
-    init_media => $ua->rtp( 'send_recv', 'announcement.pcmu-8000' ),
-    asymetric_rtp => 1,
+  $ua->invite( 'you',
+	init_media => $ua->rtp( 'send_recv', 'announcement.pcmu-8000' ),
+	asymetric_rtp => 1,
   );
 
   # Mainloop
@@ -47,13 +47,13 @@ Creates new Net::SIP::Simple object. %ARGS can be:
 
 =item outgoing_proxy|proxy
 
-C<< "ip:port" >> of outgoing proxy. The necessary L<Net::SIP::Leg> to 
+C<< "ip:port" >> of outgoing proxy. The necessary L<Net::SIP::Leg> to
 the proxy will be created if no leg exists.
 
-=item registrar 
+=item registrar
 
 C<< "ip:port" >> of registrar. Used in method B<register> if there is no
-other registrar given. 
+other registrar given.
 
 =item legs|leg
 
@@ -89,7 +89,7 @@ Optional list of SIP routes which will be added to route requests.
 =item loop
 
 Eventloop object for dispatcher, see L<Net::SIP::Dispatcher::Eventloop>. Usually
-not given, because the loop from the dispatcher will be used, but can be given 
+not given, because the loop from the dispatcher will be used, but can be given
 if no dispatcher was given.
 
 =item dispatcher
@@ -143,7 +143,7 @@ for RTP handling (e.g. plugins or similar).
 =item register ( %ARGS )
 
 Registers the user agent. %ARGS can have the key B<registrar> which
-has precedence over the same key in the constructor. 
+has precedence over the same key in the constructor.
 B<leg> specifies the leg where the register request will be send through.
 If not given it will pick the right leg.
 
@@ -203,7 +203,7 @@ and the L<Net::SIP::Simple::Call> object as argument.
 =item cb_cleanup
 
 Callback which will be called when the call gets closed to clean up
-allocated resources. Will be invoked with the  L<Net::SIP::Simple::Call> 
+allocated resources. Will be invoked with the  L<Net::SIP::Simple::Call>
 object as argument.
 
 =back

@@ -83,7 +83,7 @@ remove itself from B<Route>.
 =item deliver ( PACKET, ADDR, [ CALLBACK ] )
 
 Delivers L<Net::SIP::Packet> PACKET through the leg C<$self> to ADDR, which
-is C<< "ip:port" >>. 
+is C<< "ip:port" >>.
 Usually this method will be call from within L<Net::SIP::Dispatcher>.
 
 If the packet was received by the other end (which is

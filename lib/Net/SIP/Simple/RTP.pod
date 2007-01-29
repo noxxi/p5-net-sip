@@ -24,7 +24,7 @@ It's used from method B<rtp> in L<Net::SIP::Simple>.
 
 Receives RTP data and echos them back to the sender.
 If OUTPUT is given it will be used as the file for saving the
-received data without the RTP header. 
+received data without the RTP header.
 
 OUTPUT might also be a callback which gets the payload
 as argument.
@@ -37,10 +37,10 @@ If DELAY is <0 the data will not be echoed back.
 If DELAY is not given or equal 0 the data will be echoed
 back immediatly.
 
-If no traffic comes in for more then 10 seconds it will 
+If no traffic comes in for more then 10 seconds it will
 hang up the call because of inactivity.
 
-=item media_send_recv ( INPUT, [ REPEAT, OUTPUT ] ) 
+=item media_send_recv ( INPUT, [ REPEAT, OUTPUT ] )
 
 Will read data from file INPUT and send them as RTP to peer.
 It will assume that each data block in INPUT consists
@@ -50,7 +50,7 @@ header. The RTP header will be added to the data.
 If it reaches the end of the file it will stop unless REPEAT
 is given in which case it will repeat the sending REPEAT
 times (if REPEAT is less 0 it will repeat forever e.g. until the
-other party hangs up). On stopping it will invoke the 
+other party hangs up). On stopping it will invoke the
 callback B<cb_rtp_done> from the connection params for
 the L<Net::SIP::Simple::Call> or if this is not given it will
 close the call by issuing a BYE.
@@ -66,7 +66,7 @@ has the same format as INPUT or OUTPUT from B<media_recv_echo>.
 OUTPUT might also be a callback which gets the payload
 as argument.
 
-If no traffic comes in for more then 10 seconds it will 
+If no traffic comes in for more then 10 seconds it will
 hang up the call because of inactivity.
 
 =back

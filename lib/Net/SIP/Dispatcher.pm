@@ -12,7 +12,7 @@ use strict;
 use warnings;
 
 package Net::SIP::Dispatcher;
-use fields ( 
+use fields (
 	# interface to outside
 	'receiver',       # callback into upper layer
 	'legs',           # \@list of Net::SIP::Legs managed by dispatcher
@@ -28,7 +28,7 @@ use fields (
 
 use Net::SIP::Leg;
 use Net::SIP::Util qw( invoke_callback sip_uri2parts );
-use Errno qw(EHOSTUNREACH ETIMEDOUT ENOPROTOOPT);
+use Errno qw(EHOSTUNREACH ETIMEDOUT ENOPROTOOPT EINVAL);
 use IO::Socket;
 use List::Util 'first';
 use Net::DNS;
@@ -56,7 +56,7 @@ use Net::SIP::Debug;
 sub new {
 	my ($class,$legs,$eventloop,%args) = @_;
 
-	my ($outgoing_proxy,$do_retransmits,$domain2proxy) 
+	my ($outgoing_proxy,$do_retransmits,$domain2proxy)
 		= delete @args{qw( outgoing_proxy do_retransmits domain2proxy )};
 	die "bad args: ".join( ' ',keys %args ) if %args;
 
@@ -113,7 +113,7 @@ sub new {
 # set receiver, e.g the upper layer which gets the incoming packets
 # received by the dispatcher
 # Args: ($self,$receiver)
-#   $receiver: object which has receive( Net::SIP::Leg,Net::SIP::Packet ) 
+#   $receiver: object which has receive( Net::SIP::Leg,Net::SIP::Packet )
 #     method to handle incoming SIP packets or callback
 # Returns: NONE
 ###########################################################################
@@ -130,7 +130,7 @@ sub set_receiver {
 ###########################################################################
 # adds a leg to the dispatcher
 # Args: ($self,@legs)
-#  @legs: can be sockets, \%args for constructing or already 
+#  @legs: can be sockets, \%args for constructing or already
 #    objects of class Net::SIP::Leg
 # Returns: NONE
 ###########################################################################
@@ -228,12 +228,12 @@ sub get_legs {
 	}
 	return @rv;
 }
-	
+
 
 ###########################################################################
 # add timer
 # propagates to add_timer of eventloop
-# Args: ($self,$when,$cb,$repeat) 
+# Args: ($self,$when,$cb,$repeat)
 #   $when: when callback gets called, can be absolute time (epoch, time_t)
 #     or relative time (seconds)
 #   $cb: callback
@@ -245,7 +245,7 @@ sub add_timer {
 	my Net::SIP::Dispatcher $self = shift;
 	return $self->{eventloop}->add_timer( @_ );
 }
-	
+
 ###########################################################################
 # initiate delivery of a packet, e.g. put packet into delivery queue
 # Args: ($self,$packet,%more_args)
@@ -255,7 +255,7 @@ sub add_timer {
 #     callback:  [ \&sub,@arg ] for calling back on definite delivery
 #       success (tcp only) or error (timeout,no route,...)
 #     leg:       specify outgoing leg, needed for responses
-#     dst_addr:  specify outgoing addr [ip,port] or sockaddr, needed 
+#     dst_addr:  specify outgoing addr [ip,port] or sockaddr, needed
 #       for responses
 #     do_retransmits: if retransmits should be done, default from
 #        global value (see new())
@@ -376,7 +376,7 @@ sub queue_expire {
 				$qe->trigger_callback( ETIMEDOUT );
 
 				# don't put into new queue
-				next; 
+				next;
 			}
 
 			if ( $retransmit ) {
@@ -390,7 +390,7 @@ sub queue_expire {
 			}
 		}
 		push @nq,$qe;
-	
+
 	}
 	$self->{queue} = \@nq if $changed;
 
@@ -549,7 +549,8 @@ sub resolve_uri {
 		# e.g. 10.0.3.4 should match *.3.0.10.in-addr.arpa
 		$domain = join( '.', reverse split( m{\.},$ip_addr )).'in-addr.arpa';
 	} else {
-		$domain =~s{\.*(?::\d+)?$}{}; # remove trailing dots + port
+		$domain =~s{\.*(?::(\d+))?$}{}; # remove trailing dots + port
+		$default_port = $1 if $1;
 	}
 	DEBUG( 100,"domain=$domain" );
 
@@ -572,7 +573,7 @@ sub resolve_uri {
 	}
 
 	# do we have a global outgoing proxy?
-	if ( !@$dst_addr 
+	if ( !@$dst_addr
 		&& ( my $addr = $self->{outgoing_proxy} )) {
 		# if we have a fixed outgoing proxy use it
 		DEBUG( 50,"setting dst_addr+leg to $addr from outgoing_proxy" );
@@ -599,58 +600,45 @@ sub resolve_uri {
 		}
 	}
 
-	# If no fixed mapping DNS need to be used
-	if ( ! @resp ) {
+	my @param = ( $dst_addr,$legs,$allowed_legs,$default_port,$callback );
+	return __resolve_uri_final( @param,0,\@resp ) if @resp;
 
-		# XXXX no full support for RFC3263, eg we don't support NAPTR
-		# but query instead directly for _sip._udp.domain.. like in
-		# RFC2543 specified
+	# If no fixed mapping DNS needs to be used
 
-		# XXXX fixme, don't do blocking DNS queries
-		my $dns = Net::DNS::Resolver->new;
+	# XXXX no full support for RFC3263, eg we don't support NAPTR
+	# but query instead directly for _sip._udp.domain.. like in
+	# RFC2543 specified
 
+	return $self->dns_domain2srv(
+		$domain, \@proto, $sip_proto,
+		[ \&__resolve_uri_final, @param ]
+	);
+}
 
-		# Try to get SRV records for _sip._udp.domain or _sip._tcp.domain
-		foreach my $proto ( @proto ) {
-			if ( my $q = $dns->query( '_'.$sip_proto.'._'.$proto.'.'.$domain,'SRV' )) {
-				foreach my $rr ( $q->answer ) {
-					$rr->type eq 'SRV' || next;
-					# XXX fixme, get IPs for name
-					push @resp,[ $rr->priority, $proto,$rr->name,$rr->port ]
-				}
-			}
-		}
-		# if no SRV records try to resolve address directly
-		unless (@resp) {
-			# try addr directly
-			if ( my $q = $dns->query( $domain,'A' )) {
-				foreach my $rr ($q->answer ) {
-					$rr->type eq 'A' || next;
-					# XXX fixme, get *all* IPs for name
-					push @resp,map {
-						[ -1, $_ , $rr->address,$default_port ]
-					} @proto;
-				}
-			}
-		}
-	}
+sub __resolve_uri_final {
 
-	DEBUG_DUMP( 100,\@resp );
-	@resp || return invoke_callback( $callback,EHOSTUNREACH );
+	my ($dst_addr,$legs,$allowed_legs,$default_port,$callback,$error,$resp) = @_;
+
+	DEBUG_DUMP( 100,$resp );
+	return invoke_callback( $callback,EHOSTUNREACH )
+		unless $resp && @$resp;
+
+	# for A records we got no port, use default_port
+	$_->[3] ||= $default_port for(@$resp);
 
 	# sort by prio
 	# FIXME: can contradict order in @proto
-	@resp = sort { $a->[0] <=> $b->[0] } @resp;
+	@$resp = sort { $a->[0] <=> $b->[0] } @$resp;
 
 	@$dst_addr = ();
 	@$legs = ();
-	foreach my $r ( @resp ) {
-		my $leg = first { $_->can_deliver_to( 
+	foreach my $r ( @$resp ) {
+		my $leg = first { $_->can_deliver_to(
 			proto => $r->[1],
 			addr  => $r->[2],
 			port  => $r->[3]
 		)} @$allowed_legs;
-		
+
 		if ( $leg ) {
 			push @$dst_addr, "$r->[1]:$r->[2]:$r->[3]";
 			push @$legs,$leg;
@@ -680,7 +668,7 @@ sub _find_leg4addr {
 # FIXME: should work asynchronously
 # Args: ($self,$host,$callback)
 #   $host: hostname or hash with hostname as keys
-#   $callback: gets called with (h_errno) or (undef,result) once finished
+#   $callback: gets called with (EINVAL) or (undef,result) once finished
 #     result is IP for single hosts or the input hash ref where the
 #     IPs are filled in as values
 # Returns: NONE
@@ -694,7 +682,7 @@ sub dns_host2ip {
 			if ( my $addr = gethostbyname( $_ )) {
 				$host->{$_} = inet_ntoa($addr);
 			} else {
-				$err = $?
+				$err = EINVAL;
 			}
 		}
 		invoke_callback( $callback, $err,$host );
@@ -705,19 +693,66 @@ sub dns_host2ip {
 }
 
 ###########################################################################
+# get SRV records using DNS
+# FIXME: should work asynchronously
+# Args: ($self,$domain,$proto,$sip_proto,$callback)
+#   $domain: domain for SRV query
+#   $proto: which protocols to check
+#   $sip_proto: sip|sips
+#   $callback: gets called with result once finished
+#      result is \@list of [ prio,proto,name,port ]
+# Returns: NONE
+###########################################################################
+sub dns_domain2srv {
+	my Net::SIP::Dispatcher $self = shift;
+	my ($domain,$protos,$sip_proto,$callback) = @_;
+
+	# FIXME: don't do blocking DNS queries
+	my $dns = Net::DNS::Resolver->new;
+
+	# Try to get SRV records for _sip._udp.domain or _sip._tcp.domain
+	my @resp;
+	foreach my $proto ( @$protos ) {
+		if ( my $q = $dns->query( '_'.$sip_proto.'._'.$proto.'.'.$domain,'SRV' )) {
+			foreach my $rr ( $q->answer ) {
+				$rr->type eq 'SRV' || next;
+				# XXX fixme, get IPs for name
+				push @resp,[ $rr->priority, $proto,$rr->name,$rr->port ]
+			}
+		}
+	}
+	# if no SRV records try to resolve address directly
+	unless (@resp) {
+		# try addr directly
+		my $default_port = $sip_proto eq 'sips' ? 5061:5060;
+		if ( my $q = $dns->query( $domain,'A' )) {
+			foreach my $rr ($q->answer ) {
+				$rr->type eq 'A' || next;
+				# XXX fixme, get *all* IPs for name
+				push @resp,map {
+					[ -1, $_ , $rr->address,$default_port ]
+				} @$protos;
+			}
+		}
+	}
+	my $error = @resp ? 0 : EINVAL;
+	invoke_callback( $callback,$error,\@resp );
+}
+
+###########################################################################
 # Net::SIP::Dispatcher::Packet
 # Container for Queue entries in Net::SIP::Dispatchers queue
 ###########################################################################
 package Net::SIP::Dispatcher::Packet;
-use fields ( 
+use fields (
 	'id',           # transaction id, used for canceling delivery if response came in
 	'packet',       # the packet which nees to be delivered
 	'dst_addr',     # to which adress the packet gets delivered, is array-ref because
-	                # the DNS/SRV lookup might return multiple addresses and protocols
+					# the DNS/SRV lookup might return multiple addresses and protocols
 	'leg',          # through which leg the packet gets delivered, same number
-	                # of items like dst_addr
+					# of items like dst_addr
 	'retransmits',  # array of retransmit time stamps, if undef no retransmit will be
-	                # done, if [] no more retransmits can be done (trigger ETIMEDOUT)
+					# done, if [] no more retransmits can be done (trigger ETIMEDOUT)
 					# the last element in this array will not used for retransmit, but
 					# is the timestamp, when the delivery fails permanently
 	'callback',     # callback for DSN (success, ETIMEDOUT...)

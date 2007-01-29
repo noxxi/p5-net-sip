@@ -28,15 +28,15 @@ use fields qw( code text header lines body as_string );
 ###########################################################################
 # Constructor
 # Creates new object. If there was only one argument it will interprete
-# it as a string representation (see new_from_string), otherwise it will 
+# it as a string representation (see new_from_string), otherwise it will
 # assume a hash/array representation (see new_from_parts)
 # Args: see new_from_string|new_from_parts
 # Returns: $self
 ###########################################################################
 sub new {
 	my $class = shift;
-	return @_>1 
-		? $class->new_from_parts(@_) 
+	return @_>1
+		? $class->new_from_parts(@_)
 		: $class->new_from_string(@_);
 }
 
@@ -47,7 +47,7 @@ sub new {
 #   $text:   Response text or request URI
 #   $header: Header representation as array or hash
 #            either [ [key1 => val2],[key2 => val2],... ] where the same
-#            key can occure multiple times 
+#            key can occure multiple times
 #            or { key1 => val1, key2 => val2 } where val can be either
 #            a scalar or an array-ref (if the same key has multiple values)
 #   $body:   Body as string
@@ -162,8 +162,8 @@ sub is_request {
 # Args: $self
 # Returns: 1 if it's a response
 ###########################################################################
-sub is_response { 
-	return ! shift->is_request() 
+sub is_response {
+	return ! shift->is_request()
 }
 
 
@@ -206,7 +206,7 @@ sub callid { scalar( shift->get_header('call-id')) }
 # Returns: @val|\%header
 #   @val: if key given returns all values for this key
 #      croak()s if in scalar context and I've more then one value for the key
-#   \%header: if no key given returns hash with 
+#   \%header: if no key given returns hash with
 #      { key1 => \@val1, key2 => \@val2,.. }
 ###########################################################################
 sub get_header {
@@ -239,7 +239,7 @@ sub get_header {
 # Returns: @val|\%header
 #   @val: if key given returns all values (Net::SIP::HeaderVal) for this key
 #      croak()s if in scalar context and I've more then one value for the key
-#   \%header: if no key given returns hash with 
+#   \%header: if no key given returns hash with
 #      { key1 => \@val1, key2 => \@val2,.. } where val are Net::SIP::HeaderVal
 ###########################################################################
 sub get_header_hashval {
@@ -258,7 +258,7 @@ sub get_header_hashval {
 	} else {
 		my %result;
 		foreach my $h (@$hdr) {
-			push @{ $result{$h->{key}} }, 
+			push @{ $result{$h->{key}} },
 				Net::SIP::HeaderVal->new( $h );
 		}
 		return \%result;
@@ -395,7 +395,7 @@ sub as_string {
 	}
 
 	# return immediatly if request is up to date
-	return $self->{as_string} if $self->{as_string}; 
+	return $self->{as_string} if $self->{as_string};
 
 	my $header = $self->{header};
 
@@ -407,7 +407,7 @@ sub as_string {
 			my ($line,$count) = @{ $lines->[$i] || next };
 
 			# check if $count entries for line-index $i in headers
-			my @hi = grep { 
+			my @hi = grep {
 				my $line = $header->[$_]{line};
 				( defined($line) && $line == $i ) ? 1:0;
 			} (0..$#$header);
@@ -472,7 +472,7 @@ sub dump {
 		return $self->as_string
 	}
 }
-	
+
 
 ###########################################################################
 # Return parts
@@ -480,16 +480,16 @@ sub dump {
 # Returns: ($code,$text,$header,$body)
 #   $code:   Response code or request method
 #   $text:   Response text or request URI
-#   $header: Header representation as array 
+#   $header: Header representation as array
 #            [ [key1 => val2],[key2 => val2],... ] where the same
-#            key can occure multiple times 
+#            key can occure multiple times
 #   $body:   Body as string
 # Comment:
 # Output from this method is directly usable as input to new_from_parts
 ###########################################################################
 sub as_parts {
 	my $self = shift;
-	
+
 	# if parts are up to date return immediatly
 	return @{$self}{qw(code text header body)} if $self->{code};
 
@@ -511,7 +511,7 @@ sub as_parts {
 	shift(@header);
 
 	$self->{body} = $body;
-	
+
 	my @hdr;
 	my @lines;
 	while (@header) {
@@ -623,8 +623,8 @@ sub _update_string {
 # Args: $key
 # Returns: $key_normalized
 ###########################################################################
-sub _normalize_hdrkey { 
-	goto &Net::SIP::HeaderPair::_normalize_hdrkey 
+sub _normalize_hdrkey {
+	goto &Net::SIP::HeaderPair::_normalize_hdrkey
 }
 
 ###########################################################################
@@ -707,7 +707,7 @@ sub set_modified {
 
 ###########################################################################
 # Net::SIP::HeaderVal;
-# gives string representation and hash representation 
+# gives string representation and hash representation
 # (split by ';' or ',') of header value
 ###########################################################################
 

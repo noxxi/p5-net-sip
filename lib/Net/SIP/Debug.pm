@@ -73,7 +73,7 @@ sub level {
 					$level4package{$_} = $l;
 					$level4package{$_.'::'} = $l if $below;
 				}
-			} 
+			}
 		}
 
 	} else {
@@ -263,7 +263,7 @@ FILTER_ONLY( code => sub {
 	# replace DEBUG(...) with
 	# - if Debug::level around it (faster, because expressions inside debug
 	#   get only evaluated if debugging is active)
-	# - no warnings for expressions, because in often debug messages 
+	# - no warnings for expressions, because in often debug messages
 	#   are quick and dirty
 	# FIXME: do it for DEBUG_DUMP too
 	# cannot use Text::Balanced etc because placeholder might contain ')' which
@@ -273,7 +273,7 @@ FILTER_ONLY( code => sub {
 	{
 		local $_ = $_; # copy
 		while (1) {
-			$code .= 
+			$code .=
 				s{\ADEBUG\s*\(}{}s ? '' :
 				s{\A(.*?[^\w:])DEBUG\s*\(}{}s ? $1 :
 				last;

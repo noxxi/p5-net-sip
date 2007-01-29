@@ -15,13 +15,13 @@ use Net::SIP::Debug;
 use Carp qw(confess croak);
 use base 'Exporter';
 
-our @EXPORT_OK = qw( 
-	sip_hdrval2parts 
+our @EXPORT_OK = qw(
+	sip_hdrval2parts
 	sip_parts2hdrval
 	sip_uri2parts
-	create_socket_to 
-	create_rtp_sockets 
-	invoke_callback 
+	create_socket_to
+	create_rtp_sockets
+	invoke_callback
 );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
@@ -126,7 +126,7 @@ sub sip_parts2hdrval {
 	}
 	return $val;
 }
-	
+
 
 ###########################################################################
 # extract parts from SIP URI
@@ -145,7 +145,7 @@ sub sip_uri2parts {
 		|| $data =~m{^(?:(sips?):)?([^\s\@]*)\@([\w\-\.:]+)}i ) {
 		my ($proto,$user,$domain) = ($1,$2,$3);
 		$proto ||= 'sip';
-		return wantarray 
+		return wantarray
 			? ($domain,$user,lc($proto),$data,$param)
 			: $domain
 	} else {
@@ -162,7 +162,7 @@ sub sip_uri2parts {
 #  $sock: the created socket
 #  $ip_port: ip:port of socket, only given if called in array context
 # Comment: the IP it needs to come from works by creating a udp socket
-#  to this host and figuring out it's IP by calling getsockname. Then it 
+#  to this host and figuring out it's IP by calling getsockname. Then it
 #  tries to create a socket on this IP using port 5060 and if this does
 #  not work it tries the port 5062..5100 and if this does not work too
 #  it let the system use a random port
@@ -174,10 +174,10 @@ sub create_socket_to {
 
 	my $laddr = do {
 		$dst_addr =~s{:.*}{}; # in case ip:port was given
-		my $sock = IO::Socket::INET->new( 
-			PeerAddr => $dst_addr, 
+		my $sock = IO::Socket::INET->new(
+			PeerAddr => $dst_addr,
 			PeerPort => 5060,
-			Proto => 'udp' 
+			Proto => 'udp'
 		) || return; # No route?
 		my $x = getsockname($sock) or return;
 		my (undef,$addr) = unpack_sockaddr_in( $x );
@@ -191,7 +191,7 @@ sub create_socket_to {
 	my ($sock,$port);
 	for my $p ( 5060,5062..5100 ) {
 		DEBUG( "try to listen on $laddr:$p" );
-		$sock = IO::Socket::INET->new( 
+		$sock = IO::Socket::INET->new(
 			LocalAddr => $laddr,
 			LocalPort => $p,
 			Proto => $proto,
@@ -202,7 +202,7 @@ sub create_socket_to {
 		}
 	}
 	if ( ! $sock ) {
-		$sock = IO::Socket::INET->new( 
+		$sock = IO::Socket::INET->new(
 			LocalAddr => $laddr, # use any port
 			Proto => $proto,
 		) || return;
@@ -258,7 +258,7 @@ sub create_rtp_sockets {
 }
 
 ###########################################################################
-# helper to call callback, set variable.. 
+# helper to call callback, set variable..
 # Args: ($cb;@args)
 #  $cb:  callback
 #  @args: additional args for callback

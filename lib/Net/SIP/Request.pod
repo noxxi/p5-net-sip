@@ -16,28 +16,28 @@ Has methods to create responses to requests and to authorize requests.
 =head1 EXAMPLES
 
   # create INVITE request
-  my $invite = Net::SIP::Request->new( 
-    'INVITE', 'sip:you@example.com',
-    { from => ..., to => ... },
-    Net::SIP::SDP->new( ... )
+  my $invite = Net::SIP::Request->new(
+	'INVITE', 'sip:you@example.com',
+	{ from => ..., to => ... },
+	Net::SIP::SDP->new( ... )
   );
 
   # somehow send request and retrieve response $resp
   ...
   if ( $resp->code eq '401' or $resp->code eq '407' ) {
-    # need to authorize request
-    $invite->authorize( $resp, username, password );
+	# need to authorize request
+	$invite->authorize( $resp, username, password );
 
-    # somehow send again and retrieve response $resp
-    ...
+	# somehow send again and retrieve response $resp
+	...
   }
 
   if ( $resp->code ~m{^[2345]\d\d} ) {
-    # got final response, send ACK
-    my $ack = $invite->create_ack( $resp );
+	# got final response, send ACK
+	my $ack = $invite->create_ack( $resp );
 
-    # somehow send $ack
-    ...
+	# somehow send $ack
+	...
   }
 
 =head1 CONSTRUCTOR
@@ -66,7 +66,7 @@ Set sequence number if C<CSeq> header to NUMBER.
 
 =item create_ack ( RESPONSE )
 
-Returns Net::SIP::Request object for ACK request for the case 
+Returns Net::SIP::Request object for ACK request for the case
 when L<Net::SIP::Response> RESPONSE was received in reply for packet C<$self>.
 
 =item create_cancel

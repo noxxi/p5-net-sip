@@ -10,7 +10,7 @@ Net::SIP::SDP - Parsing and manipulation of SDP data for SIP
 
 =head1 DESCRIPTION
 
-Net::SIP::SDP can parse and manipulate SDP data. 
+Net::SIP::SDP can parse and manipulate SDP data.
 
 It's not a general purpose SDP class (like L<Net::SDP>) but
 designed to work with SDP data contained in SIP packets
@@ -24,9 +24,9 @@ in the context of the rest of L<Net::SIP::*>.
 
   # creation based on media data
   my $sdp = Net::SIP::SDP->new(
-    { addr => '192.168.0.1' },
-    { port => 2012, proto => 'RTP/AVP', media => 'audio', fmt => 0 },
-    { port => 2014, proto => 'RTP/AVP', media => 'video', fmt => 0 },
+	{ addr => '192.168.0.1' },
+	{ port => 2012, proto => 'RTP/AVP', media => 'audio', fmt => 0 },
+	{ port => 2014, proto => 'RTP/AVP', media => 'video', fmt => 0 },
   );
 
   # parse from string
@@ -38,12 +38,12 @@ in the context of the rest of L<Net::SIP::*>.
   # and replace them with new addr + port (for NAT)
   my @new_media,;
   foreach (@media) {
-    my ($port,@socks) = create_rtp_sockets( '192.168.178.1', $_->{range} );
-    push @new_media, [ '192.168.178.1', $port ];
-    ...
+	my ($port,@socks) = create_rtp_sockets( '192.168.178.1', $_->{range} );
+	push @new_media, [ '192.168.178.1', $port ];
+	...
   }
   $sdp->replace_media_listen( @new_media );
-    
+
 =head1 CONSTRUCTOR
 
 =over 4
@@ -135,7 +135,7 @@ Replaces the exisisting media in the object with new media. Useful for NAT.
 
 NEW_MEDIA is ether an array or a reference to an array. Each element in
 the list consists of the new [ addr,port ] mapping for the matching media
-entry. 
+entry.
 
 The number of entries in the list should be the same as the number of media
 entries in the object ( see B<get_media> ). If this is not the case it will

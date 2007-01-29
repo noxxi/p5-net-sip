@@ -98,7 +98,7 @@ sub receive {
 		$c_addr = $1 if $c_addr =~m{<(\w+:\S+)>}; # do we really need this?
 		my $expire = $param->{expires};
 		$expire = $glob_expire if ! defined $expire;
-		$expire = $self->{max_expires} 
+		$expire = $self->{max_expires}
 			if ! defined $expire || $expire > $self->{max_expires};
 		if ( $expire ) {
 			if ( $expire < $self->{min_expires} ) {
@@ -113,7 +113,7 @@ sub receive {
 		}
 		$curr->{$c_addr} = $expire;
 	}
-	
+
 	# expire now!
 	$self->expire();
 	DEBUG_DUMP( 100,$store );

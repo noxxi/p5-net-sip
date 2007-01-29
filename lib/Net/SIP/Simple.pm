@@ -32,7 +32,9 @@ use Net::SIP::Endpoint;
 use Net::SIP::Registrar;
 use Net::SIP::StatelessProxy;
 use Net::SIP::Leg;
-use Net::SIP::Simple::Call;
+# crossref, because its derived from Net::SIP::Simple
+# now load in Net::SIP
+# use Net::SIP::Simple::Call; 
 use Net::SIP::Simple::RTP;
 use Net::SIP::Util qw( :all );
 use List::Util 'first';
@@ -44,13 +46,13 @@ use Net::SIP::Debug;
 #   %args: misc args, all args are optional
 #     legs|leg       - \@list of legs or single leg.
 #                      leg can be (derived from) Net::SIP::Leg, a IO::Handle (socket),
-#                      a hash reference for constructing Net::SIP::Leg or a string of 
+#                      a hash reference for constructing Net::SIP::Leg or a string of
 #                      the form (proto:)?host(:port)? where proto defaults to udp and
 #                      port defaults to 5060.
 #     outgoing_proxy - specify outgoing proxy, will create leg if necessary
 #     proxy          - alias to outgoing_proxy
 #     route|routes   - \@list with SIP routes in right syntax "<sip:host:port;lr>"...
-#     registrar      - use registrar for registration 
+#     registrar      - use registrar for registration
 #     auth           - auth data: [ user,pass ] or { realm1 => [user,pass],.. }
 #     from           - myself, used for calls and registration
 #     loop           - predefined Net::SIP::Dispatcher::Eventloop, used if
@@ -63,7 +65,7 @@ use Net::SIP::Debug;
 #                      DNS need to be used. Special domain '*' catches all
 #     d2p            - alias for domain2proxy
 # Returns: $self
-# Comment: 
+# Comment:
 # FIXME
 # If more than one leg is given (e.g. legs+outgoing_proxy) than you have
 # to provide a function to find out, which leg is used to send out a request
@@ -78,7 +80,7 @@ sub new {
 	if ($from) {
 		$domain = $1 if !defined($domain)
 			&& $from =~m{\bsips?:[^@]+\@([\w\-\.]+)};
-		$from = "$from <sip:$from\@$domain>" 
+		$from = "$from <sip:$from\@$domain>"
 			if $from !~m{\s} && $from !~m{\@};
 	}
 
@@ -102,7 +104,7 @@ sub new {
 		}
 	}
 
-	my $ob = delete $args{outgoing_proxy} 
+	my $ob = delete $args{outgoing_proxy}
 		|| delete $args{proxy};
 	if ( $ob && ! first { $_->can_deliver_to($ob) } @$legs ) {
 		my ($sock) = create_socket_to( $ob ) or die $!;
@@ -115,7 +117,7 @@ sub new {
 	}
 
 
-	my $loop = delete $args{loop} 
+	my $loop = delete $args{loop}
 		|| Net::SIP::Dispatcher::Eventloop->new;
 
 	my $d2p = delete $args{domain2proxy} || delete $args{d2p};
@@ -182,9 +184,9 @@ sub loop {
 
 ###########################################################################
 # add timer
-# propagates to add_timer of wNet::SIP::Dispatcher, see there for detailed 
+# propagates to add_timer of wNet::SIP::Dispatcher, see there for detailed
 # explanation of args
-# Args: ($self,$when,$cb,$repeat) 
+# Args: ($self,$when,$cb,$repeat)
 # Returns: $timer
 ###########################################################################
 sub add_timer {
@@ -228,21 +230,21 @@ sub register {
 	my Net::SIP::Simple $self = shift;
 	my %args = @_;
 
-	my $registrar = delete $args{registrar} || $self->{registrar} 
+	my $registrar = delete $args{registrar} || $self->{registrar}
 		|| croak( "no registrar" );
 	my $leg = delete $args{leg};
 	if ( !$leg ) {
 		# use first leg which can deliver to registrar
-		($leg) = $self->{dispatcher}->get_legs( sub => [ 
+		($leg) = $self->{dispatcher}->get_legs( sub => [
 			sub {
 				my ($addr,$leg) = @_;
 				return $leg->can_deliver_to($addr);
-			}, 
-			$registrar 
+			},
+			$registrar
 		]);
 	}
 
-	my $from = delete $args{from} || $self->{from} 
+	my $from = delete $args{from} || $self->{from}
 		|| croak( "unknown from" );
 	my $contact = $from;
 	my $local = $leg->{addr}.':'.$leg->{port};
@@ -268,7 +270,7 @@ sub register {
 				foreach my $c ( $packet->get_header( 'contact' ) ) {
 					my ($addr,$p) = sip_hdrval2parts( contact => $c );
 					defined( my $e = $p->{expires} ) || next;
-					$exp = $e if ! defined($exp) || $e < $exp; 
+					$exp = $e if ! defined($exp) || $e < $exp;
 				}
 			}
 			$$expires = $exp;
@@ -300,7 +302,7 @@ sub register {
 # create new call
 # and waits until the INVITE is completed (e.g final response received)
 # Args: ($self,$to;%args)
-#   $to: sip address of peer 
+#   $to: sip address of peer
 #   %args: see Net::SIP::Simple::Call::invite
 # Returns: $call
 #   $call: Net::SIP::Simple::Call
@@ -311,7 +313,7 @@ sub invite {
 	$to || croak( "need peer of call" );
 	if ( $to !~m{\s} && $to !~m{\@} ) {;
 		croak( "no domain and no fully qualified to" ) if ! $self->{domain};
-		$to = "$to <sip:$to\@$self->{domain}>" 
+		$to = "$to <sip:$to\@$self->{domain}>"
 	}
 	my $call = Net::SIP::Simple::Call->new( $self,$to );
 	$call->reinvite(%args );
@@ -326,7 +328,7 @@ sub invite {
 #      if not given all calls will be accepted
 #      if regex only from matching regex gets accepted
 #      if sub and sub returns 1 call gets accepted, if sub returns 0 it gets rejected
-#    cb_create: optional callback called on creation of newly created 
+#    cb_create: optional callback called on creation of newly created
 #      Net::SIP::Simple::Call
 #    cb_established: callback called after receiving ACK
 #    cb_cleanup: called on destroy of call object
@@ -386,14 +388,14 @@ sub listen {
 sub create_registrar {
 	my Net::SIP::Simple $self = shift;
 	my $registrar = Net::SIP::Registrar->new(
-		dispatcher => $self->{dispatcher}, 
-		@_ 
+		dispatcher => $self->{dispatcher},
+		@_
 	);
 	$self->{dispatcher}->set_receiver( $registrar );
 }
 
 ###########################################################################
-# setup a stateless proxy with the optional ability to be 
+# setup a stateless proxy with the optional ability to be
 # a registrar too
 # Args: ($self,%args)
 #   %args:
@@ -404,8 +406,8 @@ sub create_registrar {
 sub create_stateless_proxy {
 	my Net::SIP::Simple $self = shift;
 	my $proxy = Net::SIP::StatelessProxy->new(
-		dispatcher => $self->{dispatcher}, 
-		@_ 
+		dispatcher => $self->{dispatcher},
+		@_
 	);
 	$self->{dispatcher}->set_receiver( $proxy );
 }

@@ -1,3 +1,11 @@
+PrioA:
+* fix and test samples/stateless_proxy
+* document dns_host2ip in Net::SIP::Dispatcher
+  and make it truly asnychronous
+* document exports from Net::SIP
+
+-----
+
 - more examples
   * simple proxy + registrar
   * NAT proxy
@@ -20,7 +28,6 @@
 
 - more documentation
   * document Net::SIP::NATHelper
-  * dns_host2ip in Net::SIP::Dispatcher
   * describe mechanism to use another Leg implementation
   * samples for integration with other loops
 

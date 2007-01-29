@@ -10,7 +10,6 @@ use warnings;
 
 package Net::SIP::Simple::Call;
 use base 'Net::SIP::Simple';
-
 use fields qw( call_cleanup rtp_cleanup ctx param );
 
 ###########################################################################
@@ -36,7 +35,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #   send_bye: callback or scalar-ref used when call is closed by local side
 #   sdp_peer: Net::SIP::SDP from peer
 #   clear_sdp: ' causes that keys sdp,sdp_peer,media_ssocks and
-#       media_lsocks gets cleared on new invite, so that a new SDP session 
+#       media_lsocks gets cleared on new invite, so that a new SDP session
 #       need to be established
 #   cb_final: callback which will be called on final response in INVITE
 #       with (result,status,self,%args) where status is OK|FAIL
@@ -101,8 +100,8 @@ sub rtp_cleanup {
 sub DESTROY {
 	DEBUG( 100,"done" );
 }
-		
-	
+
+
 ###########################################################################
 # return peer of call
 # Args: $self
@@ -192,8 +191,8 @@ sub reinvite {
 
 	my $stopvar = 0;
 	$param->{cb_final} ||= \$stopvar;
-	$self->{ctx} = $self->{endpoint}->invite( 
-		$ctx, [ $cb,$self,$param ], $sdp, 
+	$self->{ctx} = $self->{endpoint}->invite(
+		$ctx, [ $cb,$self,$param ], $sdp,
 		$param->{sip_header} ? %{ $param->{sip_header} } : ()
 	);
 	if ( $param->{cb_final} == \$stopvar ) {
@@ -223,7 +222,7 @@ sub bye {
 	%args = ( %{ $self->{param} }, %args );
 	$cb ||= $args{send_bye};
 
-	my $bye_cb = [ 
+	my $bye_cb = [
 		sub {
 			my ($self,$cb,$args,$endpoint,$ctx,$error,$code) = @_;
 			# we don't care about the cause of this callback
@@ -237,10 +236,10 @@ sub bye {
 			}
 			invoke_callback( $cb,$args );
 			$self->cleanup;
-		}, 
-		$self,$cb,\%args 
+		},
+		$self,$cb,\%args
 	];
-		
+
 	$self->{endpoint}->new_request( 'BYE',$self->{ctx}, $bye_cb );
 }
 
@@ -371,7 +370,7 @@ sub _setup_local_rtp_socks {
 		# create SDP body
 		my $raddr = $param->{media_rsocks};
 
-		# if no raddr yet just assume one 
+		# if no raddr yet just assume one
 		my @media;
 		if ( my $sdp_peer = $param->{sdp_peer} ) {
 			foreach my $m ( $sdp_peer->get_media ) {
@@ -402,7 +401,7 @@ sub _setup_local_rtp_socks {
 			$m->{port} = $port;
 		}
 
-		$sdp = $param->{sdp} = Net::SIP::SDP->new( 
+		$sdp = $param->{sdp} = Net::SIP::SDP->new(
 			{ addr => $laddr },
 			@media
 		);
@@ -416,8 +415,8 @@ sub _setup_local_rtp_socks {
 	# asymetric_rtp, e.g. source socket of packet to peer is not the socket where RTP
 	# from peer gets received
 	if ( !$param->{media_ssocks} && $param->{asymetric_rtp} ) {
-		my @arg = ( 
-			Proto => 'udp', 
+		my @arg = (
+			Proto => 'udp',
 			LocalAddr => ( $param->{rtp_addr} || $laddr )
 		);
 		my $msocks = $param->{media_ssocks} = [];

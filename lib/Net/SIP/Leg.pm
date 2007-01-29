@@ -51,10 +51,10 @@ sub new {
 	} elsif ( my $addr = $self->{addr} = delete $args{addr} ) {
 		my $port = delete $args{port};
 		# port = 0 -> get port from system
-		if ( ! defined $port ) { 
+		if ( ! defined $port ) {
 			$port = $1 if $addr =~s{:(\d+)$}{};
-			$port ||= 5060; 
-		} 
+			$port ||= 5060;
+		}
 		my $proto = $self->{proto} = delete $args{proto} || 'udp';
 		$self->{sock} = IO::Socket::INET->new(
 			Proto => $proto,
@@ -68,7 +68,7 @@ sub new {
 	}
 
 	unless ( $self->{contact}  = delete $args{contact} ) {
-		my ($port,$sip_proto) = 
+		my ($port,$sip_proto) =
 			$self->{port} == 5060 ? ( '','sip' ) :
 			$self->{port} == 5061 && $self->{proto} eq 'udp' ? ( '','sips' ) :
 			( ":$self->{port}",'sip' )
@@ -102,11 +102,11 @@ sub forward_incoming {
 	my $maxf = $packet->get_header( 'max-forwards' );
 	# we don't want to put somebody Max-Forwards: 7363535353 into the header
 	# and then crafting a loop, so limit it to the default value
-	$maxf = 70 if !$maxf || $maxf>70; 
+	$maxf = 70 if !$maxf || $maxf>70;
 	$maxf--;
 	if ( $maxf <= 0 ) {
 		# just drop
-		return [ undef,'max-forwards reached 0, dropping' ]; 
+		return [ undef,'max-forwards reached 0, dropping' ];
 	}
 
 	if ( $packet->is_response ) {
@@ -129,7 +129,7 @@ sub forward_incoming {
 			my ($vref,$hdr) = @_;
 			if ( !$$vref ) {
 				# XXXXXXX maybe check that no received header existed before
-				$$vref = $hdr->{value}.= 
+				$$vref = $hdr->{value}.=
 					";received=$self->{addr}:$self->{port}";
 				$hdr->set_modified;
 			}
@@ -246,11 +246,11 @@ sub deliver {
 		# clone packet, because I don't want to change the original
 		# one because it might be retried later
 		# (could skip this for tcp?)
-		$packet = $packet->clone; 
+		$packet = $packet->clone;
 		$packet->insert_header( via => $self->{via} );
 	}
 
-	my ($proto,$host,$port) = 
+	my ($proto,$host,$port) =
 		$addr =~m{^(?:(\w+):)?([\w\-\.]+)(?::(\d+))?$};
 	#DEBUG( "%s -> %s %s %s",$addr,$proto||'',$host, $port||'' );
 	$port ||= 5060; # only right for sip, not sips!
@@ -293,15 +293,21 @@ sub sendto {
 		invoke_callback( $callback, EINVAL );
 	}
 
-	$host = inet_aton( $host );
-	my $target = sockaddr_in( $port,$host );
+	my $host4 = inet_aton( $host ) or do {
+		# this should not happen because host should better be IP
+		DEBUG( 1, "lookup problems of $host?" );
+		invoke_callback( $callback, EINVAL );
+		return;
+	};
+
+	my $target = sockaddr_in( $port,$host4 );
 	unless ( $self->{sock}->send( $data,0,$target )) {
 		DEBUG( 1,"send failed: callback=$callback error=$!" );
 		invoke_callback( $callback, $! );
 		return;
 	}
 
-	# XXXX dont forget to call callback back with ENOERR if 
+	# XXXX dont forget to call callback back with ENOERR if
 	# delivery by tcp successful
 	return 1;
 }
@@ -310,7 +316,7 @@ sub sendto {
 # receive packet
 # for udp socket it just makes a recv on the socket and returns the packet
 # for tcp master sockets it makes accept and creates a new leg based on
-#   the masters leg. 
+#   the masters leg.
 # Args: ($self)
 # Returns: ($packet,$from) || ()
 #   $packet: Net::SIP::Packet
@@ -398,5 +404,5 @@ sub fd {
 	return $self->{sock};
 }
 
-	
+
 1;

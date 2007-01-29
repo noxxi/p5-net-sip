@@ -15,7 +15,7 @@ use fields (
 	'from',    # from where
 	'to',      # to where
 	'auth',    # [ user,pass ] or { realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... }
-	           # if given, handle_response might automatically try to authorize requests
+			   # if given, handle_response might automatically try to authorize requests
 	'contact', # optional contact
 	'callid',  # call-id value
 	'cseq',    # number in cseq header
@@ -25,7 +25,7 @@ use fields (
 
 	# ===== Internals
 	# \@array of hashrefs for infos about pending transactions
-	'_transactions', 
+	'_transactions',
 	# arrayref specifying a user defined callback for request success or failure
 	'_callback',
 	# cseq counter for incoming requests
@@ -129,11 +129,11 @@ sub new_request {
 		# the latter case is useful for ACK and CANCEL
 		# which need the same sequence number as the INVITE
 		# they belong to
-		my $cseq = delete $args{cseq} || ++$self->{cseq}; 
+		my $cseq = delete $args{cseq} || ++$self->{cseq};
 
 		$method = uc($method);
 		my $uri = delete $args{uri};
-		my ($to,$from,$contact,$remote_contact) = $self->{incoming} 
+		my ($to,$from,$contact,$remote_contact) = $self->{incoming}
 			? ( $self->{from}, $self->{to},undef,$self->{contact} )
 			: ( $self->{to}, $self->{from},$self->{contact},undef )
 			;
@@ -142,7 +142,7 @@ sub new_request {
 			# XXX handle quotes right, e.g "<bla>" <sip:bla@fasel.com>
 			$uri = $1 if $uri =~m{<(\S+)>$};
 		}
-		$request = Net::SIP::Request->new( 
+		$request = Net::SIP::Request->new(
 			$method,     # Method
 			$uri,        # URI
 			{
@@ -174,14 +174,14 @@ sub new_request {
 ############################################################################
 # set callback for context
 # Args: ($self,$cb)
-#  $cb: [ \&sub,@arg ] 
+#  $cb: [ \&sub,@arg ]
 # Returns: NONE
 ############################################################################
 sub set_callback {
 	my Net::SIP::Endpoint::Context $self = shift;
 	$self->{_callback} = shift;
 }
-	
+
 ############################################################################
 # notify context that current delivery is permanently done (e.g successful
 # or failed). On failure call current callback to notify upper layer about
@@ -335,7 +335,7 @@ sub handle_response {
 		# Authorization required
 		my $r = $tr->{request};
 		my $auth = $self->{auth};
-		if ( $auth && $r->authorize( $response, 
+		if ( $auth && $r->authorize( $response,
 			UNIVERSAL::isa($auth,'HASH') ? %$auth :  @$auth
 			)) {
 			# found something to authorize

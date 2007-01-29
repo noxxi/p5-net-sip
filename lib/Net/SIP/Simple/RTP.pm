@@ -56,7 +56,7 @@ sub media_recv_echo {
 				}
 			};
 
-			$call->{loop}->addFD( $sock, 
+			$call->{loop}->addFD( $sock,
 				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{},\$didit ] );
 			push @{ $call->{ rtp_cleanup }}, [ sub {
 				my ($call,$sock) = @_;
@@ -121,11 +121,11 @@ sub media_send_recv {
 
 			# sending need to be done with a timer
 			my $cb_done = $args->{cb_rtp_done} || sub { shift->bye };
-			my $timer = $call->{dispatcher}->add_timer( 
+			my $timer = $call->{dispatcher}->add_timer(
 				0, # start immediatly
-				[ \&_send_rtp,$s_sock,$addr,$readfrom, { 
-					repeat => $repeat || 1, 
-					cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ] 
+				[ \&_send_rtp,$s_sock,$addr,$readfrom, {
+					repeat => $repeat || 1,
+					cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ]
 				}],
 				160/8000, # 8000 bytes per second, 160 bytes per sample
 				'rtpsend',
@@ -239,7 +239,7 @@ use Time::HiRes 'gettimeofday';
 sub _send_rtp {
 	my ($sock,$addr,$readfrom,$targs,$timer) = @_;
 
-    my $buf;
+	my $buf;
 	if ( ref($readfrom) ) {
 		# payload by callback
 		$buf = invoke_callback( $readfrom );
@@ -250,7 +250,7 @@ sub _send_rtp {
 			return;
 		}
 	} else {
-    	# read from file
+		# read from file
 		for(my $tries = 0; $tries<2;$tries++ ) {
 			$targs->{wseq} ||= int( rand( 2**16 ));
 			my $fd = $targs->{fd};
@@ -274,29 +274,29 @@ sub _send_rtp {
 			$targs->{repeat}--;
 		}
 	}
-    $buf || die $!;
+	$buf || die $!;
 
-    # add RTP header
-    my ($high,$low) = gettimeofday();
-    my $timestamp = ( $high << 16 ) | ( $low >> 16 );
-    $targs->{wseq}++;
+	# add RTP header
+	my ($high,$low) = gettimeofday();
+	my $timestamp = ( $high << 16 ) | ( $low >> 16 );
+	$targs->{wseq}++;
 
 	{
 		my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );
 		$fa = inet_ntoa($fa);
 		my ($tp,$ta) = unpack_sockaddr_in( $addr );
 		$ta = inet_ntoa($ta);
-    	DEBUG( 50, "$fa:$fp -> $ta:$tp seq=$targs->{wseq} ts=%x",$timestamp );
+		DEBUG( 50, "$fa:$fp -> $ta:$tp seq=$targs->{wseq} ts=%x",$timestamp );
 	}
 
-    my $header = pack('CCnNN',
-        0b10000000, # Version 2
-        0b00000000, # PMCU 8000
-        $targs->{wseq}, # sequence
-        $timestamp,
-        0x1234,    # source ID
-    );
-    send( $sock,$header.$buf,0,$addr ) || die $!;
+	my $header = pack('CCnNN',
+		0b10000000, # Version 2
+		0b00000000, # PMCU 8000
+		$targs->{wseq}, # sequence
+		$timestamp,
+		0x1234,    # source ID
+	);
+	send( $sock,$header.$buf,0,$addr ) || die $!;
 }
 
 1;

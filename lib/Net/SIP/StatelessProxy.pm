@@ -42,7 +42,7 @@ sub new {
 	my ($class,%args) = @_;
 	my $self = fields::new( $class );
 
-	my $disp = $self->{dispatcher} = 
+	my $disp = $self->{dispatcher} =
 		delete $args{dispatcher} || croak 'no dispatcher given';
 	if ( my $r = delete $args{registrar} ) {
 		if ( UNIVERSAL::can( $r,'receive' )) {
@@ -63,10 +63,10 @@ sub new {
 # this is not enough if you need to hide internal addresses
 sub _default_rewrite_contact {
 	my ($self,$contact) = @_;
-	my $secret = md5_hex( 
+	my $secret = md5_hex(
 		sort { $a cmp $b }
 		map { $_->{proto}.':'.$_->{addr}.':'.$_->{port} }
-		$self->{dispatcher}->get_legs 
+		$self->{dispatcher}->get_legs
 	);
 
 	my $new;
@@ -91,7 +91,7 @@ sub _default_rewrite_contact {
 	}
 	return $new;
 }
-		
+
 ###########################################################################
 # handle incoming requests
 # Args: ($self,$packet,$leg,$from)
@@ -104,16 +104,16 @@ sub receive {
 	my ($self,$packet,$incoming_leg,$from) = @_;
 	DEBUG( 10,"received ".$packet->dump );
 
-	if ( ( my $reg = $self->{registrar} ) 
+	if ( ( my $reg = $self->{registrar} )
 		and $packet->is_request
 		and $packet->method eq 'REGISTER' ) {
 		# try to handle by builtin registrar
 		# this might fail if it is not responsable for domain
-		$reg->receive( $packet,$incoming_leg,$from ) 
+		$reg->receive( $packet,$incoming_leg,$from )
 			&& return;
 	}
 
-	# Prepare for forwarding, e.g adjust headers 
+	# Prepare for forwarding, e.g adjust headers
 	# (add record-route)
 	if ( my $err = $incoming_leg->forward_incoming( $packet )) {
 		my ($code,$text) = @$err;
@@ -146,7 +146,7 @@ sub receive {
 
 		my ($to) = sip_hdrval2parts( uri => $packet->uri );
 		$to = $1 if $to =~m{<(\w+:\S+)>};
-		if ( $to =~m{^(.*?)(\w+)(\@.*)} 
+		if ( $to =~m{^(.*?)(\w+)(\@.*)}
 			&& ( my $back = invoke_callback( $rewrite_contact,$2 ) )) {
 			$to = $1.$back;
 			DEBUG( 10,"rewrote URI from '%s' to '%s'", $packet->uri, $to );
@@ -215,7 +215,7 @@ sub __forward_response_1 {
 		# FIXME: we assume that the received entry is done by us
 		# and that we only put IP addresses inside
 		my ($addr,$port) = split( ':',$received,2 );
-		my @received_legs = $self->{dispatcher}->get_legs( 
+		my @received_legs = $self->{dispatcher}->get_legs(
 			addr => $addr, port => $port );
 		my $dst_addr = $entry->{dst_addr};
 		my @legs;
@@ -234,7 +234,7 @@ sub __forward_response_1 {
 		DEBUG( 50,"getting leg from received=$received" );
 	}
 
-	__forward__packet_final( $self,$entry );
+	__forward_packet_final( $self,$entry );
 }
 
 
@@ -260,7 +260,7 @@ sub __forward_request {
 			DEBUG( 50,"setting leg from our route header" );
 			$entry->{outgoing_leg} = \@legs;
 			shift(@route);
-		} 
+		}
 		if ( @route ) {
 			# still routing infos. Use next route as dst_addr
 			my ($data) = sip_hdrval2parts( route => $route[0] );
@@ -362,7 +362,7 @@ sub __forward_packet_final {
 			if ( ! $leg ) {
 				DEBUG( 50,"no leg for $addr" );
 				next;
-			} 
+			}
 			push @addr,$addr;
 			push @$legs,$leg
 		}
@@ -383,7 +383,7 @@ sub __forward_packet_final {
 	}
 
 	# pick first
-	my $outgoing_leg = $legs->[0]; 
+	my $outgoing_leg = $legs->[0];
 	$dst_addr = $dst_addr->[0];
 
 	my $packet = $entry->{packet};
@@ -395,11 +395,11 @@ sub __forward_packet_final {
 
 			# rewrite all sip(s) contacts
 			my ($data,$p) = sip_hdrval2parts( contact => $c );
-			my ($pre,$addr,$post) = 
+			my ($pre,$addr,$post) =
 				$data =~m{^(.*<sips?:)([^>\s]+)(>.*)}i ? ($1,$2,$3) :
 				$data =~m{^(sips?:)([^>\s]+)$}i ? ($1,$2,'') :
 				next;
-			
+
 			# if contact was rewritten rewrite back
 			if ( $addr =~m{^(\w+)(\@.*)} &&
 				( my $back = $1 && invoke_callback($rewrite_contact,$1))) {
@@ -428,10 +428,10 @@ sub __forward_packet_final {
 	}
 
 	# Just forward packet via the outgoing_leg
-	$self->{dispatcher}->deliver( $packet, 
-		leg => $outgoing_leg, 
-		dst_addr => $dst_addr, 
-		do_retransmits => 0 
+	$self->{dispatcher}->deliver( $packet,
+		leg => $outgoing_leg,
+		dst_addr => $dst_addr,
+		do_retransmits => 0
 	);
 }
 

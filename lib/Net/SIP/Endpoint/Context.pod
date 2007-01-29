@@ -29,11 +29,11 @@ It contains the following mandatory keys:
 =item from
 
 Initiator of call. This is the local address for outgoing calls
-and the peers address for incoming calls. 
+and the peers address for incoming calls.
 
 =item to
 
-Target of call. 
+Target of call.
 
 =back
 
@@ -73,7 +73,7 @@ It's usually given for incoming calls, but not for outgoing calls.
 
 =item cseq
 
-Initial local sequence number for the B<CSeq> SIP header. 
+Initial local sequence number for the B<CSeq> SIP header.
 Defaults to 0, e.g. the first request will get the sequence number 1.
 
 =back
@@ -103,7 +103,7 @@ METHOD might be already a L<Net::SIP::Request> object in which case it
 will be used unmodified. BODY might be a string or object (see constructor
 of L<Net::SIP::Request>).
 
-It will add the request to the list of active transactions within the 
+It will add the request to the list of active transactions within the
 context C<$self>, e.g. will be prepared to get responses for it.
 The callback for the transaction is copied from the default callback
 for the context, so that it stays the same, even if the default callback
@@ -114,8 +114,8 @@ It returns the created request object.
 
 =item set_callback ( CALLBACK )
 
-Sets callback for context, which will be used if the upper layer need to 
-be notified, e.g on incoming requests or an permanent delivery errors. 
+Sets callback for context, which will be used if the upper layer need to
+be notified, e.g on incoming requests or an permanent delivery errors.
 CALLBACK is a callback usable by B<invoke_callback> in L<Net::SIP::Util> and will be
 invoked with the following arguments (some arguments make only sense for
 incoming packets).
@@ -199,9 +199,9 @@ transaction). If it not matches the packet will be dropped.
 debugging, see L<Net::SIP::Debug>.
 
 If the response is for a BYE or CANCEL request the call
-will be closed. 
+will be closed.
 
-If the response is the unsuccessful final response for an 
+If the response is the unsuccessful final response for an
 INVITE an ACK will be send, if it's preliminary response
 it will invoke the callback for the transaction.
 
@@ -223,11 +223,11 @@ If the response code is 401 (Authorization required) or
 authorization info (key B<auth> in the constructor)) it
 will try to authorize the request based on the realms
 given in the response and if it can find authorization info
-for at least parts of the required realms it will 
+for at least parts of the required realms it will
 redeliver the request. Otherwise it will invoke the callback
 with an error of EPERM.
 
-If the response code is 300 (multiple choice) or 301 
+If the response code is 300 (multiple choice) or 301
 (moved permanently) it will invoke the callback because
 it cannot resolve the issue automatically.
 But if it's 302 (moved temporally) it will rewrite the

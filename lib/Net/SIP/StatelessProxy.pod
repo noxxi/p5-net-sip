@@ -21,7 +21,7 @@ by the proxy.
 The proxy can be used in connection with L<Net::SIP::Registrar>
 to work as a registrar too. In this case incoming packets from
 the dispatcher need to be forwarded to the registrar and only
-if the registrar does not handle the packet (method B<receive> 
+if the registrar does not handle the packet (method B<receive>
 in L<Net::SIP::Registrar> returns C<()> ) it should be handled
 by the proxy.
 
@@ -59,7 +59,7 @@ described for L<Net::SIP::Registrar>).
 
 If given all incoming REGISTER requests will be forwarded to the
 registrar (by calling it's method B<receive>) and only if the
-registrar does not handle the packet (method returns C<()>) it will 
+registrar does not handle the packet (method returns C<()>) it will
 be handled by the proxy.
 
 =item rewrite_contact
@@ -67,7 +67,7 @@ be handled by the proxy.
 Callback which is used in rewriting B<Contact> headers.
 If one puts user@host in it should rewrite it and if one puts
 something without '@' it should try to rewrite it back
-(and return B<()> if it cannot rewrite it back). 
+(and return B<()> if it cannot rewrite it back).
 A working default implementation is provided.
 
 =back
@@ -82,7 +82,7 @@ A working default implementation is provided.
 
 PACKET is the incoming packet,
 LEG is the L<Net::SIP::Leg> where the packet arrived and FROM
-is the C<< "ip:port" >> of the sender. 
+is the C<< "ip:port" >> of the sender.
 
 Talled from the dispatcher on incoming packets. The packet
 will be rewritten (C<Via> and C<Record-Route> headers added,

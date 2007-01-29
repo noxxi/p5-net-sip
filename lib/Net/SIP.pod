@@ -13,16 +13,16 @@ Net::SIP consists of packages for handling the SIP packets,
 for transport of the packets, for processing the packets
 and on top of all that a simplified layer for common tasks.
 
-Addionally L<Net::SIP::Util> provides utility functions 
-and L<Net::SIP::Debug> provides a debugging layer used 
+Addionally L<Net::SIP::Util> provides utility functions
+and L<Net::SIP::Debug> provides a debugging layer used
 by all these packets. Especially it provides the function
 B<invoke_callback> which is used for all callback unless
 otherwise in the documentation specified. This function
 supports a variety of different callback styles.
 
 For first and simple applications you best start with L<Net::SIP::Simple>.
-If this is no longer enough you might look at the details of 
-L<Net::SIP::Dispatcher>, L<Net::SIP::Endpoint>, 
+If this is no longer enough you might look at the details of
+L<Net::SIP::Dispatcher>, L<Net::SIP::Endpoint>,
 L<Net::SIP::Register> and L<Net::SIP::StatelessProxy>.
 Although these packages are in itself well documented the functionality
 and the design is best understandable if you look how it gets used
@@ -32,7 +32,7 @@ in tghe source of L<Net::SIP::Simple>.
 
 =over 4
 
-=item L<SIP::Net::Packet> 
+=item L<SIP::Net::Packet>
 
 Is the base class for handling SIP packets and provides ways to
 parse, construct and manipulate SIP packets.
@@ -44,7 +44,7 @@ Provides ways to create special requests like ACK or CANCEL based
 on previous requests and responses, for creating responses based
 on requests, for authorization of requests.
 
-=item L<SIP::Net::Response> 
+=item L<SIP::Net::Response>
 
 Is derived from L<SIP::Net::Packet> and handles the response packets.
 
@@ -70,7 +70,7 @@ B<Record-Route>.
 =item L<Net::SIP::Dispatcher>
 
 Handles new packets coming in through a L<Net::SIP::Leg>.
-Delivers outgoing packets through the appropriate L<Net::SIP::Leg>. 
+Delivers outgoing packets through the appropriate L<Net::SIP::Leg>.
 Handles timeouts and retransmission of outgoing packets, lookup
 of the appropriate leg through DNS etc.
 
@@ -79,7 +79,7 @@ of the appropriate leg through DNS etc.
 Simple implementation of an event loop for handling socket events
 and timers.
 Can be replaced to integrate into other event loops, like L<Tk>,
-L<Lib::Event> or L<POE>. 
+L<Lib::Event> or L<POE>.
 
 =back
 
@@ -100,7 +100,7 @@ Simple implementation of a registrar.
 =item L<Net::SIP::StatelessProxy>
 
 Simple implementation of a stateless proxy. Stateful proxies should
-probably be implemented by putting multiple L<Net::SIP::Endpoint>s 
+probably be implemented by putting multiple L<Net::SIP::Endpoint>s
 together.
 
 =back

@@ -7,7 +7,7 @@ Net::SIP::Dispatcher::Eventloop - simple event loop for L<Net::SIP::Dispatcher>
 
   my $loop = Net::SIP::Dispatcher::Eventloop->new;
   $loop->addFD( $fd, $callback );
-  $loop->add_timer( 10,$callback ); 
+  $loop->add_timer( 10,$callback );
   $loop->loop;
 
 =head1 DESCRIPTION
@@ -83,7 +83,7 @@ last event in the loop occured (e.g. when the select(2) call returned)
 =item loop ( [ TIMEOUT, \@STOPVAR ] )
 
 The main loop, e.g. continuiosly checks timers and file handles for the
-events and calls callbacks. 
+events and calls callbacks.
 
 If TIMEOUT is given it will run the loop for at most TIMEOUT seconds,
 then the method will return. Undefined TIMEOUT means that it will never
@@ -92,13 +92,13 @@ timers and handles only once and then return.
 
 @STOPVAR is a list of scalar references. These scalars are expected to
 be changed from the callbacks, so it will check after each loop cycle, e.g.
-after all callbacks are called (timers and handles) if any of these scalars 
+after all callbacks are called (timers and handles) if any of these scalars
 is TRUE, in which case it will end the loop.
 
 The behavior with STOPVAR cannot be found in most existing event loops.
 If you want to integrate L<Net::SIP> with your own event loop you migth
 simply wrap all callbacks given in B<addFD> and B<add_timer> in another
-callback which at the end checks the stopvars and terminates the 3rd-party loop 
+callback which at the end checks the stopvars and terminates the 3rd-party loop
 in a loop-specific way.
 
 =back

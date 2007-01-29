@@ -31,7 +31,7 @@ sub new {
 
 ###########################################################################
 # create new Net::SIP::SDP packet from parts
-# Args: ($class,$global,@media) 
+# Args: ($class,$global,@media)
 #   $global: \%hash of (key,val) for global section, val can be
 #       scalar or array-ref (for multiple val). keys can be the
 #       on-letter SDP keys and the special key 'addr' for constructing
@@ -102,7 +102,7 @@ sub new_from_parts {
 			@m_self{qw(media port range proto fmt)} = _split_m( $mline );
 		} else {
 			foreach (qw( port media proto )) {
-				defined( $m_self{$_} = delete $m{$_} ) 
+				defined( $m_self{$_} = delete $m{$_} )
 					|| die "no $_ in media description";
 			}
 			$m_self{range} = delete($m{range})
@@ -157,7 +157,7 @@ sub new_from_string {
 
 	# split into lines
 	Carp::confess('bla' ) if ref( $string ) eq 'HASH';
-	my @lines = ref($string) 
+	my @lines = ref($string)
 		? @$string
 		: split( m{\r?\n}, $string );
 
@@ -205,7 +205,7 @@ sub new_from_string {
 	# "o=" username sess-id sess-version nettype addrtype addr
 	$line = shift(@lines);
 	$line->[0] eq 'o' || die "missing origin";
-	(undef,$self->{session_id},$self->{session_version}) 
+	(undef,$self->{session_id},$self->{session_version})
 		= split( ' ',$line->[1] );
 	push @$gl,$line;
 
@@ -215,7 +215,7 @@ sub new_from_string {
 
 		# end of global section, beginning of media section
 		last if $line->[0] eq 'm';
-		
+
 		push @$gl,$line;
 		if ( $line->[0] eq 'c' ) {
 			# "c=" nettype addrtype connection-address
@@ -239,19 +239,19 @@ sub new_from_string {
 			addr  => $global{addr},
 			port  => $port,
 			range => $range || 1,
-			media => $media, 
+			media => $media,
 			proto => $proto,
 			fmt   => $fmt,
 		);
 		lock_keys(%m);
 		push @media,\%m;
 
-		# find out connection 
+		# find out connection
 		my $have_c = 0;
 		while ( $line = shift(@lines) ) {
 
 			# next media section
-			last if $line->[0] eq 'm'; 
+			last if $line->[0] eq 'm';
 
 			push @$ml,$line;
 			if ( $line->[0] eq 'c' ) {
@@ -312,7 +312,7 @@ sub get_media {
 }
 
 ###########################################################################
-# replace the addr and port (eg where it will listen) from the media in 
+# replace the addr and port (eg where it will listen) from the media in
 # the SDP packet
 # used for remapping by a proxy for NAT or inspection etc.
 # Args: ($self,@replace)
@@ -429,7 +429,7 @@ sub _split_c {
 	$atyp eq 'IP4' || $atyp eq 'IP6' or die "addrtype $atyp not supported";
 	return $addr;
 }
-sub _join_c { 
+sub _join_c {
 	my $addr = shift;
 	my $atyp = $addr =~m{^[a-fA-F:\.]+$} ? 'IP6':'IP4';
 	return "IN $atyp $addr";
@@ -441,7 +441,7 @@ sub _join_c {
 ###########################################################################
 sub _split_m {
 	my $mline = shift;
-	my ($media,$port,$range,$proto,$fmt) = 
+	my ($media,$port,$range,$proto,$fmt) =
 		$mline =~m{^(\w+)\s+(\d+)(?:/(\d+))?\s+(\S+)((?:\s+\S+)+)}
 		or die "bad [m]edia: '$mline'";
 	$range ||= 1;

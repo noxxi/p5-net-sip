@@ -16,7 +16,7 @@ sub is_request  {0}
 sub is_response {1}
 
 ###########################################################################
-# Accessors for numerical code and text 
+# Accessors for numerical code and text
 # (e.g. "407 Authorization required" )
 ###########################################################################
 sub code        { return (shift->as_parts())[0] }

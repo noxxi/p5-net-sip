@@ -23,11 +23,11 @@ The following levels are used:
 
 =over 4
 
-=item 1 
+=item 1
 
 Debug messages for users
 
-=item 2 
+=item 2
 
 Includes short SIP packet dumps of incoming and outgoing data
 
@@ -76,7 +76,7 @@ level lower or equal to NUMBER.
 Enables debugging for package PACKAGE. PACKAGE might be a fully
 qualified package (e.g. C<Net::SIP::Registrar>) or the C<Net>
 or C<Net::SIP> might be ommited (C<Registrar>). If a C<*> is added
-the debugging will also be enabled for subpackages, e.g. 
+the debugging will also be enabled for subpackages, e.g.
 C<Endpoint*> will enable debugging for L<Net::SIP::Endpoint> and
 L<Net::SIP::Endpoint::Context> too.
 
@@ -119,7 +119,7 @@ debug level the message will not be printed.
 The MESSAGE (or the result from C<< sprintf(FMT,@ARG) >>) will be
 prefixed by the callers package, the callers function and the line
 from which DEBUG was called. In front of the prefix the current time
-(as float time_t) and the string "DEBUG:" will be added. 
+(as float time_t) and the string "DEBUG:" will be added.
 
 If the message consists of multiple lines each line will be prefixed
 by the prefix and all but the first line will also have a TAB added

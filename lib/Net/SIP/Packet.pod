@@ -46,9 +46,9 @@ L<Net::SIP::Request> or L<Net::SIP::Response> will be used instead.
 
   # create packet from parts
   my $resp = Net::SIP::Packet->new(
-    200, 'Ok',
-    { to => '<sip:you@example.com>', from => '<sip:me@example.com>',.. }
-    Net::SIP::SDP->new(...)
+	200, 'Ok',
+	{ to => '<sip:you@example.com>', from => '<sip:me@example.com>',.. }
+	Net::SIP::SDP->new(...)
   );
 
   # and get the packet as string
@@ -56,7 +56,7 @@ L<Net::SIP::Request> or L<Net::SIP::Response> will be used instead.
 
 =head1 CONSTRUCTOR
 
-=over 4 
+=over 4
 
 =item new ( STRING | @PARTS )
 
@@ -72,10 +72,10 @@ or L<Net::SIP::Response> object accordingly.
 
 If CODE|METHOD is numeric a L<Net::SIP::Response> object will be created with
 the response code CODE and the text TEXT.
-Otherwise a L<Net::SIP::Request> object will be created with the method METHOD 
+Otherwise a L<Net::SIP::Request> object will be created with the method METHOD
 and the uri URI.
 
-Header data can be given as a hash %HEADER or array @HEADER reference. 
+Header data can be given as a hash %HEADER or array @HEADER reference.
 In case of a hash the key is the SIP field name and the value as either a string
 or a \@list of strings. The fields on the resulting SIP packet
 will be sorted by name of the fields and fields with multiple values will be
@@ -85,13 +85,13 @@ If the header is given as an array the elements of the array are C<< [ key => va
 pairs where the keys are the field names and the values are strings or \@list of
 strings. Each pair will result in a single line in the SIP header.
 If the value was a list reference the values in the list will be concatened by ','.
-The order of the fields in the resulting SIP packet will be the same as in 
-the array. 
+The order of the fields in the resulting SIP packet will be the same as in
+the array.
 
 The BODY is optinal and can be given either as a string or as an reference to an
 object which has a method B<as_string>, like L<Net::SIP::SDP>. If the BODY is an
 object which has a method B<content_type> it will set the C<content-type> header
-of the SIP object based on the result of C<< BODY->content_type >> unless a 
+of the SIP object based on the result of C<< BODY->content_type >> unless a
 C<content-type> header was explicitly given.
 
 =back
@@ -172,7 +172,7 @@ in B<new_from_parts>.
 
 =item sdp_body
 
-Returns body as L<Net::SIP::SDP> object if there is a body and the 
+Returns body as L<Net::SIP::SDP> object if there is a body and the
 content-type is 'application/sdp' or empty.
 
 =back

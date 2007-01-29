@@ -62,7 +62,7 @@ sub set_application {
 
 ############################################################################
 # create a new call or re-invite on a existing call
-# wrapper around new_request() 
+# wrapper around new_request()
 # Args: ($self,$ctx;$callback,$body,%args)
 #   $ctx: Context|\%args, see new_request()
 #   $callback: optional Callback, see new_request()
@@ -94,7 +94,7 @@ sub register {
 	my Net::SIP::Endpoint $self = shift;
 	my %args = @_;
 
-	my ($me,$registrar,$contact) = 
+	my ($me,$registrar,$contact) =
 		delete @args{qw( from registrar contact )};
 
 	my $expires = delete $args{expires};
@@ -134,7 +134,7 @@ sub register {
 #   $body: optional Body, either scalar or smth with method as_string
 #     (like Net::SIP::SDP)
 #   %args: additional args for Net::SIP::Request::new
-# Returns: $ctx 
+# Returns: $ctx
 #    $ctx: context, eg the original one or newly created
 # Comment: if it cannot create a new context (because of missing args)
 #   or something else fatal happens it will die()
@@ -276,7 +276,7 @@ sub receive_request {
 		if ( $method eq 'BYE' || $method eq 'ACK' || $method eq 'CANCEL' ) {
 			# no context for this call, reply with 481 call does not exist
 			# (RFC3261 15.1.2)
-			$self->new_response( 
+			$self->new_response(
 				undef,
 				$request->create_response( 481,'call does not exist' ),
 				$leg,  # send back thru same leg

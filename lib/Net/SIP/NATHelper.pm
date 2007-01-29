@@ -51,9 +51,9 @@ use warnings;
 #                     cseq
 #                       |
 #       ---------------------------------------------
-#        |     |                             
-#        |   socket_groups                   
-#        |     |                             
+#        |     |
+#        |   socket_groups
+#        |     |
 #        |     |- idx: Net::SIP::NATHelper::SocketGroup
 #        |     |- idx: Net::SIP::NATHelper::SocketGroup
 #        |     |- idx: Net::SIP::NATHelper::SocketGroup
@@ -81,10 +81,10 @@ use List::Util 'first';
 sub new {
 	my ($class) = @_;
 	# Hash of Net::SIP::NATHelper::Call indexed by call-id
-	return bless {}, $class; 
+	return bless {}, $class;
 }
 
-	
+
 ############################################################################
 # allocate new sockets for RTP
 # Args: ($self,$callid,$cseq,$idx,$interface,\@media)
@@ -218,7 +218,7 @@ sub new {
 	my (@rtp_sockets,@targets,@new_media);
 	foreach my $m (@$media) {
 		my ($addr,$port,$range) = @{$m}{qw/addr port range/};
-		
+
 		# allocate new sockets
 		my ($new_port,@socks) = create_rtp_sockets( $new_addr,$range );
 		unless (@socks) {
@@ -245,9 +245,9 @@ sub new {
 	}
 
 	my $self = fields::new($class);
-	%$self = ( 
-		id => $id, 
-		socks => \@rtp_sockets, 
+	%$self = (
+		id => $id,
+		socks => \@rtp_sockets,
 		targets => \@targets,
 		media => \@new_media,
 		lastmod => time(),
@@ -312,8 +312,8 @@ sub get_targets {
 ############################################################################
 sub dump {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
-	my $result = $self->{id}." >> ".join( ' ', 
-		map { "$_->[0]:$_->[1]/$_->[2]" } 
+	my $result = $self->{id}." >> ".join( ' ',
+		map { "$_->[0]:$_->[1]/$_->[2]" }
 		@{$self->{media}} ).
 		"\n";
 	return $result;
@@ -398,7 +398,7 @@ sub callbacks {
 			$sfrom,                # call $sfrom->didit
 
 		]];
-		push @cb, [ $sockets_to->[$i], [ 
+		push @cb, [ $sockets_to->[$i], [
 			\&_forward_data,
 			$sockets_to->[$i],     # read data from socket TO(nat)
 			$sockets_from->[$i],   # forward data using socket FROM(nat)
@@ -443,7 +443,7 @@ sub _forward_data {
 sub dump {
 	my Net::SIP::NATHelper::Session $self = shift;
 	return ( $self->{sfrom} && $self->{sfrom}{id} || 'NO.SFROM' ).",".
-	 	( $self->{sto} && $self->{sto}{id} || 'NO.STO' )."\n";
+		( $self->{sto} && $self->{sto}{id} || 'NO.STO' )."\n";
 }
 
 ############################################################################
@@ -482,7 +482,7 @@ sub allocate_sockets {
 
 	# find existing data for $cseq
 	my $data = $self->{by_cseq}{$cseq};
-	
+
 	if ( ! $data ) {
 		# if it is not known check if cseq is too small (retransmit of old packet)
 		foreach ( keys %{$self->{by_cseq}} ) {
@@ -505,7 +505,7 @@ sub allocate_sockets {
 	# if this fails return (), otherwise return media
 
 	my $sgroups = $data->{socket_groups};
-	my $group = $sgroups->{$idx} 
+	my $group = $sgroups->{$idx}
 		||= Net::SIP::NATHelper::SocketGroup->new( $idx,$interface,$media )
 		|| return;
 	return $group->get_media;

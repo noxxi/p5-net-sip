@@ -49,7 +49,7 @@ the two parties.
 Callback used to initialize media for the connection, see method B<rtp>
 in L<Net::SIP::Simple> and L<Net::SIP::Simple::RTP>.
 
-Callback will be invoked with the call C<$self> and the connection 
+Callback will be invoked with the call C<$self> and the connection
 parameter as an argument (as hash reference).
 
 =item sdp
@@ -107,7 +107,7 @@ parameter merged with the parameter from the B<bye> method.
 =item clear_sdp
 
 If TRUE the keys media_lsocks, media_ssocks, sdp and sdp_peer will be cleared
-on each new (re)INVITE request, so that it will allocate new sockets for RTP 
+on each new (re)INVITE request, so that it will allocate new sockets for RTP
 instead of reusing the existing.
 
 =item cb_final
@@ -186,9 +186,9 @@ object C<$self>.
 
 =item bye ( %ARGS )
 
-Closes a call by sending a BYE request. 
+Closes a call by sending a BYE request.
 If %ARGS contains B<cb_final> it will be used as a callback and invoked once it gets
-the response for the BYE (which might be a response packet or a timeout). 
+the response for the BYE (which might be a response packet or a timeout).
 The rest of %ARGS will be merged with the connection parameter and given as an argument
 to the B<cb_final> callback (as hash reference).
 
@@ -200,7 +200,7 @@ calling context for the current call. ERROR is an errno describing the
 error (and 0|undef if no error). CODE is the numerical code from the packet if
 a response packet was received. PACKET is the incoming packet,
 LEG the L<Net::SIP::Leg> where it came in and FROM the C<< "ip:port" >> of the
-sender. For more details see documentation to B<set_callback> in 
+sender. For more details see documentation to B<set_callback> in
 L<Net::SIP::Endpoint::Context>.
 
 If the incoming packet is a BYE or CANCEL request it will close the call and

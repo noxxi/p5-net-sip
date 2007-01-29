@@ -56,7 +56,7 @@ sub create_ack {
 	my Net::SIP::Request $self = shift;
 	my $response = shift;
 	# ACK uses cseq from request
-	$self->cseq =~m{(\d+)};  
+	$self->cseq =~m{(\d+)};
 	my $cseq = "$1 ACK";
 	my $header = {
 		'call-id' => scalar($self->get_header('call-id')),
@@ -101,7 +101,7 @@ sub create_cancel {
 #   $args: additional args for SIP header
 #   $body: body as string
 # Returns: $response
-#   $response: Net::SIP::Response 
+#   $response: Net::SIP::Response
 ###########################################################################
 sub create_response {
 	my Net::SIP::Request $self = shift;
@@ -147,7 +147,7 @@ sub authorize {
 	} else {
 		die "bad args"
 	}
-		
+
 
 	my $auth = 0;
 	my %auth_map = (

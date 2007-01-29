@@ -86,7 +86,7 @@ If the creation of the socket fails it will return C<()> and set C<$!>.
 Example:
 
   my ($sock,$ip_port) = create_socket_to ( '192.168.0.1' )
-    or die $!;
+	or die $!;
 
 
 =item create_rtp_sockets ( LADDR, [ RANGE, MINPORT, MAXPORT, TRIES ] )
@@ -94,7 +94,7 @@ Example:
 This tries to allocate sockets for RTP. RTP consists usually of a data
 socket on an even port number and a control socket (RTCP) and the following
 port. It will try to create these sockets. MINPORT is the minimal
-port number to use (default 2000), MAXPORT the highest port (default 
+port number to use (default 2000), MAXPORT the highest port (default
 MINPORT+10000), TRIES is the number of attempts it makes to create such
 socket pairs and defaults to 1000.
 
@@ -112,19 +112,19 @@ followed by all the allocated sockets.
 Example:
 
   my ($port,$rtp_sock,$rtcp_sock) = create_rtp_sockets( '192.168.0.10' )
-    or die "allocation failed";
+	or die "allocation failed";
 
 
 =item sip_hdrval2parts ( KEY, VALUE )
 
 Interprets VALUE as a value for the SIP header field KEY and splits
-it into the parts (prefix, parameter). Because for most keys the 
+it into the parts (prefix, parameter). Because for most keys the
 delimiter is C<;>, but for some keys C<,> the field name KEY need to
 be known.
 
 KEY needs to be normalized already (lower case, no abbrevation).
 
-Returns array with initial data (up to first delimiter) and 
+Returns array with initial data (up to first delimiter) and
 the parameters as hash.
 
 Example for key 'to':
