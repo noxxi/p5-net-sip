@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 11;
+use Test::More tests => 13;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -17,7 +17,7 @@ use File::Temp;
 
 
 my ($luac,$luas,@lproxy);
-for ( $luac,$luas,$lproxy[0],$lproxy[1]) {
+for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
 	my $sock = IO::Socket::INET->new(
 		Proto     => 'udp',
 		LocalAddr => '127.0.0.1',
@@ -34,6 +34,17 @@ diag( "UAS on $luas->{addr} " );
 diag( "UAC on $luac->{addr} " );
 diag( "PROXY on $lproxy[0]{addr} $lproxy[1]{addr} " );
 
+# because all is on the same IP we have to restrict the legs of
+# the proxy somehow to get the routing right
+$lproxy[0]{leg} = myLeg->new(
+	sock => $lproxy[0]{sock},
+	can_deliver_to => $luac->{addr},
+);
+$lproxy[1]{leg} = myLeg->new(
+	sock => $lproxy[1]{sock},
+	can_deliver_to => $luas->{addr},
+);
+
 
 # start proxy and UAS and wait until they are ready
 my $proxy = fork_sub( 'proxy', @lproxy,$luas->{addr} );
@@ -45,9 +56,14 @@ fd_grep_ok( 'ready',10,$uas ) || die;
 my $uac   = fork_sub( 'uac', $luac, $lproxy[0]{addr} );
 fd_grep_ok( 'ready',10,$uac ) || die;
 fd_grep_ok( 'call created',10,$uas );
-fd_grep_ok( 'RTP done',10,$uac );
+
+# top via must be from lproxy[1], next via from UAC
+# this is to show that the request went through the proxy
+fd_grep_ok( "via: SIP/2.0/UDP $lproxy[1]{addr};",1,$uas );
+fd_grep_ok( "via: SIP/2.0/UDP $luac->{addr};",1,$uas );
 
 # done
+fd_grep_ok( 'RTP done',10,$uac );
 fd_grep_ok( 'RTP ok',10,$uas );
 fd_grep_ok( 'END',10,$uac );
 fd_grep_ok( 'END',10,$uas );
@@ -63,7 +79,7 @@ sub proxy {
 	my $proxy_addr = pop @lsock;
 	# create Net::SIP::Simple object
 	my $proxy = Simple->new(
-		leg => [ map { $_->{sock} } @lsock ],
+		leg => [ map { $_->{leg} } @lsock ],
 		domain2proxy => { 'example.com' => $proxy_addr },
 	);
 	$proxy->create_stateless_proxy;
@@ -131,8 +147,13 @@ sub uas {
 
 	# Listen
 	my $call_closed;
+	my $cb_create = sub {
+		my ($call,$request) = @_;
+		print "call created\n";
+		print $request->as_string;
+	};
 	$uas->listen(
-		cb_create      => sub { print "call created\n" },
+		cb_create      => $cb_create,
 		cb_established => sub { print "call established\n" },
 		cb_cleanup     => sub { 
 			print "call cleaned up\n";
@@ -161,4 +182,29 @@ sub uas {
 	}
 }
 
+package myLeg;
+use base 'Net::SIP::Leg';
+use fields qw( can_deliver_to );
+sub new {
+	my ($class,%args) = @_;
+	my $ct = delete $args{can_deliver_to};
+	my $self = $class->SUPER::new( %args );
+	$self->{can_deliver_to} = _parse_addr($ct);
+	return $self;
+}
+sub can_deliver_to {
+	my $self = shift;
+	my $spec = @_ == 1 ? _parse_addr( shift ) : { @_ };
+	my $ct = $self->{can_deliver_to};
+	foreach (qw( addr proto port )) {
+		next if ! $spec->{$_} || ! $ct->{$_};
+		return if $spec->{$_} ne $ct->{$_};
+	}
+	return 1;
+}
 
+sub _parse_addr {
+	my $addr = shift;
+	$addr =~m{^(?:(udp|tcp):)?([\w\.-]+)(?::(\d+))?$} || die $addr;
+	return { proto => $1, addr => $2, port => $3 }
+}

@@ -68,7 +68,7 @@ sub fork_sub {
 #  $timeout: how many seconds to wait for pattern
 #  @fd: which fds to search, usually fds from fork_sub(..)
 # Returns: $rv
-#  $rv: TRUE if pattern found
+#  $rv: matched text if pattern is found, else undef
 ############################################################################
 my %fd2buf;  # already read data from fd
 sub fd_grep {
@@ -87,9 +87,9 @@ sub fd_grep {
 		foreach my $fd (@fd) {
 			my $buf = \$fd2buf{$fd};
 			$$buf || next;
-			if ( $$buf =~s{\A(?:.*?)$pattern(.*)}{$1}s ) {
+			if ( $$buf =~s{\A(?:.*?)($pattern)(.*)}{$2}s ) {
 				#diag( "found" );
-				return 1;
+				return $1;
 			} 
 		}
 
