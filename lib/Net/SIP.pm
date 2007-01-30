@@ -4,10 +4,16 @@ use warnings;
 package Net::SIP;
 our $VERSION = '0.16';
 
-# this includes everything else
+# this includes nearly everything else
 use Net::SIP::Simple ();
 use Net::SIP::Simple::Call ();
-use Net::SIP::NATHelper ();
+
+# do not include these, because they are only
+# used when we do NAT
+# use Net::SIP::NATHelper::Base;
+# use Net::SIP::NATHelper::Local;
+# use Net::SIP::NATHelper::Client;
+# use Net::SIP::NATHelper::Server;
 
 use base 'Exporter';
 our (@EXPORT_OK, %EXPORT_TAGS);
@@ -23,16 +29,24 @@ BEGIN {
 		Net::SIP::Registrar
 		Net::SIP::StatelessProxy
 		Net::SIP::Endpoint
-		Net::SIP::NATHelper
+		Net::SIP::NATHelper::Client
+		Net::SIP::NATHelper::Local
+		Net::SIP::Debug
 		)) {
+
 		my $pkg = $_; # copy from alias
-		my ($sub) = $pkg =~m{::(\w+)$};
-		{
+		my $sub;
+		if ( $pkg =~m{^Net::SIP::(.*)} ) {
+			( $sub = $1 ) =~s{::}{_}g;
+		} elsif ( $pkg =~m{::(\w+)$} ) {
+			$sub = $1;
+		}
+		if ( $sub ) {
 			no strict 'refs';
 			*{ $sub } = sub () { $pkg };
+			push @EXPORT_OK,$sub;
+			push @{ $EXPORT_TAGS{alias} },$sub;
 		};
-		push @EXPORT_OK,$sub;
-		push @{ $EXPORT_TAGS{alias} },$sub;
 	}
 }
 

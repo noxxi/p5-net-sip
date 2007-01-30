@@ -1,8 +1,7 @@
 PrioA:
 * document dns_host2ip and dns_domain2srv in Net::SIP::Dispatcher
   and make it truly asnychronous
-* document exports from Net::SIP
-* document Net::SIP::NATHelper
+* document Net::SIP::NATHelper::*
 
 -----
 

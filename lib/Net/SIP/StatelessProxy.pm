@@ -11,7 +11,7 @@ use strict;
 use warnings;
 
 package Net::SIP::StatelessProxy;
-use fields qw( dispatcher registrar rewrite_contact );
+use fields qw( dispatcher registrar rewrite_contact nathelper );
 
 use Net::SIP::Util ':all';
 use Net::SIP::Registrar;
@@ -36,6 +36,7 @@ use Net::SIP::Debug;
 #        if called on a string without @ which cannot rewritten back it
 #        should return undef. If not given a reasonable default will be
 #        used.
+#     nathelper: Net::SIP::NAT::Helper used for rewrite SDP bodies.. (optional)
 # Returns: $self
 ###########################################################################
 sub new {
@@ -427,6 +428,12 @@ sub __forward_packet_final {
 		return;
 	}
 
+	if ( my $err = $self->do_nat( $packet,$incoming_leg,$outgoing_leg ) ) {
+		my ($code,$text) = @$err;
+		DEBUG( 10,"ERROR while doing NAT: $code, $text" );
+		return;
+	}
+
 	# Just forward packet via the outgoing_leg
 	$self->{dispatcher}->deliver( $packet,
 		leg => $outgoing_leg,
@@ -435,4 +442,133 @@ sub __forward_packet_final {
 	);
 }
 
+############################################################################
+# If a nathelper is given try to rewrite SDP bodies. If this fails
+# (not enough resources) just drop packet, the sender will retry later
+# (FIXME: this is only true in case of UDP, but not TCP)
+#
+# Args: ($self,$packet,$incoming_leg,$outgoing_leg)
+#  $packet: packet to forward
+#  $incoming_leg: where packet came in
+#  $outgoing_leg: where packet will be send out
+# Returns: $error
+#  $error: undef | [ $code,$text ]
+############################################################################
+sub do_nat {
+	my Net::SIP::StatelessProxy $self = shift;
+	my ($packet,$incoming_leg,$outgoing_leg) = @_;
+
+	my $nathelper = $self->{nathelper} || return;
+
+	# no NAT if outgoing leg is same as incoming leg
+	return if $incoming_leg == $outgoing_leg;
+
+
+	my $body = $packet->sdp_body;
+	my ($request,$response) = $packet->is_request 
+		? ( $packet,undef )
+		: ( undef,$packet )
+		;
+	my $method = $request ? $request->method : '';
+		
+	# NAT for anything with SDP body
+	# activation and close of session will be done on ACK|CANCEL|BYE
+	return unless $body 
+		or $method eq 'ACK' 
+		or $method eq 'CANCEL'
+		or $method eq 'BYE';
+
+
+	# find NAT data for packet:
+	# $idfrom and $idto are the IDs for FROM|TO which consist of
+	# the SIP address + (optional) Tag + Contact-Info from responsable
+	# Leg, delimited by "\0"
+	my ($idfrom,$idto);
+
+	if ( my $from = $packet->get_header( 'from' ) ) {
+		my ($data,$param) = sip_hdrval2parts( from => $from );
+		my $tag = $param->{tag} || '';
+		$idfrom = "$data\0$tag";
+	} else {
+		return [ 0,'no FROM header in packet' ]
+	}
+
+	if ( my $to = $packet->get_header( 'to' ) ) {
+		my ($data,$param) = sip_hdrval2parts( from => $to );
+		my $tag = $param->{tag} || '';
+		$idto = "$data\0$tag";
+	} else {
+		return [ 0,'no TO header in packet' ]
+	}
+
+	# id_side is either idfrom or idto:
+	# If a request comes in 'from' points to the incoming_leg while
+	# 'to' points to the outgoing leg. For responses it's the other
+	# way around
+	# id_side points to the side, where the packet came in and thus
+	# names one of the two sides of a session
+
+	my $id_side;
+	if ( $request ) {
+		$idfrom .= "\0".$incoming_leg->{contact};
+		$idto .= "\0".$outgoing_leg->{contact};
+		$id_side = $idfrom;
+	} else {
+		$idfrom .= "\0".$outgoing_leg->{contact};
+		$idto .= "\0".$incoming_leg->{contact};
+		$id_side = $idto;
+	}
+
+	my ($cseq) = $packet->get_header( 'cseq' ) =~m{^(\d+)}
+		or return [ 0,'no CSEQ in packet' ];
+	my $callid = $packet->callid;
+
+	# CANCEL|BYE will be handled first to close session
+	# no NAT will be done, even if the packet contains SDP (which makes no sense)
+	if ( $method eq 'CANCEL' ) {
+		# keep cseq for CANCEL
+		DEBUG( 50,"close session $callid|$cseq because of CANCEL" );
+		$nathelper->close_session( $callid,$cseq,$idfrom,$idto );
+		return;
+	} elsif ( $method eq 'BYE' ) {
+		# no cseq for BYE, eg close all sessions in call
+		DEBUG( 50,"close call $callid because of BYE" );
+		$nathelper->close_session( $callid,undef,$idfrom,$idto );
+		return;
+	}
+
+	if ( $body ) {
+		DEBUG( 100,"need to NAT SDP body: ".$body->as_string );
+
+		my $new_media = $nathelper->allocate_sockets( 
+			$callid,$cseq,$id_side,$outgoing_leg->{addr}, 
+			scalar( $body->get_media) );
+		if ( ! $new_media ) {
+			DEBUG( 10,"allocation of RTP session failed for $callid|$cseq $id_side" );
+			return [ 0,'allocation of RTP sockets failed' ];
+		}
+
+		$body->replace_media_listen( $new_media );
+		$packet->set_body( $body );
+		DEBUG( 100, "new SDP body: ".$body->as_string );
+	}
+
+	# Try to activate session as early as possible (for early data). 
+	# In a lot of cases this will be too early, because I only have one 
+	# site, but only in the case of ACK an incomplete session is invalid.
+
+	if ( ! $nathelper->activate_session( $callid,$cseq,$idfrom,$idto ) ) {
+		if ( $method eq 'ACK' ) {
+			DEBUG( 50,"session $callid|$cseq $idfrom -> $idto still incomplete in ACK" );
+			return [ 0,'incomplete session in ACK' ]
+		} else {
+			# ignore problem, session not yet complete
+			DEBUG( 100, "session $callid|$cseq $idfrom -> $idto not yet complete" );
+		}
+	} else {
+		DEBUG( 50,"activated session $callid|$cseq $idfrom -> $idto" )
+	}
+
+	return;
+}
 1;

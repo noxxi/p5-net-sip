@@ -1,0 +1,22 @@
+answer_machine.pl
+
+* answer machine which can play a welcome message and
+  record calls
+* can handle multiple calls in parallel
+
+stateless_proxy.pl
+
+* not so simple stateless proxy which will forward
+  SIP packets between legs
+* can forward based on destination domain
+* can have registrars on legs and forward to registered
+  clients
+* can do NAT either in-process or together with 
+  nathelper.pl 
+
+nathelper.pl 
+
+* standalone process to rewrite proxy RTP connections
+* works together with stateless_proxy.pl or anything else
+  which uses Net::SIP::NATHelper::Server
+

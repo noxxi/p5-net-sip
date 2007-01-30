@@ -5,5 +5,12 @@ use warnings;
 
 use Test::Simple tests => 1;
 
-eval "use Net::SIP; use Net::SIP::NATHelper";
-ok( !$@, 'loading Net::SIP' );
+eval <<'EVAL';
+use Net::SIP;
+use Net::SIP::NATHelper::Base;
+use Net::SIP::NATHelper::Client;
+use Net::SIP::NATHelper::Server;
+use Net::SIP::NATHelper::Local;
+EVAL
+
+ok( !$@, 'loading Net::SIP*' );

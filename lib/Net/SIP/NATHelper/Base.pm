@@ -3,6 +3,16 @@ use warnings;
 
 ############################################################################
 #
+#    NATHelper::Base
+#    Helper class for NAT of RTP connections
+#    - allocate sockets for rewriting SDP bodies
+#    - transfer data between sockets within sessions
+#    - expire sockets and sessions on inactivity
+#
+############################################################################
+
+############################################################################
+#
 # IDFROM = data from SIP FROM header + Tag + interface, where request came in
 # IDTO   = data from SIP TO header + Tag + interface where response came in
 #
@@ -69,7 +79,7 @@ use warnings;
 ############################################################################
 
 
-package Net::SIP::NATHelper;
+package Net::SIP::NATHelper::Base;
 use Net::SIP::Util ':all';
 use Net::SIP::Debug;
 use List::Util 'first';

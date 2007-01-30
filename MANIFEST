@@ -39,11 +39,17 @@ lib/Net/SIP/Simple/Call.pm
 lib/Net/SIP/Simple/Call.pod
 lib/Net/SIP/Simple/RTP.pm
 lib/Net/SIP/Simple/RTP.pod
+lib/Net/SIP/NATHelper/Base.pm
+lib/Net/SIP/NATHelper/Local.pm
+lib/Net/SIP/NATHelper/Client.pm
+lib/Net/SIP/NATHelper/Server.pm
 t/01_load.t
 t/02_listen_and_invite.t
 t/03_forward_stateless.t
-samples/answer_machine.pl
 samples/invite_and_recv.pl
 samples/invite_and_send.pl
+bin/nathelper.pl
+bin/stateless_proxy.pl
+bin/answer_machine.pl
+bin/README
 META.yml                                 Module meta-data (added by MakeMaker)
-lib/Net/SIP/NATHelper.pm

@@ -129,7 +129,8 @@ exporting:
 
 Exports constants as aliases for the Net::SIP::* packages, e.g.
 'Simple' for 'Net::SIP::Simple', 'Registrar' for 'Net::SIP::Registrar',
-'Packet' for 'Net::SIP::Packet' etc.
+'Packet' for 'Net::SIP::Packet', 'NATHelper_Client' for 'Net::SIP::NATHelper::Client'
+ etc.
 
 =item :util
 
