@@ -24,6 +24,7 @@ BEGIN {
 		Net::SIP::Packet
 		Net::SIP::SDP
 		Net::SIP::Simple
+		Net::SIP::Simple::RTP
 		Net::SIP::Dispatcher
 		Net::SIP::Dispatcher::Eventloop
 		Net::SIP::Registrar

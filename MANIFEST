@@ -46,6 +46,7 @@ lib/Net/SIP/NATHelper/Server.pm
 t/01_load.t
 t/02_listen_and_invite.t
 t/03_forward_stateless.t
+t/04_call_with_rtp.t
 samples/invite_and_recv.pl
 samples/invite_and_send.pl
 bin/nathelper.pl
