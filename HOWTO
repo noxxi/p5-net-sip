@@ -1,0 +1,46 @@
+1. How can I help ?
+
+   At the moment the development is still full speed, so coding will
+   be done mainly by myself. But new samples and tests are welcome.
+
+   The best help at the moment is to test the stuff against as much 
+   as possible other SIP implementations as possible and report back 
+   failures and successes and of course bugs.
+
+
+2. How can I integrate it with my own Mainloop (Tk, POE, Event::Lib...)?
+
+   You need to implement the interface of Net::SIP::Dispatcher::Eventloop.
+   See the documentation for it.
+
+   An important issue is, that the builtin event loop is level triggered,
+   e.g. callbacks on file descriptors gets called as long as there
+   are data available. This is the way select(2) or poll(2) work.
+   But Event::Lib for instance is edge triggert, e.g. a callback gets
+   called only when *new* data ara available.
+   So to integrate with an edge triggered event mechanism you have to
+   compansate it, like using poll for getting the current level after
+   you got a callback on an edge.
+
+   The builtin event loop features ways to end the loop by using
+   a timeout or references to scalars. You have to implement this part
+   only if you want to use Net::SIP::Simple, the rest of the code does
+   not depend on these features.
+
+
+3. How can I use my own implementation of a leg and why would I want
+   to do this?
+
+   The leg is the point where packets come in and packets leave 
+   the application, so this is a good place to do debugging, filtering
+   (like restricting the methods, the sources or the destinations), 
+   rewrites of packets etc.
+
+   To have your own leg you can just subclass Net::SIP::Leg and
+   define the appropriate methods (especially deliver and receive).
+   To use your leg class with Net::SIP::Simple you have to explicitly
+   create your own legs and tell Net::SIP::Simple to use it,
+   there is currently no way to tell Net::SIP::Simple to use another
+   leg class.
+   See t/testlib.pl or bin/stateless_proxy.pl for examples.
+
