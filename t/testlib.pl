@@ -115,7 +115,7 @@ sub fd_grep {
 				close($fd);
 				next;
 			}
-			#diag( "$name >> ".substr( $$buf,-$n ). "<<" );
+			diag( "$name >> ".substr( $$buf,-$n ). "<<" );
 		}
 	}
 }
@@ -136,5 +136,38 @@ sub fd_grep_ok {
 }
 
 	
+############################################################################
+# redfined Leg for Tests:
+# - can have explicit destination
+# - .. more features coming
+############################################################################
+package TestLeg;
+use base 'Net::SIP::Leg';
+use fields qw( can_deliver_to );
+sub new {
+	my ($class,%args) = @_;
+	my $ct = delete $args{can_deliver_to};
+	my $self = $class->SUPER::new( %args );
+	$self->{can_deliver_to} = $ct && _parse_addr($ct);
+	return $self;
+}
+sub can_deliver_to {
+	my $self = shift;
+	my $spec = @_ == 1 ? _parse_addr( $_[0] ) : { @_ };
+	my $ct = $self->{can_deliver_to};
+	if ( $ct ) {
+		foreach (qw( addr proto port )) {
+			next if ! $spec->{$_} || ! $ct->{$_};
+			return if $spec->{$_} ne $ct->{$_};
+		}
+	}
+	return $self->SUPER::can_deliver_to( @_ );
+}
+
+sub _parse_addr {
+	my $addr = shift;
+	$addr =~m{^(?:(udp|tcp):)?([\w\.-]+)(?::(\d+))?$} || die $addr;
+	return { proto => $1, addr => $2, port => $3 }
+}
 
 1;

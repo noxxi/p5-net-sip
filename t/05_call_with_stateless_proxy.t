@@ -36,11 +36,11 @@ diag( "PROXY on $lproxy[0]{addr} $lproxy[1]{addr} " );
 
 # because all is on the same IP we have to restrict the legs of
 # the proxy somehow to get the routing right
-$lproxy[0]{leg} = myLeg->new(
+$lproxy[0]{leg} = TestLeg->new(
 	sock => $lproxy[0]{sock},
 	can_deliver_to => $luac->{addr},
 );
-$lproxy[1]{leg} = myLeg->new(
+$lproxy[1]{leg} = TestLeg->new(
 	sock => $lproxy[1]{sock},
 	can_deliver_to => $luas->{addr},
 );
@@ -182,29 +182,3 @@ sub uas {
 	}
 }
 
-package myLeg;
-use base 'Net::SIP::Leg';
-use fields qw( can_deliver_to );
-sub new {
-	my ($class,%args) = @_;
-	my $ct = delete $args{can_deliver_to};
-	my $self = $class->SUPER::new( %args );
-	$self->{can_deliver_to} = _parse_addr($ct);
-	return $self;
-}
-sub can_deliver_to {
-	my $self = shift;
-	my $spec = @_ == 1 ? _parse_addr( shift ) : { @_ };
-	my $ct = $self->{can_deliver_to};
-	foreach (qw( addr proto port )) {
-		next if ! $spec->{$_} || ! $ct->{$_};
-		return if $spec->{$_} ne $ct->{$_};
-	}
-	return 1;
-}
-
-sub _parse_addr {
-	my $addr = shift;
-	$addr =~m{^(?:(udp|tcp):)?([\w\.-]+)(?::(\d+))?$} || die $addr;
-	return { proto => $1, addr => $2, port => $3 }
-}

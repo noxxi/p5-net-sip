@@ -315,7 +315,7 @@ sub handle_response {
 
 		# extract route information
 		if ( my @route = $response->get_header( 'record-route' )) {
-			$self->{route} = \@route
+			$self->{route} = [ reverse @route ];
 		}
 
 		if ( $method eq 'INVITE' ) {
