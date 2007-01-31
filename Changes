@@ -1,5 +1,21 @@
 Revision history for Net::SIP
 
+0.16
+  - lots of bugfixes
+  - removed leg2proxy and domain2leg from Net::SIP::Dispatcher
+    again because they do not fit into concept, see 
+	bin/stateles_proxy.pl how to achieve similar things
+  - lot of bugfixes, changes and enhancement on StatelessProxy
+  - Net::SIP can now export useful things, see doc
+  - a lot of enhancements for NAT, implementation of local
+    (inside process) and remote NAT helpers which forward
+	RTP data
+  - Net::SIP::Dispatcher: lookup for A an SRV records now in
+    seperate, callback oriented method (which are not asynchronous
+	yet, but have an asynchronous interface)
+  - moved real world usable programs from samples/ to bin/
+  - more tests, samples/ and bins/
+
 0.15
   - various bugfixes
   - limit Max-Forwards header to 70 while forwarding packets
