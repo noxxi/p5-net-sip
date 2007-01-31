@@ -3,7 +3,7 @@
 # - Register and listen
 # - On incoming call send welcome message and send data to file, hangup
 #   after specified time
-# - Recorded data will be saved as %d_%s_.pcmu-8000 where %d is the 
+# - Recorded data will be saved as %d_%s_.pcmu-8000 where %d is the
 #   timestamp from time() and %s is the data from the SP 'From' header.
 #   to convert this to something more usable you might use 'sox' from
 #   sox.sf.net, e.g for converting to OGG:
@@ -79,23 +79,23 @@ $welcome || usage( "no welcome message" );
 ###################################################
 my $leg;
 if ( !$registrar ) {
-	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?} 
+	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
 		or die "cannot find SIP domain in '$from'";
 	my $addr = gethostbyname( $host )
 		|| die "cannot get IP from SIP domain '$host'";
 	$addr = inet_ntoa( $addr );
 
-	$leg = IO::Socket::INET->new( 
-		Proto => 'udp', 
-		LocalAddr => $addr, 
+	$leg = IO::Socket::INET->new(
+		Proto => 'udp',
+		LocalAddr => $addr,
 		LocalPort => $port || 5060,
 	);
 
 	# if no port given and port 5060 is already used try another one
 	if ( !$leg && !$port ) {
-		$leg = IO::Socket::INET->new( 
-			Proto => 'udp', 
-			LocalAddr => $addr, 
+		$leg = IO::Socket::INET->new(
+			Proto => 'udp',
+			LocalAddr => $addr,
 			LocalPort => 0
 		) || die "cannot create leg at $addr: $!";
 	}
@@ -110,7 +110,7 @@ my @legs;
 push @legs,$leg if $leg;
 if ( $registrar ) {
 	if ( ! grep { $_->can_deliver_to( $registrar ) } @legs ) {
-		my $sock = create_socket_to($registrar) 
+		my $sock = create_socket_to($registrar)
 			|| die "cannot create socket to $registrar";
 		push @legs, Net::SIP::Leg->new( sock => $sock );
 	}
@@ -179,9 +179,9 @@ sub play_welcome {
 
 	# timer for restring time the peer can speak
 	$param->{stop_rtp_timer} = $call->add_timer( $hangup, [
-		sub { 
+		sub {
 			DEBUG( "connection closed because record time too big" );
-			shift->bye 
+			shift->bye
 		},
 		$call
 	]);

@@ -34,7 +34,7 @@ use Net::SIP::StatelessProxy;
 use Net::SIP::Leg;
 # crossref, because its derived from Net::SIP::Simple
 # now load in Net::SIP
-# use Net::SIP::Simple::Call; 
+# use Net::SIP::Simple::Call;
 use Net::SIP::Simple::RTP;
 use Net::SIP::Util qw( :all );
 use List::Util 'first';

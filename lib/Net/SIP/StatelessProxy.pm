@@ -471,17 +471,22 @@ sub do_nat {
 	}
 
 
-	my $body = $packet->sdp_body;
-	my ($request,$response) = $packet->is_request 
+	my $body = eval { $packet->sdp_body };
+	if ( $@ ) {
+		DEBUG( 10, "malformed SDP body" );
+		return [ 500,"malformed SDP body" ];
+	}
+
+	my ($request,$response) = $packet->is_request
 		? ( $packet,undef )
 		: ( undef,$packet )
 		;
 	my $method = $request ? $request->method : '';
-		
+
 	# NAT for anything with SDP body
 	# activation and close of session will be done on ACK|CANCEL|BYE
-	unless ( $body 
-		or $method eq 'ACK' 
+	unless ( $body
+		or $method eq 'ACK'
 		or $method eq 'CANCEL'
 		or $method eq 'BYE' ) {
 		DEBUG( 100, "no NAT because no SDP body and method is $method" );
@@ -550,8 +555,8 @@ sub do_nat {
 	if ( $body ) {
 		DEBUG( 100,"need to NAT SDP body: ".$body->as_string );
 
-		my $new_media = $nathelper->allocate_sockets( 
-			$callid,$cseq,$id_side,$outgoing_leg->{addr}, 
+		my $new_media = $nathelper->allocate_sockets(
+			$callid,$cseq,$id_side,$outgoing_leg->{addr},
 			scalar( $body->get_media) );
 		if ( ! $new_media ) {
 			DEBUG( 10,"allocation of RTP session failed for $callid|$cseq $id_side" );
@@ -563,8 +568,8 @@ sub do_nat {
 		DEBUG( 100, "new SDP body: ".$body->as_string );
 	}
 
-	# Try to activate session as early as possible (for early data). 
-	# In a lot of cases this will be too early, because I only have one 
+	# Try to activate session as early as possible (for early data).
+	# In a lot of cases this will be too early, because I only have one
 	# site, but only in the case of ACK an incomplete session is invalid.
 
 	if ( ! $nathelper->activate_session( $callid,$cseq,$idfrom,$idto ) ) {

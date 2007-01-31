@@ -2,11 +2,11 @@ use strict;
 use warnings;
 
 ############################################################################
-# 
+#
 #   wrap Net::SIP::NATHelper::Base
 #   read commands from socket and propagete them to NATHelper, send
 #   replies back
-# 
+#
 # FIXME: integrate into other eventloops, do not build own
 ############################################################################
 
@@ -27,7 +27,7 @@ use Data::Dumper;
 sub new {
 	my ($class,@cfd) = @_;
 	my $helper = Net::SIP::NATHelper::Base->new;
-	return bless { 
+	return bless {
 		helper => $helper,
 		callbacks => [],
 		cfd => \@cfd,
@@ -72,7 +72,7 @@ sub do_command {
 	};
 
 	DEBUG( 100, "request=".Dumper([$cmd,@args]));
-	my $reply = 
+	my $reply =
 		$cmd eq 'allocate' ? $self->allocate_sockets(@args) :
 		$cmd eq 'activate' ? $self->activate_session(@args) :
 		$cmd eq 'close'    ? $self->close_session(@args)    :
@@ -94,7 +94,7 @@ sub do_command {
 
 
 ############################################################################
-# loop: 
+# loop:
 # * if received new command execute it
 # * if receive data on RTP sockets forward them
 # Args: $self
@@ -129,7 +129,7 @@ sub loop {
 				$timeout = undef;
 				DEBUG( 50,"no RTP socks: set timeout to infinite" );
 			}
-				
+
 			# - and for command sockets
 			foreach my $cfd ( @{ $self->{cfd} } ) {
 				$callbacks->[ fileno($cfd) ] = [ \&do_command, $self,$cfd ];

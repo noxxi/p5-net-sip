@@ -414,7 +414,7 @@ sub dump {
 	my Net::SIP::Leg $self = shift;
 	return ref($self)." $self->{proto}:$self->{addr}:$self->{port}";
 }
-	
+
 
 
 1;

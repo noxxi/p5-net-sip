@@ -1,5 +1,5 @@
 ############################################################################
-# 
+#
 #  Standalone nathelper which can be used with SIP proxy
 #  for transferring RTP data between networks/through a firewall..
 #  uses Net::SIP::NAT::NATHelper::Server which communicates
@@ -10,7 +10,7 @@
 #  and the arguments. Commands are 'allocate','activate' and 'close'.
 #  For the arguments of the command and the return values see the
 #  methods in Net::SIP::NATHelper::Base.
-#  For transport the requests and responses will be packet with 
+#  For transport the requests and responses will be packet with
 #  Storable::nfreeze and prefixed with a long in network format containing
 #  the length of the freezed packet (necessary, because stream sockets
 #  are used).
@@ -75,14 +75,14 @@ foreach my $socket ( @sockets ) {
 	DEBUG( $socket );
 	if ( $socket =~ m{/} ) {
 		if ( $socket =~m{/$} or -d $socket ) {
-			-d $socket or mkpath( $socket, 0,0700 ) 
+			-d $socket or mkpath( $socket, 0,0700 )
 				or die $!;
 			$socket = $socket."/socket";
 		}
-		push @cfd, IO::Socket::UNIX->new( Type => SOCK_STREAM, Local => $socket ) 
+		push @cfd, IO::Socket::UNIX->new( Type => SOCK_STREAM, Local => $socket )
 			|| die $!;
 	} elsif ( $socket =~ m{^(.*):(\d+)$} ) {
-		push @cfd, IO::Socket::INET->new( 
+		push @cfd, IO::Socket::INET->new(
 			LocalAddr => $1,
 			LocalPort => $2,
 			Listen => 10,
@@ -96,7 +96,7 @@ if ( $chroot ) {
 	# load Storable::* by eval if chroot
 	eval { Storable::thaw() };
 	eval { Storable::nfreeze() };
-	
+
 	chdir( $chroot ) || die $!;
 	chroot( '.' ) || die $!;
 }

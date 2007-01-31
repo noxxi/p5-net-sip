@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 ############################################################################
-# 
+#
 #   Net::SIP::NATHelper::Client
 #   proxy for Net::SIP::NAT::Helper to communicate over sockets
 #   with Net::SIP::NATHelper::Server
@@ -19,7 +19,7 @@ use Storable qw(nfreeze thaw);
 
 sub new {
 	my ($class,$socket) = @_;
-	my $create_socket = $socket =~m{/} 
+	my $create_socket = $socket =~m{/}
 		? [ \&__create_unix_socket, $socket ]
 		: [ \&__create_tcp_socket, $socket ]
 		;

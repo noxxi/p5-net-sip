@@ -67,7 +67,7 @@ my ($from,$to) = @ARGV;
 $to || usage( "no target" );
 
 # register at proxy if proxy given and no registrar
-$registrar ||= $proxy; 
+$registrar ||= $proxy;
 
 ###################################################
 # if no proxy is given we need to find out
@@ -75,23 +75,23 @@ $registrar ||= $proxy;
 ###################################################
 my $leg;
 if ( !$proxy ) {
-	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?} 
+	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
 		or die "cannot find SIP domain in '$from'";
 	my $addr = gethostbyname( $host )
 		|| die "cannot get IP from SIP domain '$host'";
 	$addr = inet_ntoa( $addr );
 
-	$leg = IO::Socket::INET->new( 
-		Proto => 'udp', 
-		LocalAddr => $addr, 
+	$leg = IO::Socket::INET->new(
+		Proto => 'udp',
+		LocalAddr => $addr,
 		LocalPort => $port || 5060,
 	);
 
 	# if no port given and port 5060 is already used try another one
 	if ( !$leg && !$port ) {
-		$leg = IO::Socket::INET->new( 
-			Proto => 'udp', 
-			LocalAddr => $addr, 
+		$leg = IO::Socket::INET->new(
+			Proto => 'udp',
+			LocalAddr => $addr,
 			LocalPort => 0
 		) || die "cannot create leg at $addr: $!";
 	}

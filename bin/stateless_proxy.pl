@@ -17,11 +17,11 @@ use Net::SIP::Debug;
 sub usage {
 	print STDERR "ERROR: @_\n" if @_;
 	print STDERR <<EOS;
-usage: $0 [ basic_options ] ( 
-	--leg ip[:port] 
-	[ --registrar ] 
-	[ --domain domain ]* 
-	[ --proxy host[:port] 
+usage: $0 [ basic_options ] (
+	--leg ip[:port]
+	[ --registrar ]
+	[ --domain domain ]*
+	[ --proxy host[:port]
 )+
 
 Listens on given local addresses and forwards SIP packets between
@@ -103,7 +103,7 @@ while ( my ($addr,$opt) = each %legs ) {
 ###################################################
 
 my $loop = Net::SIP::Dispatcher::Eventloop->new;
-my $disp = myDispatcher->new( 
+my $disp = myDispatcher->new(
 	[ map { $_->{leg} } values(%legs) ],
 	$loop,
 	domain2proxy => \%domain2proxy,
@@ -118,14 +118,14 @@ my $disp = myDispatcher->new(
 my %registrar;
 foreach my $opt ( values %legs ) {
 	$opt->{registrar} || next;
-	$registrar{ $opt->{leg} } = Net::SIP::Registrar->new( 
+	$registrar{ $opt->{leg} } = Net::SIP::Registrar->new(
 		dispatcher => $disp,
 		domains    => $opt->{domains},
 	);
 }
 
-my $registrar = %registrar 
-	? myRegistrar->new( %registrar ) 
+my $registrar = %registrar
+	? myRegistrar->new( %registrar )
 	: undef;
 $disp->set_registrar( $registrar );
 
@@ -133,7 +133,7 @@ $disp->set_registrar( $registrar );
 # create StatelessProxy
 ###################################################
 
-my $stateless_proxy = Net::SIP::StatelessProxy->new( 
+my $stateless_proxy = Net::SIP::StatelessProxy->new(
 	dispatcher => $disp,
 	registrar => $registrar
 );
@@ -172,7 +172,7 @@ sub receive {
 	DEBUG( "Registrar got ".$packet->dump );
 	# return undef if not registrar for leg, otherwise
 	# let it handle by the registrar object
-	my $reg = $self->{$leg} || return; 
+	my $reg = $self->{$leg} || return;
 	return $reg->receive( @_ );
 }
 
