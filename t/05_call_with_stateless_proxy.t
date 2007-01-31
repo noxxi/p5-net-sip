@@ -4,17 +4,21 @@
 # creates a UAC, a UAS and a stateless proxy using Net::SIP::Simple
 # makes call from UAC to UAS via proxy
 # transfers RTP data during call, then hangs up
+# tests will be done without NAT, with inline NAT and with external nathelper
 ###########################################################################
 
 use strict;
 use warnings;
-use Test::More tests => 13;
+use Test::More tests => 63;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
+use Net::SIP::NATHelper::Local;
+use Net::SIP::NATHelper::Server;
+use Net::SIP::NATHelper::Client;
 use IO::Socket;
 use File::Temp;
-
+use List::Util;
 
 my ($luac,$luas,@lproxy);
 for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
@@ -34,55 +38,104 @@ diag( "UAS on $luas->{addr} " );
 diag( "UAC on $luac->{addr} " );
 diag( "PROXY on $lproxy[0]{addr} $lproxy[1]{addr} " );
 
-# because all is on the same IP we have to restrict the legs of
-# the proxy somehow to get the routing right
-$lproxy[0]{leg} = TestLeg->new(
-	sock => $lproxy[0]{sock},
-	can_deliver_to => $luac->{addr},
-);
-$lproxy[1]{leg} = TestLeg->new(
-	sock => $lproxy[1]{sock},
-	can_deliver_to => $luas->{addr},
-);
+# restrict legs of proxy so that packets gets routed even
+# if all is on the same interface. Enable dumping on
+# incoing and outgoing packets to check NAT
+for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
+	$_->{leg} = TestLeg->new(
+		sock          => $_->{sock},
+		dump_incoming => [ \&sip_dump_media,'I<' ],
+		dump_outgoing => [ \&sip_dump_media,'O>' ],
+		$_ == $lproxy[0] ? ( can_deliver_to => $luac->{addr} ) :(),
+		$_ == $lproxy[1] ? ( can_deliver_to => $luas->{addr} ) :(),
+	);
+}
+
+# socket for nathelper server
+my $nath_sock = IO::Socket::INET->new(
+	Listen => 10,
+	LocalAddr => '127.0.0.1',
+	# use any port
+) || die $!;
+my $nath_addr = do {
+	my ($p,$a) = unpack_sockaddr_in( $nath_sock->sockname );
+	inet_ntoa($a).':'.$p
+};
 
 
-# start proxy and UAS and wait until they are ready
-my $proxy = fork_sub( 'proxy', @lproxy,$luas->{addr} );
-my $uas   = fork_sub( 'uas', $luas );
-fd_grep_ok( 'ready',10,$proxy ) || die;
-fd_grep_ok( 'ready',10,$uas ) || die;
+foreach my $spec ( qw( no-nat inline-nat remote-nat )) {
 
-# UAC: invite and transfer RTP data
-my $uac   = fork_sub( 'uac', $luac, $lproxy[0]{addr} );
-fd_grep_ok( 'ready',10,$uac ) || die;
-fd_grep_ok( 'call created',10,$uas );
+	my $natcb;
+	if ( $spec eq 'inline-nat' ) {
+		$natcb = sub { NATHelper_Local->new( shift ) };
+	} elsif ( $spec eq 'remote-nat' ) {
+		fork_sub( 'nathelper',$nath_sock );
+		$natcb = sub { NATHelper_Client->new( $nath_addr ) }
+	}
 
-# top via must be from lproxy[1], next via from UAC
-# this is to show that the request went through the proxy
-fd_grep_ok( "via: SIP/2.0/UDP $lproxy[1]{addr};",1,$uas );
-fd_grep_ok( "via: SIP/2.0/UDP $luac->{addr};",1,$uas );
+	# start proxy and UAS and wait until they are ready
+	my $proxy = fork_sub( 'proxy', @lproxy,$luas->{addr},$natcb );
+	my $uas   = fork_sub( 'uas', $luas );
+	fd_grep_ok( 'ready',10,$proxy ) || die;
+	fd_grep_ok( 'ready',10,$uas ) || die;
 
-# done
-fd_grep_ok( 'RTP done',10,$uac );
-fd_grep_ok( 'RTP ok',10,$uas );
-fd_grep_ok( 'END',10,$uac );
-fd_grep_ok( 'END',10,$uas );
+	# UAC: invite and transfer RTP data
+	my $uac   = fork_sub( 'uac', $luac, $lproxy[0]{addr} );
+	fd_grep_ok( 'ready',10,$uac ) || die;
+	my $uac_invite  = fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},5,$uac ) || die;
+	my $pin_invite  = fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},5,$proxy ) || die;
+	my $pout_invite = fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},1,$proxy ) || die;
+	my $uas_invite  = fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},1,$uas ) || die;
+	s{.*audio=}{} for ( $uac_invite,$pin_invite,$pout_invite,$uas_invite );
 
-killall();
-exit(0);
+	# check for NAT
+	ok( $uac_invite  eq $pin_invite, "outgoing on UAC must be the same as incoming on proxy" );
+	ok( $pout_invite eq $uas_invite, "outgoing on proxy must be the same as incoming on UAS" );
+	if ( $spec eq 'no-nat' ) {
+		ok( $uac_invite eq $uas_invite, "SDP must pass unchanged to UAS" );
+	} else {
+		# get port/range and compare
+		my ($sock_i,$range_i) = split( m{/},$pin_invite,2 );
+		my ($sock_o,$range_o) = split( m{/},$pout_invite,2 );
+		ok( $sock_i ne $sock_o, "allocated addr:port must be different ($sock_i|$sock_o)" );
+		ok( $range_i == $range_o, "ranges must stay the same" );
+	}
+
+	# top via must be from lproxy[1], next via from UAC
+	# this is to show that the request went through the proxy
+	fd_grep_ok( 'call created',10,$uas );
+	fd_grep_ok( "via: SIP/2.0/UDP $lproxy[1]{addr};",1,$uas );
+	fd_grep_ok( "via: SIP/2.0/UDP $luac->{addr};",1,$uas );
+
+	# done
+	fd_grep_ok( 'RTP done',10,$uac );
+	fd_grep_ok( 'RTP ok',10,$uas );
+	fd_grep_ok( 'END',10,$uac );
+	fd_grep_ok( 'END',10,$uas );
+
+	killall();
+}
+
 
 # --------------------------------------------------------------
 # Proxy
 # --------------------------------------------------------------
 sub proxy {
-	my @lsock = @_;
-	my $proxy_addr = pop @lsock;
+	my ($lsock_c,$lsock_s,$proxy_addr,$natcb) = @_;
+
+	# need loop seperatly
+	my $loop = Dispatcher_Eventloop->new;
+	my $nathelper = invoke_callback( $natcb,$loop );
+
 	# create Net::SIP::Simple object
 	my $proxy = Simple->new(
-		leg => [ map { $_->{leg} } @lsock ],
+		loop => $loop,
+		legs => [ $lsock_c->{leg}, $lsock_s->{leg} ],
 		domain2proxy => { 'example.com' => $proxy_addr },
 	);
-	$proxy->create_stateless_proxy;
+	$proxy->create_stateless_proxy(
+		nathelper => $nathelper
+	);
 	print "ready\n";
 	$proxy->loop;
 }
@@ -104,7 +157,7 @@ sub uac {
 	# create Net::SIP::Simple object
 	my $uac = Simple->new(
 		from => 'me.uac@example.com',
-		leg  => $lsock->{sock},
+		leg  => $lsock->{leg},
 		outgoing_proxy => $proxy,
 	) || die;
 	print "ready\n";
@@ -131,10 +184,10 @@ sub uac {
 # UAS
 # --------------------------------------------------------------
 sub uas {
-	my ($sock) = @_;
+	my ($leg) = @_;
 	my $uas = Simple->new(
 		domain => 'example.com',
-		leg => $sock
+		leg => $leg->{leg}
 	) || die $!;
 
 	# store received RTP data in array
@@ -182,3 +235,10 @@ sub uas {
 	}
 }
 
+# --------------------------------------------------------------
+# NATHelper::Server
+# --------------------------------------------------------------
+sub nathelper {
+	my $sock = shift;
+	NATHelper_Server->new( $sock )->loop;
+}

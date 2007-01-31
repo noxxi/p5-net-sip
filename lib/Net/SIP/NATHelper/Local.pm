@@ -57,7 +57,7 @@ sub _update_callbacks {
 
 	# FIXME: this should be optimized so that only the changes gets done
 	my $loop = $self->{loop};
-	DEBUG( "oldcb=%d newcb=%d", int(@$cb_old),int(@cb) );
+	DEBUG( 100, "oldcb=%d newcb=%d", int(@$cb_old),int(@cb) );
 	map { $loop->delFD( $_->[0] ) } @$cb_old;
 	map { $loop->addFD( $_->[0],$_->[1] ) } @cb;
 }

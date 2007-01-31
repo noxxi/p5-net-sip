@@ -56,6 +56,7 @@ sub new {
 		}
 	}
 	$self->{rewrite_contact} ||= [ \&_default_rewrite_contact, $self ];
+	$self->{nathelper} = delete $args{nathelper};
 
 	return $self;
 }
@@ -458,10 +459,16 @@ sub do_nat {
 	my Net::SIP::StatelessProxy $self = shift;
 	my ($packet,$incoming_leg,$outgoing_leg) = @_;
 
-	my $nathelper = $self->{nathelper} || return;
+	my $nathelper = $self->{nathelper} || do {
+		DEBUG( 100, "no nathelper" );
+		return;
+	};
 
 	# no NAT if outgoing leg is same as incoming leg
-	return if $incoming_leg == $outgoing_leg;
+	if ( $incoming_leg == $outgoing_leg ) {
+		DEBUG( 100,"no NAT because incoming leg is outgoing leg" );
+		return;
+	}
 
 
 	my $body = $packet->sdp_body;
@@ -473,10 +480,13 @@ sub do_nat {
 		
 	# NAT for anything with SDP body
 	# activation and close of session will be done on ACK|CANCEL|BYE
-	return unless $body 
+	unless ( $body 
 		or $method eq 'ACK' 
 		or $method eq 'CANCEL'
-		or $method eq 'BYE';
+		or $method eq 'BYE' ) {
+		DEBUG( 100, "no NAT because no SDP body and method is $method" );
+		return;
+	}
 
 
 	# find NAT data for packet:

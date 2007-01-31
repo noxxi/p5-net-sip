@@ -91,7 +91,7 @@ sub new_from_parts {
 
 	# media descriptions
 	foreach my $m (@media) {
-		DEBUG_DUMP( $m );
+		DEBUG_DUMP( 100,$m );
 		my %m = %$m;
 		my @lines;
 		my %m_self = ( lines => \@lines );

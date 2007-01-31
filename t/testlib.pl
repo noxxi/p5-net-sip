@@ -25,6 +25,7 @@ sub killall {
 	kill $sig, @pids;
 	#diag( "killed @pids with $sig" );
 	while ( wait() >= 0 ) {} # collect all
+	@pids = ();
 }
 
 
@@ -73,7 +74,7 @@ sub fork_sub {
 my %fd2buf;  # already read data from fd
 sub fd_grep {
 	my ($pattern,$timeout,@fd) = @_;
-	$pattern = qr{\Q$pattern} if ! UNIVERSAL::isa( $pattern,'Regex' );
+	$pattern = qr{\Q$pattern} if ! UNIVERSAL::isa( $pattern,'Regexp' );
 	my $name = join( "|", map { $fd2name{$_} || "$_" } @fd );
 	#diag( "look for $pattern in $name" );
 	@fd || return;
@@ -135,20 +136,52 @@ sub fd_grep_ok {
 	return $rv;
 }
 
+############################################################################
+# dump media information on SIP packet to STDOUT
+# Args: (@prefix,$packet,$from)
+# Returns: NONE
+############################################################################
+sub sip_dump_media {
+	my $from = pop;
+	my $packet = pop;
+	my $dump = @_ ? "@_ ":'';
+	$dump .= "$from ";
+	if ( $packet->is_request ) {
+		$dump .= sprintf "REQ(%s) ",$packet->method;
+	} else {
+		my ($method) = $packet->cseq =~m{\d+\s+(\w+)};
+		$dump .= sprintf "RSP(%s,%s) ",$method,$packet->code;
+	}
+	if ( my $sdp = $packet->sdp_body ) {
+		$dump .= "SDP:";
+		foreach my $m ( $sdp->get_media ) {
+			$dump .= sprintf " %s=%s:%d/%d", @{$m}{qw( media addr port range )};
+		}
+	} else {
+		$dump .= "NO SDP";
+	}
+	print $dump."\n";
+}
 	
 ############################################################################
 # redfined Leg for Tests:
 # - can have explicit destination
-# - .. more features coming
+# - can intercept receive and deliver for printing out packets
 ############################################################################
 package TestLeg;
 use base 'Net::SIP::Leg';
-use fields qw( can_deliver_to );
+use fields qw( can_deliver_to dump_incoming dump_outgoing );
+use Net::SIP 'invoke_callback';
+
 sub new {
 	my ($class,%args) = @_;
-	my $ct = delete $args{can_deliver_to};
+	my @lfields = qw( can_deliver_to dump_incoming dump_outgoing );
+	my %largs = map { $_ => delete $args{$_} } @lfields;
 	my $self = $class->SUPER::new( %args );
-	$self->{can_deliver_to} = $ct && _parse_addr($ct);
+	if ( my $ct = delete $largs{can_deliver_to} ) {
+		$self->{can_deliver_to} = _parse_addr($ct);
+	}
+	%$self = ( %$self, %largs );
 	return $self;
 }
 sub can_deliver_to {
@@ -168,6 +201,19 @@ sub _parse_addr {
 	my $addr = shift;
 	$addr =~m{^(?:(udp|tcp):)?([\w\.-]+)(?::(\d+))?$} || die $addr;
 	return { proto => $1, addr => $2, port => $3 }
+}
+
+sub receive {
+	my $self = shift;
+	my @rv = $self->SUPER::receive(@_) or return;
+	invoke_callback( $self->{dump_incoming},@rv );
+	return @rv;
+}
+
+sub deliver {
+	my ($self,$packet,$to,$callback) = @_;
+	invoke_callback( $self->{dump_outgoing},$packet,$to );
+	return $self->SUPER::deliver( $packet,$to,$callback );
 }
 
 1;

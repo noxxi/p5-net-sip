@@ -51,7 +51,6 @@ sub rpc {
 	print $sock $packet;
 	read( $sock, my $len,4 ) || die $!;
 	$len = unpack( "N",$len );
-	DEBUG( "len=$len" );
 	die if $len>32768;
 	die $! unless $len == read( $sock, $packet, $len );
 	my $ref = eval { thaw($packet) } || die $@;

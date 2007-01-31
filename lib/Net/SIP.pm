@@ -31,6 +31,7 @@ BEGIN {
 		Net::SIP::StatelessProxy
 		Net::SIP::Endpoint
 		Net::SIP::NATHelper::Client
+		Net::SIP::NATHelper::Server
 		Net::SIP::NATHelper::Local
 		Net::SIP::Debug
 		)) {
