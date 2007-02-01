@@ -127,7 +127,7 @@ called automatically once it receives data on the socket.
 
 =item dump
 
-Returns string containing information about the leg. 
+Returns string containing information about the leg.
 Used for debugging.
 
 =back

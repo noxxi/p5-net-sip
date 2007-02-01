@@ -120,7 +120,7 @@ is possible to handle simple RTP data (PCMU/8000).
 
 =head1 EXPORTS
 
-By default nothing is exported. There are various arguments for 
+By default nothing is exported. There are various arguments for
 exporting:
 
 =over 4
@@ -147,7 +147,7 @@ Everything from ':debug', ':util' and ':alias'.
 =item string
 
 Strings where the first character is upper case will be interpreted
-as aliases for Net::SIP::* and it will try to export it. If 
+as aliases for Net::SIP::* and it will try to export it. If
 the first character is lower case it will try to import it from
 L<Net::SIP::Util>.
 
@@ -166,7 +166,7 @@ L<Net::SIP::Util>.
 =head1 COPYRIGHT
 
 This module and are modules in the Net::SIP Hierarchy distributed
-together with this module are copyright (c) 2006-2007, Steffen Ullrich. 
+together with this module are copyright (c) 2006-2007, Steffen Ullrich.
 All Rights Reserved.
 These modules are free software. They may be used, redistributed
 and/or modified under the same terms as Perl itself.

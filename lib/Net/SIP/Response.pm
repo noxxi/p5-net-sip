@@ -25,7 +25,7 @@ sub msg         { return (shift->as_parts())[1] }
 ###########################################################################
 # get method of original request by parsing CSeq header
 ###########################################################################
-sub method { 
+sub method {
 	my $cseq = shift->cseq || return;
 	return $cseq =~m{\d+\s+(\w+)} && $1;
 }

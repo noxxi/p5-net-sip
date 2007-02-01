@@ -81,7 +81,7 @@ registry information.
 
 =item query ( ADDR )
 
-Search for ADDR (which has format C<< proto:user@domain >>) 
+Search for ADDR (which has format C<< proto:user@domain >>)
 in the registry. Returns @List of all sip or sips contacts
 for ADDR.
 

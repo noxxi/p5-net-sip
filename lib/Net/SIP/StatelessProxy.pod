@@ -70,6 +70,14 @@ something without '@' it should try to rewrite it back
 (and return B<()> if it cannot rewrite it back).
 A working default implementation is provided.
 
+=item nathelper
+
+Optional Net::SIP::NATHelper::* object. When given it will be
+used to do NAT, e.g. if the incoming and outgoing legs are different
+it will rewrite the SDP bodies to use local sockets and the nathelper
+will transfer the RTP data between the local and the original
+sockets.
+
 =back
 
 =back
@@ -84,13 +92,24 @@ PACKET is the incoming packet,
 LEG is the L<Net::SIP::Leg> where the packet arrived and FROM
 is the C<< "ip:port" >> of the sender.
 
-Talled from the dispatcher on incoming packets. The packet
+Called from the dispatcher on incoming packets. The packet
 will be rewritten (C<Via> and C<Record-Route> headers added,
 B<Contact> modified) and then the packet will be forwarded.
 
 For requests it can determine the target of the forwarded
 packet by looking at the route or if no route it looks at
 the URI. For responses it looks at the next B<Via> header.
+
+=item do_nat ( PACKET, INCOMING_LEG, OUTGOING_LEG )
+
+This will be called from B<receive> while forwarding data.
+If B<nathelper> is defined it will be used to rewrite SDP bodies
+and update nathelpers internal states to forward RTP data.
+
+Return values are like B<forward_outgoing> in L<Net::SIP::Leg>, e.g.
+it will return C<< [code,text] >> on error or C<()> on success,
+where success can be that the packet was rewritten or that there
+was no need to touch it.
 
 =back
 

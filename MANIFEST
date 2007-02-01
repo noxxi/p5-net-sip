@@ -42,6 +42,7 @@ lib/Net/SIP/Simple/Call.pod
 lib/Net/SIP/Simple/RTP.pm
 lib/Net/SIP/Simple/RTP.pod
 lib/Net/SIP/NATHelper/Base.pm
+lib/Net/SIP/NATHelper/Base.pod
 lib/Net/SIP/NATHelper/Local.pm
 lib/Net/SIP/NATHelper/Client.pm
 lib/Net/SIP/NATHelper/Server.pm

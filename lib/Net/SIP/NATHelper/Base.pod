@@ -1,0 +1,100 @@
+
+=head1 NAME
+
+Net::SIP::NATHelper::Base - rewrite SDP and transport RTP for NAT
+
+=head1 DESCRIPTION
+
+This module helps with doing NAT. It is implicitly used in B<do_nat>
+from L<Net::SIP::StatelessProxy>.
+
+It cares about the rewriting the SDP bodies, forwarding RTP data for
+active sessions and expiring sessions.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new
+
+Creates a new object.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item allocate_sockets ( CALLID,CSEQ,IDSIDE,ADDR,MEDIA )
+
+This is called to allocate new local sockets for MEDIA. MEDIA
+is a \@list of specifications like you get from B<get_media>
+in L<Net::SIP::SDP>. ADDR is the local address, where the sockets
+should be allocated.
+
+CALLID and CSEQ are used to identify the SIP transaction, for which
+the NAT will be done, while IDSIDE is either IDFROM or IDTO (see below)
+depending on the side, where the packet came in.
+
+The method returns a \@list of new media in the format needed by
+B<replace_media_listen> in L<Net::SIP::SDP>.
+
+If the allocation of sockets failed (because of resource constraints)
+it will return undef. This will usually cause the caller do simply
+not forward the packet and wait for the reetransmit (at least for UDP).
+
+=item activate_session ( CALLID,CSEQ,IDFROM,IDTO )
+
+Activates a session in the transaction defined by CALLID,CSEQ. This
+will cause all sessions for other transactions for the same call (identified
+by CALLID) to shut down.
+
+IDFROM and IDTO represent the sides of the session, e.g. for the activation
+to succeed there had to be an B<allocate_sockets> call for each of these
+sides.
+
+The method returns TRUE only if the activation succeeded.
+It is usually called whenever a SDP body is given and on ACK requests.
+
+=item close_session ( CALLID,CSEQ,IDFROM,IDTO )
+
+This will cause the close of the session described by the arguments
+(which have the same meaning like in B<activate_session>). Usually
+called for BYE or CANCEL requests.
+
+It will return TRUE only if the session existed.
+Stateless proxies should ignore the return code and forward the packet
+nonetheless, because it's probably a retransmit.
+
+=item expire
+
+This causes the sessions and sockets to expire. Expiration will be done
+after 3 minutes of inactivity (this value comes implicitly from the SIP
+specifications about retransmits...).
+
+=item callbacks
+
+This will return a list (not a reference) of C<< [fd,callback] >> pairs,
+where fd is the file descriptor of the socket and callback is a callback
+for B<invoke_callback> in L<Net::SIP::Util>.
+
+Each of these callbacks should be invoked once the file descriptor gets
+readable and the callback will then forward the received packet to the
+other side of the session.
+
+=item dump
+
+This method is used for debugging only. It will return a string with information
+about all calls within this nathelper and all sessions and allocated sockets within
+the calls.
+
+=item number_of_calls
+
+Returns the number of calls within the nathelper. This vaalue has not much
+association with the result of B<callbacks> because there might be inactive
+sockets (not yet or no longer in active session) which don't affect the
+result of B<callbacks>.
+
+This value can be used to determine if B<expire> needs to be called at all.
+
+=back
