@@ -1,5 +1,13 @@
 Revision history for Net::SIP
 
+0.17
+  - added documentation for Net::SIP::NATHelper::*
+  - updated doc for Net::SIP::StatelessProxy regarding NAT
+  - added HOWTO with some Q+A
+  - added COPYRIGHT
+  - new method 'method' in Net::SIP::Response
+  - small bugfixes
+
 0.16
   - lots of bugfixes
   - removed leg2proxy and domain2leg from Net::SIP::Dispatcher
