@@ -22,5 +22,12 @@ sub is_response {1}
 sub code        { return (shift->as_parts())[0] }
 sub msg         { return (shift->as_parts())[1] }
 
+###########################################################################
+# get method of original request by parsing CSeq header
+###########################################################################
+sub method { 
+	my $cseq = shift->cseq || return;
+	return $cseq =~m{\d+\s+(\w+)} && $1;
+}
 
 1;

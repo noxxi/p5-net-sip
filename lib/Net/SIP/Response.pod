@@ -31,5 +31,9 @@ Get numerical code of response.
 
 Get text for code from response.
 
+=item method
+
+Get method for orginal request by parsing the CSeq header.
+
 =back
 
