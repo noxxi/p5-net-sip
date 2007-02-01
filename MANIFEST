@@ -44,8 +44,11 @@ lib/Net/SIP/Simple/RTP.pod
 lib/Net/SIP/NATHelper/Base.pm
 lib/Net/SIP/NATHelper/Base.pod
 lib/Net/SIP/NATHelper/Local.pm
+lib/Net/SIP/NATHelper/Local.pod
 lib/Net/SIP/NATHelper/Client.pm
+lib/Net/SIP/NATHelper/Client.pod
 lib/Net/SIP/NATHelper/Server.pm
+lib/Net/SIP/NATHelper/Server.pod
 t/01_load.t
 t/02_listen_and_invite.t
 t/03_forward_stateless.t

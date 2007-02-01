@@ -72,6 +72,8 @@ This causes the sessions and sockets to expire. Expiration will be done
 after 3 minutes of inactivity (this value comes implicitly from the SIP
 specifications about retransmits...).
 
+Returns TRUE if changes were made.
+
 =item callbacks
 
 This will return a list (not a reference) of C<< [fd,callback] >> pairs,

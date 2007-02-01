@@ -1,7 +1,6 @@
 PrioA:
 * document dns_host2ip and dns_domain2srv in Net::SIP::Dispatcher
   and make it truly asnychronous
-* document Net::SIP::NATHelper::*
 * do not look up tcp in Dispatcher::resolve_uri  if we have no leg
   which can do tcp
 

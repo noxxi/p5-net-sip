@@ -1,0 +1,51 @@
+
+=head1 NAME
+
+Net::SIP::NATHelper::Local - handle NAT/RTP forwarding in local event loop.
+
+=head1 DESCRIPTION
+
+This module is a wrapper around L<Net::SIP::NATHelper::Base> which will
+handle the RTP forwarding within the local event loop the rest of L<Net::SIP>
+uses.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( LOOP )
+
+Will create the object and tell it to use LOOP as the event loop.
+Will create a L<Net::SIP::NATHelper::Base> object which gets used
+internally.
+
+=back
+
+=head1 METHODS
+
+=over 4 
+
+=item allocate_sockets ( ... )
+
+Calls B<allocate_sockets> of the local L<Net::SIP::NATHelper::Base>
+object. Takes the same arguments. 
+
+=item activate_session ( ... )
+
+Calls B<activate_session> of the local L<Net::SIP::NATHelper::Base>
+object. Takes the same arguments. 
+Updates callbacks into the event loop.
+
+=item close_session ( ... )
+
+Calls B<activate_session> of the local L<Net::SIP::NATHelper::Base>
+object. Takes the same arguments. 
+Updates callbacks into the event loop.
+
+=item expire ( ... )
+
+Calls B<expire> of the local L<Net::SIP::NATHelper::Base>
+object. Takes the same arguments. 
+Updates callbacks into the event loop if necessary.
+
+=back

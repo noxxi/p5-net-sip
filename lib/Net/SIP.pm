@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 package Net::SIP;
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();
