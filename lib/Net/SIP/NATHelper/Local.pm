@@ -18,15 +18,15 @@ sub new {
 	my $self = fields::new($class);
 	my $helper = Net::SIP::NATHelper::Base->new;
 	%$self = ( loop => $loop, helper => $helper, callbacks => [] );
-	$loop->add_timer( 1, [ \&expire,$self ], 1, 'nat_expire' );
+	$loop->add_timer( 1, [ sub { shift->expire },$self ], 1, 'nat_expire' );
 	return $self;
 }
 
 sub expire {
 	my Net::SIP::NATHelper::Local $self = shift;
-	my $changed = $self->{helper}->expire;
-	$changed && $self->_update_callbacks;
-	return $changed;
+	my @expired = $self->{helper}->expire(@_);
+	@expired && $self->_update_callbacks;
+	return @expired;
 }
 
 sub allocate_sockets {
@@ -45,9 +45,9 @@ sub activate_session {
 
 sub close_session {
 	my Net::SIP::NATHelper::Local $self = shift;
-	my $success = $self->{helper}->close_session(@_) || return;
+	my @bytes = $self->{helper}->close_session(@_) or return;
 	$self->_update_callbacks;
-	return $success;
+	return @bytes;
 }
 
 sub _update_callbacks {

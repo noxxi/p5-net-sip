@@ -36,8 +36,9 @@ CALLID and CSEQ are used to identify the SIP transaction, for which
 the NAT will be done, while IDSIDE is either IDFROM or IDTO (see below)
 depending on the side, where the packet came in.
 
-The method returns a \@list of new media in the format needed by
-B<replace_media_listen> in L<Net::SIP::SDP>.
+The methode will return  the \@list of new media in the format 
+needed by B<replace_media_listen> in L<Net::SIP::SDP>, e.g tuples
+of C<[ip,base_port]>.
 
 If the allocation of sockets failed (because of resource constraints)
 it will return undef. This will usually cause the caller do simply
@@ -46,15 +47,21 @@ not forward the packet and wait for the reetransmit (at least for UDP).
 =item activate_session ( CALLID,CSEQ,IDFROM,IDTO )
 
 Activates a session in the transaction defined by CALLID,CSEQ. This
-will cause all sessions for other transactions for the same call (identified
+will cause all sessions for older transactions in the same call (identified
 by CALLID) to shut down.
 
 IDFROM and IDTO represent the sides of the session, e.g. for the activation
 to succeed there had to be an B<allocate_sockets> call for each of these
 sides.
 
-The method returns TRUE only if the activation succeeded.
-It is usually called whenever a SDP body is given and on ACK requests.
+The method returns TRUE if the session could be allocated (or existed
+already) and FALSE if it failed, mainly because no sockets where allocated
+for one of the sides of the session.
+It will return >0 if the session was created and <0 if the session
+existed before. This distinction is important if one wants to log the
+start of the session.
+
+The method is usually called whenever a SDP body is given and on ACK requests.
 
 =item close_session ( CALLID,CSEQ,IDFROM,IDTO )
 
@@ -62,9 +69,13 @@ This will cause the close of the session described by the arguments
 (which have the same meaning like in B<activate_session>). Usually
 called for BYE or CANCEL requests.
 
-It will return TRUE only if the session existed.
-Stateless proxies should ignore the return code and forward the packet
-nonetheless, because it's probably a retransmit.
+It will return an array with the number of bytes it received on
+the FROM and on the TO side on success. If the session did not
+exist it will return C<()>.
+
+Stateless proxies should forward the packet even if the session did
+not exist, because the packet might be a retransmit referring to an
+already closed session.
 
 =item expire
 
@@ -72,7 +83,9 @@ This causes the sessions and sockets to expire. Expiration will be done
 after 3 minutes of inactivity (this value comes implicitly from the SIP
 specifications about retransmits...).
 
-Returns TRUE if changes were made.
+It will return a list with information about the sessions, which
+were closed because they expired. Each element of the list is
+C<< [ bytes_from,bytes_to, call_id,cseq,idfrom,idto ] >>.
 
 =item callbacks
 

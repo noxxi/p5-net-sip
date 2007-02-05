@@ -49,25 +49,25 @@ to expire the RTP sockets and sessions.
 
 =item allocate_sockets ( ... )
 
-Calls B<activate_session> of the local L<Net::SIP::NATHelper::Base>
-object. Takes the same arguments. 
+Calls B<allocate_sockets> of the local L<Net::SIP::NATHelper::Base>
+object. Takes and returns the same arguments.
 
 =item activate_session ( ... )
 
 Calls B<activate_session> of the local L<Net::SIP::NATHelper::Base>
-object. Takes the same arguments. 
+object. Takes and returns the same arguments.
 Updates callbacks into the event loop.
 
 =item close_session ( ... )
 
 Calls B<activate_session> of the local L<Net::SIP::NATHelper::Base>
-object. Takes the same arguments. 
+object. Takes and returns the same arguments.
 Updates callbacks into the event loop.
 
 =item expire ( ... )
 
 Calls B<expire> of the local L<Net::SIP::NATHelper::Base>
-object. Takes the same arguments. 
+object. Takes and returns the same arguments.
 Updates callbacks into the event loop if necessary.
 
 =back

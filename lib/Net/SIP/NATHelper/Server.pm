@@ -11,9 +11,9 @@ use warnings;
 ############################################################################
 
 package Net::SIP::NATHelper::Server;
-use Net::SIP;
-use Net::SIP::Debug;
-use Net::SIP::Util 'invoke_callback';
+use Net::SIP qw(invoke_callback :debug);
+use Net::SIP::NATHelper::Base;
+
 use Storable qw(thaw nfreeze);
 use Data::Dumper;
 
@@ -169,16 +169,16 @@ sub loop {
 ############################################################################
 sub expire {
 	my Net::SIP::NATHelper::Server $self = shift;
-	my $changed = $self->{helper}->expire;
-	$changed && $self->_update_callbacks;
-	return $changed;
+	my @expired = $self->{helper}->expire;
+	@expired && $self->_update_callbacks;
+	return @expired;
 }
 
 sub allocate_sockets {
 	my Net::SIP::NATHelper::Server $self = shift;
 	my $media = $self->{helper}->allocate_sockets(@_) || return;
 	#$self->_update_callbacks;
-	return $media
+	return $media;
 }
 
 sub activate_session {
@@ -190,9 +190,9 @@ sub activate_session {
 
 sub close_session {
 	my Net::SIP::NATHelper::Server $self = shift;
-	my $success = $self->{helper}->close_session(@_) || return;
+	my @bytes = $self->{helper}->close_session(@_) or return;
 	$self->_update_callbacks;
-	return $success;
+	return @bytes;
 }
 
 

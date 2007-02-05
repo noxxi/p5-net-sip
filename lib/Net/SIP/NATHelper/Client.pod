@@ -26,7 +26,7 @@ through the socket.
 
 It implements the method B<allocate_sockets>, B<activate_session>
 and B<close_session> with the same arguments as given in 
-L<Net::SIP::NATHelper::Base> by calling B<rpc> with the methods
+L<Net::SIP::NATHelper::Server> by calling B<rpc> with the methods
 "allocate", "activate" resp. "close".
 
 =over 4 
