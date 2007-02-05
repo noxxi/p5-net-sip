@@ -54,12 +54,9 @@ IDFROM and IDTO represent the sides of the session, e.g. for the activation
 to succeed there had to be an B<allocate_sockets> call for each of these
 sides.
 
-The method returns TRUE if the session could be allocated (or existed
-already) and FALSE if it failed, mainly because no sockets where allocated
-for one of the sides of the session.
-It will return >0 if the session was created and <0 if the session
-existed before. This distinction is important if one wants to log the
-start of the session.
+The method returns two itens: The first is information about the session
+like returned in L<close_session>, the second is a flag, which is true,
+if the activation was for an already astablished session.
 
 The method is usually called whenever a SDP body is given and on ACK requests.
 
@@ -69,9 +66,30 @@ This will cause the close of the session described by the arguments
 (which have the same meaning like in B<activate_session>). Usually
 called for BYE or CANCEL requests.
 
-It will return an array with the number of bytes it received on
-the FROM and on the TO side on success. If the session did not
-exist it will return C<()>.
+It will return a reference to a hash with the following items:
+
+=over 8
+
+=item callid
+
+=item cseq
+
+=idfrom
+
+=idto
+
+=bytes_from - number of bytes received on the 'from' side
+
+=bytes_to - number of bytes received on the 'to' side
+
+=from - space delimited list of "ip:port/range" for the media on the 'from' side
+
+=to - same for the 'to' side
+
+=created - C<time_t> when the session was created
+
+=back
+
 
 Stateless proxies should forward the packet even if the session did
 not exist, because the packet might be a retransmit referring to an
@@ -83,15 +101,16 @@ This causes the sessions and sockets to expire. Expiration will be done
 after 3 minutes of inactivity (this value comes implicitly from the SIP
 specifications about retransmits...).
 
-It will return a list with information about the sessions, which
-were closed because they expired. Each element of the list is
-C<< [ bytes_from,bytes_to, call_id,cseq,idfrom,idto ] >>.
+It will return a list with a hash for each expired session. 
+See L<close_session> for details on the returned information.
 
 =item callbacks
 
-This will return a list (not a reference) of C<< [fd,callback] >> pairs,
+This will return a list (not a reference) of C<< [cbid,fd,callback] >> pairs,
 where fd is the file descriptor of the socket and callback is a callback
-for B<invoke_callback> in L<Net::SIP::Util>.
+for B<invoke_callback> in L<Net::SIP::Util>. cbid is a uniq id for each callback
+so that one get compare the result from different calls to L<callbacks>
+and see, what changed.
 
 Each of these callbacks should be invoked once the file descriptor gets
 readable and the callback will then forward the received packet to the

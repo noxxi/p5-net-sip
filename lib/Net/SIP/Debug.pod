@@ -58,6 +58,11 @@ Detailed debugging for core developers of L<Net::SIP>.
 Extracts everything from arguments given to C<use> which might
 be usable by B<level> and forwards rest to L<Exporter>.
 
+If the argument is a reference to a subroutine it will be used
+for showing the debug message instead of printing it to STDERR.
+In this case the usual prefixes incl the time will not be added
+(useful for forwarding debug to syslog).
+
 =item level ( @ARGS )
 
 Enables/disables debugging depending on @ARGS. @ARGS might

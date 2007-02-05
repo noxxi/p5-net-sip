@@ -169,9 +169,9 @@ sub loop {
 ############################################################################
 sub expire {
 	my Net::SIP::NATHelper::Server $self = shift;
-	my @expired = $self->{helper}->expire;
+	my @expired = $self->{helper}->expire(@_);
 	@expired && $self->_update_callbacks;
-	return @expired;
+	return int(@expired);
 }
 
 sub allocate_sockets {
@@ -183,16 +183,17 @@ sub allocate_sockets {
 
 sub activate_session {
 	my Net::SIP::NATHelper::Server $self = shift;
-	my $success = $self->{helper}->activate_session(@_) || return;
+	my ($info,$duplicate) = $self->{helper}->activate_session(@_)
+		or return;
 	$self->_update_callbacks;
-	return $success;
+	return $duplicate ? -1:1;
 }
 
 sub close_session {
 	my Net::SIP::NATHelper::Server $self = shift;
-	my @bytes = $self->{helper}->close_session(@_) or return;
+	my @info = $self->{helper}->close_session(@_) or return;
 	$self->_update_callbacks;
-	return @bytes;
+	return scalar(@info);
 }
 
 

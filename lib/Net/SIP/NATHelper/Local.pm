@@ -26,40 +26,52 @@ sub expire {
 	my Net::SIP::NATHelper::Local $self = shift;
 	my @expired = $self->{helper}->expire(@_);
 	@expired && $self->_update_callbacks;
-	return @expired;
+	return int(@expired);
 }
 
 sub allocate_sockets {
 	my Net::SIP::NATHelper::Local $self = shift;
 	my $media = $self->{helper}->allocate_sockets(@_) || return;
 	#$self->_update_callbacks;
-	return $media
+	return $media;
 }
 
 sub activate_session {
 	my Net::SIP::NATHelper::Local $self = shift;
-	my $success = $self->{helper}->activate_session(@_) || return;
+	my ($info,$duplicate) = $self->{helper}->activate_session(@_)
+		or return;
 	$self->_update_callbacks;
-	return $success;
+	return $duplicate ? -1:1;
 }
 
 sub close_session {
 	my Net::SIP::NATHelper::Local $self = shift;
-	my @bytes = $self->{helper}->close_session(@_) or return;
+	my @info = $self->{helper}->close_session(@_) or return;
 	$self->_update_callbacks;
-	return @bytes;
+	return scalar(@info);
 }
 
 sub _update_callbacks {
 	my Net::SIP::NATHelper::Local $self = shift;
-	my @cb = $self->{helper}->callbacks;
 	my $cb_old = $self->{callbacks};
+	my @cb_new = $self->{helper}->callbacks;
+	$self->{callbacks} = \@cb_new;
 
-	# FIXME: this should be optimized so that only the changes gets done
+	# hash by cbid for old callbacks
+	my %old = map { $_->[2] => $_ } @{ $cb_old || [] };
+
 	my $loop = $self->{loop};
-	DEBUG( 100, "oldcb=%d newcb=%d", int(@$cb_old),int(@cb) );
-	map { $loop->delFD( $_->[0] ) } @$cb_old;
-	map { $loop->addFD( $_->[0],$_->[1] ) } @cb;
+	foreach my $cb ( @cb_new ) {
+		my ($socket,$callback,$id) = @$cb;
+		if ( delete $old{ $id } ) {
+			# unchanged
+		} else {
+			# new callback
+			$loop->addFD( $socket,$callback )
+		}
+	}
+	# delete unused callbacks
+	map { $loop->delFD( $_->[0] ) } values %old;
 }
 
 1;

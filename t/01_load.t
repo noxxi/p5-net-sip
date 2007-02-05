@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::Simple tests => 1;
+use Test::More tests => 1;
 
 eval <<'EVAL';
 use Net::SIP;
@@ -13,4 +13,4 @@ use Net::SIP::NATHelper::Server;
 use Net::SIP::NATHelper::Local;
 EVAL
 
-ok( !$@, 'loading Net::SIP*' );
+cmp_ok( $@,'eq','', 'loading Net::SIP*' );

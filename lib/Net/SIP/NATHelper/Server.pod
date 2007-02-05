@@ -55,19 +55,22 @@ object. Takes and returns the same arguments.
 =item activate_session ( ... )
 
 Calls B<activate_session> of the local L<Net::SIP::NATHelper::Base>
-object. Takes and returns the same arguments.
+object. Takes the same arguments and returns 1 if the session was
+newly activated, -1 if it was activated before and false if activation failed.
 Updates callbacks into the event loop.
 
 =item close_session ( ... )
 
 Calls B<activate_session> of the local L<Net::SIP::NATHelper::Base>
-object. Takes and returns the same arguments.
+object. Takes the same arguments and returns the number of closed
+sessions.
 Updates callbacks into the event loop.
 
 =item expire ( ... )
 
 Calls B<expire> of the local L<Net::SIP::NATHelper::Base>
-object. Takes and returns the same arguments.
+object. Takes the same arguments and returns the number of expired
+sessions.
 Updates callbacks into the event loop if necessary.
 
 =back

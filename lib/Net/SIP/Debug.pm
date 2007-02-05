@@ -11,8 +11,10 @@ our @EXPORT_OK = qw( debug stacktrace );
 
 
 our $level = 0; # needed global for source filter
-my %level4package;
+
+my %level4package;           # package specific level
 my $debug_prefix = 'DEBUG:'; # default prefix
+my $debug_sub;               # alternative sub to STDERR output
 
 
 ##############################################################
@@ -26,7 +28,10 @@ sub import {
 	my $class = shift;
 	my (@export,@level);
 	foreach (@_) {
-		if ( m{[=\*]} || m{^\d} || m{::}  ) {
+		if ( ref eq 'CODE' ) {
+			# set debug sub
+			$debug_sub = $_;
+		} elsif ( m{[=\*]} || m{^\d} || m{::}  ) {
 			push @level,$_
 		} else {
 			push @export,$_
@@ -147,6 +152,9 @@ sub debug {
 		no warnings 'uninitialized';
 		$msg = sprintf($msg,@arg);
 	}
+
+	# if $debug_sub use this
+	return $debug_sub->($msg) if $debug_sub;
 
 	# alle Zeilen mit DEBUG: prefixen
 	$prefix = sprintf "%.4f %s",scalar(gettimeofday()),$prefix;
