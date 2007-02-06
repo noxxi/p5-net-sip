@@ -1,5 +1,12 @@
 Revision history for Net::SIP
 
+0.18
+  - NATHelper::* changes in the return values of expire,
+    close_session, activate_session to aid logging of
+    sessions (see updated doc)
+  - NATHelper::Local has smarter _update_callbacks
+  - small bugfixes
+
 0.17
   - added documentation for Net::SIP::NATHelper::*
   - updated doc for Net::SIP::StatelessProxy regarding NAT

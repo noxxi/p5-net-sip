@@ -22,7 +22,6 @@ PrioA:
   * tests for samples/ and bin/
 
 - more documentation
-  * describe mechanism to use another Leg implementation
   * samples for integration with other loops
 
 - implementation
