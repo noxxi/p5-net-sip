@@ -8,7 +8,7 @@ use Test::More tests => 6;
 # works by defining domain2leg to specify leg for domain(s).
 # the 'deliver' method of the legs are redefined so that no
 # actual delivery gets done but that delivery only gets simulated.
-# TODO: 
+# TODO:
 # - check with requests which have route header
 # - check with responses (routing based on via header)
 # - check that route and via header gets stripped and contact
@@ -21,22 +21,22 @@ use Test::More tests => 6;
 
 
 my %leg_setup = ( addr => '127.0.0.1', port => 0 );
-my $leg_default     = myLeg->new( 
+my $leg_default     = myLeg->new(
 	outgoing_proxy => '10.0.3.4:28',
 	%leg_setup ) || die;
-my $leg_example_com = myLeg->new( 
+my $leg_example_com = myLeg->new(
 	outgoing_proxy => '10.0.3.9:28',
 	%leg_setup ) || die;
-my $leg_example_org = myLeg->new( 
+my $leg_example_org = myLeg->new(
 	outgoing_proxy => '10.0.3.12:28',
 	%leg_setup ) || die;
 
 my $loop = Net::SIP::Dispatcher::Eventloop->new;
-my $disp = Net::SIP::Dispatcher->new( 
-	[ 
+my $disp = Net::SIP::Dispatcher->new(
+	[
 		$leg_default,
 		$leg_example_com,
-		$leg_example_org 
+		$leg_example_org
 	],
 	$loop,
 	domain2proxy => {
@@ -49,7 +49,7 @@ my $disp = Net::SIP::Dispatcher->new(
 
 our $delivered_via;
 my $proxy = Net::SIP::StatelessProxy->new(
-	dispatcher => $disp 
+	dispatcher => $disp
 );
 $disp->set_receiver( $proxy );
 

@@ -591,7 +591,7 @@ sub activate_session {
 	my $sessions = $data->{sessions};
 	if ( my $sess = $sessions->{"$idfrom\0$idto"} ) {
 		# exists already, maybe retransmit of ACK
-		return ( $sess->info_as_hash,1 );
+		return ( $sess->info_as_hash( $self->{callid},$cseq ), 1 );
 	}
 
 	my $sgroups  = $data->{socket_groups};
@@ -605,7 +605,7 @@ sub activate_session {
 	my $sess = $sessions->{"$idfrom\0$idto"} =
 		Net::SIP::NATHelper::Session->new( $gfrom,$gto );
 	DEBUG( 10,"new session $self->{callid},$cseq $idfrom -> $idto" );
-	return ( $sess->info_as_hash,0 );
+	return ( $sess->info_as_hash( $self->{callid},$cseq ), 0 );
 }
 
 ############################################################################

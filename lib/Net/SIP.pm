@@ -2,11 +2,12 @@ use strict;
 use warnings;
 
 package Net::SIP;
-our $VERSION = '0.17';
+our $VERSION = '0.18';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();
 use Net::SIP::Simple::Call ();
+use List::Util 'first';
 
 # do not include these, because they are only
 # used when we do NAT
@@ -67,8 +68,8 @@ sub import {
 			$class->export_to_level(1,$class,$tag);
 		} elsif ( $tag =~m{^debug=(.*)}i ) {
 			Net::SIP::Debug->level($1);
-		} elsif ( UNIVERSAL::can( 'new',"Net::SIP::$tag" )) {
-			# must be alias
+		} elsif ( first { $_ eq $tag } @EXPORT_OK ) {
+			# from the predefined list
 			$class->export_to_level(1,$class,$tag);
 		} else {
 			# default try to import from Net::SIP::Util

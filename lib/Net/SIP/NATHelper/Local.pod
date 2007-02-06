@@ -23,7 +23,7 @@ internally.
 
 =head1 METHODS
 
-=over 4 
+=over 4
 
 =item allocate_sockets ( ... )
 

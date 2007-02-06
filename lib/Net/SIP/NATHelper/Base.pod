@@ -36,7 +36,7 @@ CALLID and CSEQ are used to identify the SIP transaction, for which
 the NAT will be done, while IDSIDE is either IDFROM or IDTO (see below)
 depending on the side, where the packet came in.
 
-The methode will return  the \@list of new media in the format 
+The methode will return  the \@list of new media in the format
 needed by B<replace_media_listen> in L<Net::SIP::SDP>, e.g tuples
 of C<[ip,base_port]>.
 
@@ -101,7 +101,7 @@ This causes the sessions and sockets to expire. Expiration will be done
 after 3 minutes of inactivity (this value comes implicitly from the SIP
 specifications about retransmits...).
 
-It will return a list with a hash for each expired session. 
+It will return a list with a hash for each expired session.
 See L<close_session> for details on the returned information.
 
 =item callbacks

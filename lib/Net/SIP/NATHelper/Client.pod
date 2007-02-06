@@ -5,7 +5,7 @@ Net::SIP::NATHelper::Client - handle NAT/RTP forwarding using remote process
 
 =head1 DESCRIPTION
 
-This module implements the interface of L<Net::SIP::NATHelper::Base> 
+This module implements the interface of L<Net::SIP::NATHelper::Base>
 but will talk with a remote process based on L<Net::SIP::NATHelper::Server>
 while executing the methods.
 
@@ -25,11 +25,11 @@ through the socket.
 =head1 METHODS
 
 It implements the method B<allocate_sockets>, B<activate_session>
-and B<close_session> with the same arguments as given in 
+and B<close_session> with the same arguments as given in
 L<Net::SIP::NATHelper::Server> by calling B<rpc> with the methods
 "allocate", "activate" resp. "close".
 
-=over 4 
+=over 4
 
 =item rpc ( METHOD,@ARG )
 

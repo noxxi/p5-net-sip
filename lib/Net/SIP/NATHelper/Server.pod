@@ -15,23 +15,23 @@ using RPC via sockets.
 
 =item new ( FDS )
 
-Will create an object which listens on all file descriptors 
+Will create an object which listens on all file descriptors
 given in FDS for RPC from clients.
 
 =back
 
 =head1 METHODS
 
-=over 4 
+=over 4
 
 =item do_command ( FD )
 
 Called when FD is available for reading.
 Calls B<accept> on FD and reads the RPC packet from the
-resulting file descriptor, executes it and returns result back. 
+resulting file descriptor, executes it and returns result back.
 
-Currently implemented commands are "allocate","activate" and 
-"close" which will map to the local methods B<allocate_sockets>, 
+Currently implemented commands are "allocate","activate" and
+"close" which will map to the local methods B<allocate_sockets>,
 B<activate_session> and B<close_session>.
 
 Unknown commands will be ignored, e.g nothing returned.
@@ -40,7 +40,7 @@ Unknown commands will be ignored, e.g nothing returned.
 
 This will loop over all file descriptors it gets from B<callbacks>
 in L<Net::SIP::NATHelper::Base> and the file descriptors for
-the RPC sockets. 
+the RPC sockets.
 
 When file descriptors gets available for reading it will execute
 the callbacks, e.g. forward the RTP data or call B<do_command>.

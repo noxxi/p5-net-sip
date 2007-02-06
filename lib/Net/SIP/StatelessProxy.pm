@@ -524,13 +524,15 @@ sub do_nat {
 	# names one of the two sides of a session
 
 	my $id_side;
+	my $ileg = join( ':', @{ $incoming_leg }{qw(addr port)} );
+	my $oleg = join( ':', @{ $outgoing_leg }{qw(addr port)} );
 	if ( $request ) {
-		$idfrom .= "\0".$incoming_leg->{contact};
-		$idto .= "\0".$outgoing_leg->{contact};
+		$idfrom .= "\0".$ileg;
+		$idto   .= "\0".$oleg;
 		$id_side = $idfrom;
 	} else {
-		$idfrom .= "\0".$outgoing_leg->{contact};
-		$idto .= "\0".$incoming_leg->{contact};
+		$idfrom .= "\0".$oleg;
+		$idto   .= "\0".$ileg;
 		$id_side = $idto;
 	}
 
@@ -586,4 +588,19 @@ sub do_nat {
 
 	return;
 }
+
+############################################################################
+# convert idside (idfrom,idto) to hash
+# Args: ?$class,$idside
+# Returns: \%hash
+#  %hash: extracted info with keys address (sip address), tag, leg (ip:port)
+############################################################################
+sub idside2hash {
+	my $idside = pop;
+	my %hash;
+	@hash{qw/ address tag leg /} = split( "\0",$idside,3 );
+	return \%hash;
+}
+
+
 1;
