@@ -74,19 +74,19 @@ It will return a reference to a hash with the following items:
 
 =item cseq
 
-=idfrom
+=item idfrom
 
-=idto
+=item idto
 
-=bytes_from - number of bytes received on the 'from' side
+=item bytes_from - number of bytes received on the 'from' side
 
-=bytes_to - number of bytes received on the 'to' side
+=item bytes_to - number of bytes received on the 'to' side
 
-=from - space delimited list of "ip:port/range" for the media on the 'from' side
+=item from - space delimited list of "ip:port/range" for the media on the 'from' side
 
-=to - same for the 'to' side
+=item to - same for the 'to' side
 
-=created - C<time_t> when the session was created
+=item created - C<time_t> when the session was created
 
 =back
 
