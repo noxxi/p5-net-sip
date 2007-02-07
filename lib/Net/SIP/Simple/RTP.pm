@@ -60,6 +60,7 @@ sub media_recv_echo {
 				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{},\$didit ] );
 			push @{ $call->{ rtp_cleanup }}, [ sub {
 				my ($call,$sock) = @_;
+				DEBUG( 100,"rtp_cleanup: remove socket %d",fileno($sock));
 				$call->{loop}->delFD( $sock );
 			}, $call,$sock ];
 		}
@@ -79,7 +80,13 @@ sub media_recv_echo {
 			10,
 			'rtp_inactivity',
 		);
-		push @{ $call->{ rtp_cleanup }}, [ sub { shift->cancel }, $timer ];
+		push @{ $call->{ rtp_cleanup }}, [
+			sub {
+				shift->cancel;
+				DEBUG( 100,"cancel RTP timer" );
+			},
+			$timer
+		];
 	};
 
 	return [ $sub,$delay,$writeto ];
@@ -173,9 +180,18 @@ sub media_send_recv {
 sub _receive_rtp {
 	my ($sock,$writeto,$targs,$didit) = @_;
 
-	recv( $sock,my $buf,2**16,0 );
+	my $from = recv( $sock,my $buf,2**16,0 );
 	DEBUG( 50,"received %d bytes from RTP", length($buf));
 	$buf || return;
+
+	if(0) {
+		use Socket;
+		my ($lport,$laddr) = unpack_sockaddr_in( getsockname($sock));
+		$laddr = inet_ntoa( $laddr ).":$lport";
+		my ($pport,$paddr) = unpack_sockaddr_in( $from );
+		$paddr = inet_ntoa( $paddr ).":$pport";
+		DEBUG( "got data on socket %d %s from %s",fileno($sock),$laddr,$paddr );
+	}
 
 	$$didit = 1;
 	my $packet = $buf;

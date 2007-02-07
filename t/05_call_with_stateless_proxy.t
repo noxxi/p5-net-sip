@@ -22,16 +22,8 @@ use List::Util;
 
 my ($luac,$luas,@lproxy);
 for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
-	my $sock = IO::Socket::INET->new(
-		Proto     => 'udp',
-		LocalAddr => '127.0.0.1',
-		LocalPort => 0, # let system pick one
-	) || die $!;
-	my ($port,$host) = unpack_sockaddr_in ( getsockname($sock) );
-	$_ = {
-		sock => $sock,
-		addr => inet_ntoa( $host ).":$port"
-	};
+	my ($sock,$addr) = create_socket();
+	$_ = { sock => $sock, addr => $addr };
 }
 
 diag( "UAS on $luas->{addr} " );

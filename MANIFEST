@@ -54,6 +54,7 @@ t/02_listen_and_invite.t
 t/03_forward_stateless.t
 t/04_call_with_rtp.t
 t/05_call_with_stateless_proxy.t
+t/06_call_with_reinvite.t
 t/testlib.pl
 samples/invite_and_recv.pl
 samples/invite_and_send.pl

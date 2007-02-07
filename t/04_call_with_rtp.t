@@ -9,23 +9,15 @@
 use strict;
 use warnings;
 use Test::More tests => 8;
+do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 use IO::Socket;
 use File::Temp;
 
-# create leg for UAS on dynamic port
-my $sock_uas = IO::Socket::INET->new(
-	Proto     => 'udp',
-	LocalAddr => '127.0.0.1',
-	LocalPort => 0, # let system pick one
-) || die $!;
 
-# get address for UAS
-my $uas_addr = do {
-	my ($port,$host) = unpack_sockaddr_in ( getsockname($sock_uas));
-	inet_ntoa( $host ).":$port"
-};
+# create leg for UAS on dynamic port
+my ($sock_uas,$uas_addr) = create_socket();
 diag( "UAS on $uas_addr" );
 
 # fork UAS and make call from UAC to UAS

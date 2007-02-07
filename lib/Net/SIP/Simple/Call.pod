@@ -211,4 +211,10 @@ If receiving an ACK to the current call it will invoke the B<cb_established>
 callback and also the B<init_media> callback which cares about setting up
 the RTP connections (e.g produce and accept RTP traffic).
 
+=item set_param ( %ARGS )
+
+Changes param like B<init_media>, B<sdp_on_ack> on the current call. See the
+constructor. This is useful if call consists of multiple invites with different
+features.
+
 =back

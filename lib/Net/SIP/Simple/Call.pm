@@ -38,9 +38,9 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       media_lsocks gets cleared on new invite, so that a new SDP session
 #       need to be established
 #   cb_final: callback which will be called on final response in INVITE
-#       with (result,status,self,%args) where status is OK|FAIL
+#       with (status,self,%args) where status is OK|FAIL
 #   cb_established: callback which will be called on receiving ACK in INVITE
-#       with (result,status,self) where status is OK|FAIL
+#       with (status,self) where status is OK|FAIL
 #   sip_header: hashref of SIP headers to add
 
 use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
@@ -113,6 +113,18 @@ sub get_peer {
 }
 
 ###########################################################################
+# set parameter
+# Args: ($self,%param)
+# Returns: $self
+###########################################################################
+sub set_param {
+	my Net::SIP::Simple::Call $self = shift;
+	my %args = @_;
+	@{ $self->{param} }{ keys %args } = values %args;
+	return $self;
+}
+
+###########################################################################
 # (Re-)Invite other party
 # Args: ($self;%param)
 #   %param: see description of field 'param', gets merged with param
@@ -152,47 +164,51 @@ sub reinvite {
 
 	# predefined callback
 	my $cb = sub {
-		my ($self,$param,$endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
+		my Net::SIP::Simple::Call $self = shift;
+		my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
+
+		# new requests in existing call are handled in receive()
+		return $self->receive( @_ ) if $packet->is_request;
+
 		if ( $errno ) {
 			$self->error( "Failed with error $errno code=$code" );
 			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,code => $code,packet => $packet );
 			return;
 		}
-		if ( $packet->is_response ) {
-			# response to INVITE
-			# all other responses will not be propagated to this callback
-			if ( $code =~m{^2\d\d} ) {
 
-				# cleanup RTP from last call
-				$self->rtp_cleanup;
-
-				$self->_setup_peer_rtp_socks( $packet ) || do {
-					invoke_callback( $param->{cb_final},'FAIL',$self );
-					return;
-				};
-				if ( $param->{sdp_on_ack} && $ack ) {
-					$self->_setup_local_rtp_socks;
-					$ack->set_body( $param->{sdp} );
-				}
-				invoke_callback( $param->{cb_final},'OK',$self );
-				invoke_callback( $param->{init_media},$self,$param );
-
-			} else {
-				invoke_callback( $param->{cb_final},'FAIL',$self,code => $code );
-			}
-
-		} else {
-			if ( $packet->method eq 'BYE' ) {
-				# Hangup
-				invoke_callback( $param->{recv_bye},$param);
-			}
+		# response to INVITE
+		# all other responses will not be propagated to this callback
+		my $param = $self->{param};
+		if ( $code =~m{^1\d\d} ) {
+			# preliminary response, ignore
+			DEBUG(10,"got preliminary response of %s|%s to INVITE",$code,$packet->msg );
+			return;
+		} elsif ( $code !~m{^2\d\d} ) {
+			DEBUG(10,"got response of %s|%s to INVITE",$code,$packet->msg );
+			invoke_callback( $param->{cb_final},'FAIL',$self,code => $code );
+			return;
 		}
+
+		# cleanup RTP from last call
+		$self->rtp_cleanup;
+
+		$self->_setup_peer_rtp_socks( $packet ) || do {
+			invoke_callback( $param->{cb_final},'FAIL',$self );
+			return;
+		};
+		if ( $param->{sdp_on_ack} && $ack ) {
+			$self->_setup_local_rtp_socks;
+			$ack->set_body( $param->{sdp} );
+		}
+		invoke_callback( $param->{cb_final},'OK',$self );
+		invoke_callback( $param->{init_media},$self,$param );
+
 	};
 
 	my $stopvar = 0;
 	$param->{cb_final} ||= \$stopvar;
 	$self->{ctx} = $self->{endpoint}->invite(
-		$ctx, [ $cb,$self,$param ], $sdp,
+		$ctx, [ $cb,$self ], $sdp,
 		$param->{sip_header} ? %{ $param->{sip_header} } : ()
 	);
 	if ( $param->{cb_final} == \$stopvar ) {
@@ -294,6 +310,7 @@ sub receive {
 				$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
 
 			} elsif ( $method eq 'ACK' ) {
+				$self->rtp_cleanup; # close last RTP session
 				invoke_callback($param->{cb_established},'OK',$self);
 				invoke_callback($param->{init_media},$self,$param);
 			}

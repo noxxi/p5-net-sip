@@ -1,5 +1,6 @@
 use strict;
 use warnings;
+use IO::Socket;
 
 ############################################################################
 #
@@ -64,20 +65,25 @@ sub fork_sub {
 
 ############################################################################
 # grep within fd's for specified regex or substring
-# Args: ($pattern,$timeout,@fd)
+# Args: ($pattern,[ $timeout ],@fd)
 #  $pattern: regex or substring
-#  $timeout: how many seconds to wait for pattern
+#  $timeout: how many seconds to wait for pattern, default 10
 #  @fd: which fds to search, usually fds from fork_sub(..)
-# Returns: $rv
+# Returns: $rv| ($rv,$name)
 #  $rv: matched text if pattern is found, else undef
+#  $name: name for file handle
 ############################################################################
 my %fd2buf;  # already read data from fd
 sub fd_grep {
-	my ($pattern,$timeout,@fd) = @_;
+	my $pattern = shift;
+	my $timeout = 10;
+	$timeout = shift if !ref($_[0]);
+	my @fd = @_;
 	$pattern = qr{\Q$pattern} if ! UNIVERSAL::isa( $pattern,'Regexp' );
 	my $name = join( "|", map { $fd2name{$_} || "$_" } @fd );
 	#diag( "look for $pattern in $name" );
-	@fd || return;
+	my @bad = wantarray ? ( undef,$name ):(undef);
+	@fd || return @bad;
 	my $rin = '';
 	map { $_->blocking(0); vec( $rin,fileno($_),1 ) = 1 } @fd;
 	my $end = defined( $timeout ) ? time() + $timeout : undef;
@@ -90,15 +96,15 @@ sub fd_grep {
 			$$buf || next;
 			if ( $$buf =~s{\A(?:.*?)($pattern)(.*)}{$2}s ) {
 				#diag( "found" );
-				return $1;
+				return wantarray ? ( $1,$name ) : $1;
 			}
 		}
 
 		# if not found try to read new data
 		$timeout = $end - time() if $end;
-		return if $timeout < 0;
+		return @bad if $timeout < 0;
 		select( my $rout = $rin,undef,undef,$timeout );
-		$rout || return; # not found
+		$rout || return @bad; # not found
 		foreach my $fd (@fd) {
 			my $name = $fd2name{$fd} || "$fd";
 			my $buf = \$fd2buf{$fd};
@@ -119,20 +125,22 @@ sub fd_grep {
 			diag( "$name >> ".substr( $$buf,-$n ). "<<" );
 		}
 	}
+	return @bad;
 }
 
 ############################################################################
 # like Test::Simple::ok, but based on fd_grep, same as
 # ok( fd_grep( pattern,... ), "[$subname] $pattern" )
-# Args: ($pattern,$timeout,@fd) - see fd_grep
+# Args: ($pattern,[ $timeout ],@fd) - see fd_grep
 # Returns: $rv - like in fd_grep
+# Comment: if !$rv and wantarray says void it will die()
 ############################################################################
 sub fd_grep_ok {
-	my ($pattern,$timeout,@fd) = @_;
-	my $rv = fd_grep( @_ );
-	my $name = join( "|", map { $fd2name{$_} || "$_" } @fd );
+	my $pattern = shift;
+	my ($rv,$name) = fd_grep( $pattern, @_ );
 	local $Test::Builder::Level = $Test::Builder::Level+1;
 	ok( $rv,"[$name] $pattern" );
+	die "fatal error" if !$rv && ! defined wantarray;
 	return $rv;
 }
 
@@ -160,6 +168,25 @@ sub sip_dump_media {
 		$dump .= "NO SDP";
 	}
 	print $dump."\n";
+}
+
+############################################################################
+# create isocket on IP
+# return socket and ip:port
+############################################################################
+sub create_socket {
+	my ($addr,$port,$proto) = @_;
+	$addr ||= '127.0.0.1';
+	$proto ||= 'udp';
+	$port ||= 0;
+	my $sock = IO::Socket::INET->new(
+		Proto => $proto,
+		$proto eq 'tcp' ? ( Listen => 10 ):(),
+		LocalAddr => $addr,
+		LocalPort => $port,
+	) || die $!;
+	($port,$addr) = unpack_sockaddr_in( getsockname($sock) );
+	return wantarray ? ( $sock, inet_ntoa($addr).':'.$port ) : $sock;
 }
 
 ############################################################################
