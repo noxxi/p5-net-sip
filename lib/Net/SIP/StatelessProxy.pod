@@ -111,13 +111,13 @@ it will return C<< [code,text] >> on error or C<()> on success,
 where success can be that the packet was rewritten or that there
 was no need to touch it.
 
+=back
+
 =head1 UNDOCUMENTED METHODS
 
 =over 4
 
 =item idside2hash
-
-=back
 
 =back
 

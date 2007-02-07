@@ -18,7 +18,7 @@ and for easy extraction and manipulation (for NAT etc)
 of media information contained in the SDP.
 
 The class is also designed for easy creation of SDP bodies
-in the context of the rest of L<Net::SIP::*>.
+in the context of the rest of Net::SIP::*.
 
 =head1 EXAMPLES
 

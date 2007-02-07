@@ -30,7 +30,7 @@ This creates a new registar object, %ARGS can have the following keys:
 
 =item dispatcher
 
-L<Net:SIP::Dispatcher> object manging the registar. Mandatory.
+L<Net::SIP::Dispatcher> object manging the registar. Mandatory.
 
 =item max_expires
 

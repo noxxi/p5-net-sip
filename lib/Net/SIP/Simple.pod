@@ -57,7 +57,7 @@ other registrar given.
 
 =item legs|leg
 
-\@List of legs or single leg. leg can be an existing L<Net::SIP:.Leg> (or derived)
+\@List of legs or single leg. Leg can be an existing L<Net::SIP::Leg> (or derived)
 object, an L<IO::Handle> (existing socket), a hash reference which can be used
 in the constructor of L<Net::SIP::Leg> or a string of C<< "proto:ip:port" >>.
 In the latter case C<proto> can be ommitted (including the colon) and defaults
