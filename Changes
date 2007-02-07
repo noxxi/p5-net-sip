@@ -5,7 +5,9 @@ Revision history for Net::SIP
     close_session, activate_session to aid logging of
     sessions (see updated doc)
   - NATHelper::Local has smarter _update_callbacks
-  - small bugfixes
+  - bugfixes, especially on Net::Simple regarding handling 
+    of re-invites in existing call
+  - new test t/06_call_with_reinvite.t
 
 0.17
   - added documentation for Net::SIP::NATHelper::*
