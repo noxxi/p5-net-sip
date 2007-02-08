@@ -40,16 +40,18 @@ sub media_recv_echo {
 			$sock = $sock->[0] if UNIVERSAL::isa( $sock,'ARRAY' );
 			my $s_sock = $ssocks->[$i] || last;
 			$s_sock = $s_sock->[0] if UNIVERSAL::isa( $s_sock,'ARRAY' );
-			my $addr = $raddr->[$i] || last;
-			$addr = $addr->[0] if ref($addr);
-			my @delay_buffer;
 
+			my $addr = $raddr->[$i];
+			$addr = $addr->[0] if ref($addr);
+
+			my @delay_buffer;
 			my $echo_back = sub {
 				my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
 				my $buf = _receive_rtp( $sock,$writeto,$targs,$didit );
 				#DEBUG( "$didit=$$didit" );
 				$$didit = 1;
 				return if $delay<0;
+				return if ! $remote; # call on hold ?
 				push @$delay_buffer, $buf;
 				while ( @$delay_buffer > $delay ) {
 					send( $s_sock,shift(@$delay_buffer),0,$remote );
@@ -119,7 +121,8 @@ sub media_send_recv {
 			$sock = $sock->[0] if UNIVERSAL::isa( $sock,'ARRAY' );
 			my $s_sock = $ssocks->[$i] || last;
 			$s_sock = $s_sock->[0] if UNIVERSAL::isa( $s_sock,'ARRAY' );
-			my $addr = $raddr->[$i] || last;
+
+			my $addr = $raddr->[$i];
 			$addr = $addr->[0] if ref($addr);
 
 			# recv once I get an event on RTP socket
@@ -127,22 +130,25 @@ sub media_send_recv {
 			$call->{loop}->addFD( $sock, [ $receive,$writeto,{},\$didit ] );
 
 			# sending need to be done with a timer
-			my $cb_done = $args->{cb_rtp_done} || sub { shift->bye };
-			my $timer = $call->{dispatcher}->add_timer(
-				0, # start immediatly
-				[ \&_send_rtp,$s_sock,$addr,$readfrom, {
-					repeat => $repeat || 1,
-					cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ]
-				}],
-				160/8000, # 8000 bytes per second, 160 bytes per sample
-				'rtpsend',
-			);
+			# ! $addr == call on hold
+			if ( $addr ) {
+				my $cb_done = $args->{cb_rtp_done} || sub { shift->bye };
+				my $timer = $call->{dispatcher}->add_timer(
+					0, # start immediatly
+					[ \&_send_rtp,$s_sock,$addr,$readfrom, {
+						repeat => $repeat || 1,
+						cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ]
+					}],
+					160/8000, # 8000 bytes per second, 160 bytes per sample
+					'rtpsend',
+				);
 
-			push @{ $call->{ rtp_cleanup }}, [ sub {
-				my ($call,$sock,$timer) = @_;
-				$call->{loop}->delFD( $sock );
-				$timer->cancel();
-			}, $call,$sock,$timer ];
+				push @{ $call->{ rtp_cleanup }}, [ sub {
+					my ($call,$sock,$timer) = @_;
+					$call->{loop}->delFD( $sock );
+					$timer->cancel();
+				}, $call,$sock,$timer ];
+			}
 		}
 
 		# on RTP inactivity for at least 10 seconds close connection

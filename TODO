@@ -8,6 +8,7 @@ PrioA:
 
 - more tests
   * invite + listen using proxy + registrar
+  * call-on-hold ( c=0.0.0.0 in SDP )
   * use sdp_on_ack, asymetric_rtp in tests
   * tests using re-invites (from UAC and from UAS)
   * tests, where either the UAC or the UAS issues a BYE

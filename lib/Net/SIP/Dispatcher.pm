@@ -27,7 +27,7 @@ use fields (
 );
 
 use Net::SIP::Leg;
-use Net::SIP::Util qw( invoke_callback sip_uri2parts );
+use Net::SIP::Util ':all';
 use Errno qw(EHOSTUNREACH ETIMEDOUT ENOPROTOOPT EINVAL);
 use IO::Socket;
 use List::Util 'first';
@@ -273,12 +273,16 @@ sub deliver {
 
 	if ( $packet->is_response ) {
 		# cache response for 32 sec (64*T1)
-		my $cid = $packet->get_header( 'cseq' )
-			."\0".$packet->get_header( 'call-id' );
-		$self->{response_cache}{$cid} = {
-			packet => $packet,
-			expire => ( $now ||= time()) +32
-		};
+		if ( $do_retransmits ) {
+			my $cid = join( "\0",
+				map { $packet->get_header($_) }
+				qw( cseq call-id from to )
+			);
+			$self->{response_cache}{$cid} = {
+				packet => $packet,
+				expire => ( $now ||= time()) +32
+			};
+		}
 	}
 
 	my $new_entry = Net::SIP::Dispatcher::Packet->new(
@@ -332,13 +336,18 @@ sub receive {
 	my ($packet,$leg,$from) = @_;
 
 	if ( $packet->is_request ) {
-		my $cid = $packet->get_header( 'cseq' )
-			."\0".$packet->get_header( 'call-id' );
+		my $cache = $self->{response_cache};
+		if ( %$cache ) {
+			my $cid = join( "\0",
+				map { $packet->get_header($_) }
+				qw( cseq call-id from to )
+			);
 
-		if ( my $response = $self->{response_cache}{$cid} ) {
-			# I have a cached response, use it
-			$self->deliver($response->{packet}, leg => $leg, dst_addr => $from);
-			return;
+			if ( my $response = $cache->{$cid} ) {
+				# I have a cached response, use it
+				$self->deliver($response->{packet}, leg => $leg, dst_addr => $from);
+				return;
+			}
 		}
 	}
 
@@ -433,7 +442,18 @@ sub __deliver {
 
 	if ( ! $dst_addr || ! $leg) {
 
-		DEBUG( 100,"no dst_addr or leg yet" );
+		# if explicit routes given use first route
+		# else resolve URI from request
+
+		my $uri;
+		my $packet = $qentry->{packet};
+		if ( my ($route) =  $packet->get_header( 'route' )) {
+			($uri) = sip_hdrval2parts( route => $route );
+		} else {
+			$uri = $packet->uri;
+		}
+
+		DEBUG( 100,"no dst_addr or leg yet, uri='$uri'" );
 
 		my $callback = sub {
 			my ($self,$qentry,@error) = @_;
@@ -445,7 +465,7 @@ sub __deliver {
 			}
 		};
 		return $self->resolve_uri(
-			$qentry->{packet}->uri,
+			$uri,
 			$qentry->{dst_addr},
 			$qentry->{leg},
 			[ $callback, $self,$qentry ],

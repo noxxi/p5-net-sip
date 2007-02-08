@@ -15,6 +15,7 @@ use Net::SIP::Util qw( sip_hdrval2parts invoke_callback );
 use Net::SIP::Packet;
 use Net::SIP::Request;
 use Net::SIP::Response;
+use Errno 'EHOSTUNREACH';
 
 use fields qw( sock addr port proto contact branch via );
 
@@ -22,8 +23,8 @@ use fields qw( sock addr port proto contact branch via );
 # addr,port: addr,port where it listens
 # proto: udp|tcp
 # contact: to identify myself (default from addr:port)
-# branch: branch-tag for via header
-# via: precomputed via value
+# branch: base for branch-tag for via header
+# via: precomputed part of via value
 
 ###########################################################################
 # create a new leg
@@ -99,17 +100,6 @@ sub forward_incoming {
 	my Net::SIP::Leg $self = shift;
 	my ($packet) = @_;
 
-	# Max-Fowards
-	my $maxf = $packet->get_header( 'max-forwards' );
-	# we don't want to put somebody Max-Forwards: 7363535353 into the header
-	# and then crafting a loop, so limit it to the default value
-	$maxf = 70 if !$maxf || $maxf>70;
-	$maxf--;
-	if ( $maxf <= 0 ) {
-		# just drop
-		return [ undef,'max-forwards reached 0, dropping' ];
-	}
-
 	if ( $packet->is_response ) {
 		# remove top via
 		my $via;
@@ -124,6 +114,19 @@ sub forward_incoming {
 	} else {
 		# Request
 
+		# Max-Fowards
+		my $maxf = $packet->get_header( 'max-forwards' );
+		# we don't want to put somebody Max-Forwards: 7363535353 into the header
+		# and then crafting a loop, so limit it to the default value
+		$maxf = 70 if !$maxf || $maxf>70;
+		$maxf--;
+		if ( $maxf <= 0 ) {
+			# just drop
+			DEBUG( 10,'reached max-forwards. DROP' );
+			return [ undef,'max-forwards reached 0, dropping' ];
+		}
+		$packet->set_header( 'max-forwards',$maxf );
+
 		# add received to top via
 		my $via;
 		$packet->scan_header( via => [ sub {
@@ -135,6 +138,7 @@ sub forward_incoming {
 				$hdr->set_modified;
 			}
 		}, \$via ]);
+
 
 		# check if last hop was strict router
 		# remove myself from route
@@ -200,6 +204,20 @@ sub forward_outgoing {
 	my ($packet,$incoming_leg) = @_;
 
 	if ( $packet->is_request ) {
+		# check if myself is already in Via-path
+		# in this case drop the packet, because a loop is detected
+		if ( my @via = $packet->get_header( 'via' )) {
+			my $branch = $self->{branch};
+			my $lbranch = length($branch);
+			foreach my $via ( @via ) {
+				my (undef,$param) = sip_hdrval2parts( via => $via );
+				if ( substr( $param->{branch},0,$lbranch ) eq $branch ) {
+					DEBUG( 10,'loop detected because outgoing leg is in Via. DROP' );
+					return [ undef,'loop detected on outgoing leg, dropping' ];
+				}
+			}
+		}
+
 		# Add Record-Route to request, except
 		# to REGISTER (RFC3261, 10.2)
 		# This is necessary, because these information are used in in new requests
@@ -248,7 +266,11 @@ sub deliver {
 		# one because it might be retried later
 		# (could skip this for tcp?)
 		$packet = $packet->clone;
-		$packet->insert_header( via => $self->{via} );
+
+		# make Via based transaction id
+		my $via = $self->{via};
+		$via .= md5_hex( $packet->tid );
+		$packet->insert_header( via => $via );
 	}
 
 	my ($proto,$host,$port) =
@@ -360,7 +382,9 @@ sub check_via {
 	my ($self,$packet) = @_;
 	my ($via) = $packet->get_header( 'via' );
 	my ($data,$param) = sip_hdrval2parts( via => $via );
-	return ( $param->{branch} eq $self->{branch} );
+	my $l_branch = $self->{branch};
+	my $p_branch = substr( $param->{branch},0,length($l_branch));
+	return $l_branch eq $p_branch;
 }
 
 ###########################################################################

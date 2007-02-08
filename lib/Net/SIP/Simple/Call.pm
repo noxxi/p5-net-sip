@@ -167,14 +167,14 @@ sub reinvite {
 		my Net::SIP::Simple::Call $self = shift;
 		my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
 
-		# new requests in existing call are handled in receive()
-		return $self->receive( @_ ) if $packet->is_request;
-
 		if ( $errno ) {
-			$self->error( "Failed with error $errno code=$code" );
+			$self->error( "Failed with error $errno".( $code ? " code=$code" :"" ) );
 			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,code => $code,packet => $packet );
 			return;
 		}
+
+		# new requests in existing call are handled in receive()
+		return $self->receive( @_ ) if $packet->is_request;
 
 		# response to INVITE
 		# all other responses will not be propagated to this callback
@@ -356,12 +356,18 @@ sub _setup_peer_rtp_socks {
 	}
 
 	my $raddr = $param->{media_raddr} = [];
+	my $null_address = pack( 'CCCC',0,0,0,0 ); # c=0.0.0.0 => call on hold
 	foreach my $m (@media) {
 		my $range = $m->{range} || 1;
-		my @socks = map {
-			scalar(sockaddr_in( $m->{port} + $_ ,inet_aton( $m->{addr} )));
-		} (0..$range-1);
-		push @$raddr, @socks == 1 ? $socks[0] : \@socks;
+		my $paddr = inet_aton( $m->{addr} );
+		if ( $paddr eq $null_address ) {
+			# on-hold for this media
+			push @$raddr, undef;
+		} else {
+			my @socks = map { scalar(sockaddr_in( $m->{port}+$_ , $paddr )) }
+				(0..$range-1);
+			push @$raddr, @socks == 1 ? $socks[0] : \@socks;
+		}
 	}
 
 	return 1;

@@ -6,6 +6,7 @@ TODO
 BUGS
 INSTALL
 HOWTO
+THANKS
 Makefile.PL
 lib/Net/SIP.pm
 lib/Net/SIP.pod

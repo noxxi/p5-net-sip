@@ -50,19 +50,30 @@ sub sip_hdrval2parts {
 	# split on delimiter (but not if quoted)
 	my @v = ('');
 	my $quoted = 0;
+	my $bracket = 0;
 	while (1) {
-		if ( $v =~m{\G(.*?)([\\"$delim])}gc ) {
+		if ( $v =~m{\G(.*?)([\\"<>$delim])}gc ) {
 			if ( $2 eq "\\" ) {
 				$v[-1].=$1.$2.substr( $v,pos($v),1 );
 				pos($v)++;
 			} elsif ( $2 eq '"' ) {
 				$v[-1].=$1.$2;
-				$quoted = !$quoted;
+				$quoted = !$quoted if ! $bracket;
+			} elsif ( $2 eq '<' ) {
+				$v[-1].=$1.$2;
+				$bracket = 1 if ! $bracket && ! $quoted;
+			} elsif ( $2 eq '>' ) {
+				$v[-1].=$1.$2;
+				$bracket = 0 if $bracket && ! $quoted;
 			} elsif ( $2 eq $delim ) {
 				# next item if not quoted
-				( $v[-1].=$1 ) =~s{\s+$}{}; # strip trailing space
-				push @v,'' if !$quoted;
-				$v =~m{\G\s+}gc; # skip space after $delim
+				if ( ! $quoted && ! $bracket ) {
+					( $v[-1].=$1 ) =~s{\s+$}{}; # strip trailing space
+					push @v,'' ;
+					$v =~m{\G\s+}gc; # skip space after $delim
+				} else {
+					$v[-1].=$1.$2
+				}
 			}
 		} else {
 			# add rest to last from @v
@@ -140,9 +151,9 @@ sub sip_parts2hdrval {
 ###########################################################################
 sub sip_uri2parts {
 	my $uri = shift;
+	$uri = $1 if $uri =~m{<([^>]+)>\s*$}i;
 	my ($data,$param) = sip_hdrval2parts( uri => $uri );
-	if ( $data =~m{<(sips?):([^\s\@]*)\@([^>\s]+)>}i
-		|| $data =~m{^(?:(sips?):)?(?:([^\s\@]*)\@)?([\w\-\.:]+)}i ) {
+	if ( $data =~m{^(?:(sips?):)?(?:([^\s\@]*)\@)?([\w\-\.:]+)}i ) {
 		my ($proto,$user,$domain) = ($1,$2,$3);
 		$proto ||= 'sip';
 		return wantarray

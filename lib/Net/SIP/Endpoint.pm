@@ -146,13 +146,15 @@ sub new_request {
 	die "cannot redefine call-id" if delete $args{ 'call-id' };
 	my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
 
-	DEBUG( 10,"create new request for $method" );
 
 	if ( ! UNIVERSAL::isa( $ctx,'Net::SIP::Endpoint::Context' )) {
 		$ctx = Net::SIP::Endpoint::Context->new($ctx);
 		$self->{ctx}{ $ctx->callid } = $ctx; # make sure we manage the context
-		DEBUG( 100,"created new context $ctx with callid=".$ctx->callid );
+		DEBUG( 10,"create new request for $method within new call ".$ctx->callid );
+	} else {
+		DEBUG( 10,"create new request for $method within existing call ".$ctx->callid );
 	}
+
 	$ctx->set_callback( $callback ) if $callback;
 
 	my $request = $ctx->new_request( $method,$body,%args );

@@ -516,24 +516,22 @@ sub do_nat {
 		return [ 0,'no TO header in packet' ]
 	}
 
-	# id_side is either idfrom or idto:
+	# side is either 0 (request) or 1 (response)
 	# If a request comes in 'from' points to the incoming_leg while
 	# 'to' points to the outgoing leg. For responses it's the other
 	# way around
-	# id_side points to the side, where the packet came in and thus
-	# names one of the two sides of a session
 
-	my $id_side;
+	my $side;
 	my $ileg = join( ':', @{ $incoming_leg }{qw(addr port)} );
 	my $oleg = join( ':', @{ $outgoing_leg }{qw(addr port)} );
 	if ( $request ) {
 		$idfrom .= "\0".$ileg;
 		$idto   .= "\0".$oleg;
-		$id_side = $idfrom;
+		$side = 0;
 	} else {
 		$idfrom .= "\0".$oleg;
 		$idto   .= "\0".$ileg;
-		$id_side = $idto;
+		$side = 1;
 	}
 
 	my ($cseq) = $packet->get_header( 'cseq' ) =~m{^(\d+)}
@@ -558,10 +556,10 @@ sub do_nat {
 		DEBUG( 100,"need to NAT SDP body: ".$body->as_string );
 
 		my $new_media = $nathelper->allocate_sockets(
-			$callid,$cseq,$id_side,$outgoing_leg->{addr},
+			$callid,$cseq,$idfrom,$idto,$side,$outgoing_leg->{addr},
 			scalar( $body->get_media) );
 		if ( ! $new_media ) {
-			DEBUG( 10,"allocation of RTP session failed for $callid|$cseq $id_side" );
+			DEBUG( 10,"allocation of RTP session failed for $callid|$cseq $idfrom|$idto|$side" );
 			return [ 0,'allocation of RTP sockets failed' ];
 		}
 

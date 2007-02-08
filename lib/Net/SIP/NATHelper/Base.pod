@@ -25,12 +25,18 @@ Creates a new object.
 
 =over 4
 
-=item allocate_sockets ( CALLID,CSEQ,IDSIDE,ADDR,MEDIA )
+=item allocate_sockets ( CALLID,CSEQ,IDFROM,IDTO,SIDE,ADDR,MEDIA )
 
 This is called to allocate new local sockets for MEDIA. MEDIA
 is a \@list of specifications like you get from B<get_media>
 in L<Net::SIP::SDP>. ADDR is the local address, where the sockets
 should be allocated.
+
+IDFROM and IDTO represent the sides of the session, while SIDE
+helps to pick the right side for allocation, e.g. if SIDE is 0
+the sockets will be allocated on the IDFROM side, if it is 1
+it will be on the IDTO side. Thus for Requests SIDE will be 0,
+while for responses it will be 1.
 
 CALLID and CSEQ are used to identify the SIP transaction, for which
 the NAT will be done, while IDSIDE is either IDFROM or IDTO (see below)

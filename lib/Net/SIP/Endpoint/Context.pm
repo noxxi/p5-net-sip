@@ -66,10 +66,11 @@ sub new {
 	$self->{_transactions} = [];
 	$self->{_cseq_incoming} = 0;
 
-	# create tag for from header
-	my ($from,$fparam) = sip_hdrval2parts( from => $self->{from} );
-	unless ( $fparam->{tag} ) {
-		$self->{from}.=";tag=".md5_hex( time(), rand(2**32), $self->{from} );
+	# create tag on my side (to|from)
+	my $side = $self->{incoming} ? 'to':'from';
+	my ($data,$param) = sip_hdrval2parts( $side => $self->{$side} );
+	unless ( $param->{tag} ) {
+		$self->{$side}.=";tag=".md5_hex( time(), rand(2**32), $self->{$side} );
 	}
 
 	DEBUG( 100,"CREATE context $self" );
@@ -324,6 +325,13 @@ sub handle_response {
 			my $ack = $tr->{request}->create_ack( $response );
 			invoke_callback($cb,@arg,0,$code,$response,$leg,$from,$ack);
 			$endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
+
+			# use to-tag from this request to update 'to'
+			# FIXME: this should probably be better done by the upper layer
+			# which decides, which call to accept (in case of call-forking with
+			# multiple 2xx responses)
+			$self->{to} = $response->get_header( 'to' );
+
 		} else {
 			# response to ACK, REGISTER...
 			# simply propagate to upper layer, only INVITE needs
@@ -435,6 +443,11 @@ sub handle_request {
 		return;
 	};
 	my @arg = ($endpoint,$self);
+
+	# extract route information for future requests to the UAC (re-invites)
+	if ( my @route = $request->get_header( 'record-route' )) {
+		$self->{route} = \@route;
+	}
 
 	if ( $method eq 'BYE' || $method eq 'CANCEL' ) {
 		# if the peer wants to hangup we must confirm
