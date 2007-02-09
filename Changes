@@ -1,5 +1,16 @@
 Revision history for Net::SIP
 
+0.20
+  - enhancements on tests, new tests for reinvite and call on hold
+  - lots of bugfixes: re-invites, NAT, call on hold, branch tag
+    on via and 'tag' on to|from in responses, max-forwards handling,
+    response caching in dispatcher....
+  - set route from record-route in responses, use route header
+    in dispatching outgoing requests
+  - early loop detection for outgoing packets
+  - new param call_on_hold for Net::Simple::Call to set call on
+    hold on reinvite...
+
 0.18
   - NATHelper::* changes in the return values of expire,
     close_session, activate_session to aid logging of
