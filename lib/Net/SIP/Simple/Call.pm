@@ -42,10 +42,13 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #   cb_established: callback which will be called on receiving ACK in INVITE
 #       with (status,self) where status is OK|FAIL
 #   sip_header: hashref of SIP headers to add
+#   call_on_hold: one-shot parameter to set local media addr to 0.0.0.0,
+#       will be set to false after use
 
 use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
 use Net::SIP::Debug;
 use Socket;
+use Storable 'dclone';
 
 ###########################################################################
 # create a new call based on a controller
@@ -143,7 +146,7 @@ sub reinvite {
 	$clear_sdp = $param->{clear_sdp} if ! defined $clear_sdp;
 	if ( $clear_sdp ) {
 		# clear SDP keys so that a new SDP session will be created
-		@{ $param }{qw( sdp sdp_peer media_ssocks media_lsocks )} = ()
+		@{ $param }{qw( sdp _sdp_saved sdp_peer media_ssocks media_lsocks )} = ()
 	}
 	$self->{param} = $param = { %$param, %args } if %args;
 
@@ -297,7 +300,7 @@ sub receive {
 
 				if ( $param->{clear_sdp} ) {
 					# clear SDP keys so that a new SDP session will be created
-					@{ $param }{qw( sdp sdp_peer media_ssocks media_lsocks )} = ()
+					@{ $param }{qw( sdp _sdp_saved sdp_peer media_ssocks media_lsocks )} = ()
 				}
 
 				$param->{leg} ||= $leg;
@@ -383,7 +386,10 @@ sub _setup_local_rtp_socks {
 	my Net::SIP::Simple::Call $self = shift;
 	my $param = $self->{param};
 
-	my $sdp = $param->{sdp};
+	my $call_on_hold = $param->{call_on_hold};
+	$param->{call_on_hold} = 0; # one-shot
+
+	my $sdp = $param->{_sdp_saved} || $param->{sdp};
 	if ( $sdp && !UNIVERSAL::isa( $sdp,'Net::SIP::SDP' )) {
 		$sdp = Net::SIP::SDP->new( $sdp );
 	}
@@ -455,6 +461,14 @@ sub _setup_local_rtp_socks {
 			}
 			push @$msocks,$socks;
 		}
+	}
+
+	$param->{_sdp_saved} = $sdp;
+	if ( $call_on_hold ) {
+		$sdp = dclone($sdp); # make changes on clone
+		my @new = map { [ '0.0.0.0',$_->{port} ] } $sdp->get_media;
+		$sdp->replace_media_listen( @new );
+		$param->{sdp} = $sdp;
 	}
 }
 

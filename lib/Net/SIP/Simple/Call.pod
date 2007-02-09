@@ -132,6 +132,13 @@ Callback will be invoked with C<< ( 'OK', SELF ) >>.
 
 A reference to a hash with additional SIP headers for the INVITE requests.
 
+=item call_on_hold
+
+This option causes the next SDP to have 0.0.0.0 as it's address to put
+this side of the call on hold (will not receive data). This is a one-shot
+option, e.g. needs to be set with B<set_param> or within B<reinvite>
+each time the call should be put on hold.
+
 =item ...
 
 More parameters may be specified and are accessable from the callbacks.

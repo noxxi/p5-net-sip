@@ -49,6 +49,7 @@ package Net::SIP::NATHelper::Base;
 use Net::SIP::Util ':all';
 use Net::SIP::Debug;
 use List::Util 'first';
+use Time::HiRes 'gettimeofday';
 
 ############################################################################
 # create new Net::SIP::NATHelper::Base
@@ -147,7 +148,7 @@ sub close_session {
 # cleanup, e.g. delete expired sessions and unused socket groups
 # Args: ($self,%args)
 #  %args: hash with the following data
-#    time:   current time, will get from time() if not given
+#    time:   current time, will get from gettimeofday() if not given
 #    unused: seconds for timeout of sockets, which were never used in session
 #       defaults to 3 minutes
 #    active: seconds for timeout of sockets used in sessions, defaults to
@@ -159,9 +160,10 @@ sub expire {
 	my Net::SIP::NATHelper::Base $self = shift;
 	my %args = @_;
 
-	$args{time}   ||= time();
+	$args{time}   ||= gettimeofday();
 	$args{unused} ||= 3*60; # unused sockets after 3 minutes
 	$args{active} ||= 30;   # active sessions after 30 seconds
+	DEBUG( 100,"expire now=$args{time} unused=$args{unused} active=$args{active}" );
 	my @expired;
 	foreach my $callid ( keys %$self ) {
 		my $call = $self->{$callid};
@@ -275,13 +277,17 @@ sub allocate_sockets {
 
 	my $sgroup;
 	if ( $side == 0 ) { # FROM
-		$sgroup = $data->{socket_group_from}
-			||= Net::SIP::NATHelper::SocketGroup->new( $idfrom,$addr,$media )
-			|| return;
+		$sgroup = $data->{socket_group_from} ||= do {
+			DEBUG( 10,"new socketgroup with idfrom $idfrom" );
+			Net::SIP::NATHelper::SocketGroup->new( $idfrom,$addr,$media )
+				|| return;
+		};
 	} else {
-		$sgroup = $data->{socket_groups_to}{$idto}
-			||= Net::SIP::NATHelper::SocketGroup->new( $idto,$addr,$media )
-			|| return;
+		$sgroup = $data->{socket_groups_to}{$idto} ||= do {
+			DEBUG( 10,"new socketgroup with idto $idto" );
+			Net::SIP::NATHelper::SocketGroup->new( $idto,$addr,$media )
+				|| return;
+		};
 	}
 
 	return $sgroup->get_media;
@@ -318,7 +324,7 @@ sub activate_session {
 
 	my $sess = $sessions->{$idto} =
 		Net::SIP::NATHelper::Session->new( $gfrom,$gto );
-	DEBUG( 10,"new session $self->{callid},$cseq $idfrom -> $idto" );
+	DEBUG( 10,"new session {$sess->{id}} $self->{callid},$cseq $idfrom -> $idto" );
 
 	return ( $sess->info_as_hash( $self->{callid},$cseq ), 0 );
 }
@@ -347,7 +353,7 @@ sub close_session {
 			return;
 		};
 		push @info, $sess->info_as_hash( $self->{callid},$cseq );
-		DEBUG( 10,"close session $self->{callid}|$cseq $idto,$idfrom success" );
+		DEBUG( 10,"close session {$sess->{id}} $self->{callid}|$cseq $idto,$idfrom success" );
 
 	} else {
 		# close from BYE (which has different cseq then the INVITE)
@@ -360,13 +366,14 @@ sub close_session {
 			foreach my $cseq ( keys %$by_cseq ) {
 				my $sess = delete $by_cseq->{$cseq}{sessions}{$to} || next;
 				push @info, $sess->info_as_hash( $self->{callid},$cseq );
+				DEBUG( 10,"close session {$sess->{id}} $self->{callid}|$cseq $idto,$idfrom " );
 			}
 		}
 		unless (@info) {
 			DEBUG( 10,"tried to BYE non existing session in $self->{callid}" );
 			return;
 		}
-		DEBUG( 10,"close session $self->{callid} $idto,$idfrom success" );
+		DEBUG( 10,"close sessions $self->{callid} $idto,$idfrom success" );
 	}
 	return @info;
 }
@@ -388,10 +395,10 @@ sub expire {
 
 	my @expired;
 	my %active_pairs; # mapping [idfrom,idto]|[idto,idfrom] -> session.created
-	my $need_2nd_pass;
+	my $need_next_pass;
 	my $by_from = $self->{from};
 
-	for(1,2) {
+	for my $pass (1,2) {
 		while ( my ($idfrom,$by_cseq) = each %$by_from ) {
 
 			# start with highest cseq so that we hopefully need 2 passes
@@ -406,22 +413,27 @@ sub expire {
 					my $sess = $sessions->{$idto};
 					my $lastmod = max($sess->lastmod,$sess->{created});
 					if ( $lastmod < $expire_active ) {
-						DEBUG( 10,"expired session $cseq|$idfrom|$idto because lastmod($lastmod) < active($expire_active)" );
+						DEBUG( 10,"expired session {$sess->{id}} $cseq|$idfrom|$idto because lastmod($lastmod) < active($expire_active)" );
 						my $sess = delete $sessions->{$idto};
-						push @expired, $sess->info_as_hash( $self->{callid}, $cseq );
+						push @expired, $sess->info_as_hash( $self->{callid}, $cseq, reason => 'expired' );
 
-					} elsif ( my $created = $active_pairs{ "$idfrom\0$idto" }
-						|| $active_pairs{ "$idto\0$idfrom" } ) {
+					} elsif ( my $created = max(
+						$active_pairs{ "$idfrom\0$idto" } || 0,
+						$active_pairs{ "$idto\0$idfrom" } || 0
+						) ) {
 						if ( $created > $sess->{created} ) {
-							DEBUG( 10,"expired session $cseq|$idfrom|$idto because there is newer session" );
+							DEBUG( 10,"removed session {$sess->{id}} $cseq|$idfrom|$idto because there is newer session" );
 							my $sess = delete $sessions->{$idto};
-							push @expired, $sess->info_as_hash( $self->{callid}, $cseq );
-						} else {
+							push @expired, $sess->info_as_hash( $self->{callid}, $cseq, reason => 'replaced' );
+						} elsif ( $created < $sess->{created} ) {
 							# probably a session in the other direction has started
-							$need_2nd_pass = 1
+							DEBUG( 100,"there is another session with created=$created which should be removed in next pass" );
+							$active_pairs{ "$idfrom\0$idto" } = $sess->{created};
+							$need_next_pass = 1
 						}
 					} else {
 						# keep session
+						DEBUG( 100,"session {$sess->{id}} $idfrom -> $idto created=$sess->{created} stays active in pass#$pass" );
 						$active_pairs{ "$idfrom\0$idto" } = $sess->{created};
 					}
 				}
@@ -466,7 +478,9 @@ sub expire {
 		}
 
 		# only run again if needed
-		$need_2nd_pass || last;
+		$need_next_pass || last;
+		$need_next_pass = 0;
+		DEBUG( 100,'need another pass' );
 	}
 	return @expired;
 }
@@ -554,9 +568,13 @@ sub dump {
 ############################################################################
 
 package Net::SIP::NATHelper::Session;
-use fields qw( sfrom sto created bytes_from bytes_to callbacks );
+use fields qw( sfrom sto created bytes_from bytes_to callbacks id );
 use Net::SIP::Debug;
 use List::Util 'max';
+use Time::HiRes 'gettimeofday';
+
+# increased for each new session
+my $session_id = 0;
 
 ############################################################################
 # create new Session between two SocketGroup's
@@ -576,30 +594,32 @@ sub new {
 	%$self = (
 		sfrom => $sfrom,
 		sto => $sto,
-		created => time(),
+		created => scalar( gettimeofday() ),
 		bytes_from => 0,
 		bytes_to => 0,
 		callbacks => undef,
+		id => ++$session_id,
 	);
 	return $self;
 }
 
 ############################################################################
 # returns session info as hash
-# Args: ($self,$callid,$cseq)
+# Args: ($self,$callid,$cseq,%more)
+#   %more: hash with more key,values to put into info
 # Returns: %session_info
 #   %session_info: hash with callid,cseq,idfrom,idto,from,to,
-#   bytes_from,bytes_to
+#      bytes_from,bytes_to,sessionid and %more
 ############################################################################
 sub info_as_hash {
 	my Net::SIP::NATHelper::Session $self = shift;
-	my ($callid,$cseq) = @_;
+	my ($callid,$cseq,%more) = @_;
 
-	my $from = join( " ", map {
+	my $from = join( ",", map {
 		"$_->{addr}:$_->{port}/$_->{range}"
 	} @{ $self->{sfrom}{orig_media} } );
 
-	my $to = join( " ", map {
+	my $to = join( ",", map {
 		"$_->{addr}:$_->{port}/$_->{range}"
 	} @{ $self->{sto}{orig_media} } );
 
@@ -613,6 +633,8 @@ sub info_as_hash {
 		bytes_from => $self->{bytes_from},
 		bytes_to => $self->{bytes_to},
 		created => $self->{created},
+		sessionid => $self->{id},
+		%more,
 	}
 }
 
@@ -665,7 +687,8 @@ sub callbacks {
 				$sockets_to->[$i],     # forward data using socket TO(nat)
 				$targets_from->[$i],   # to FROM(original)
 				$sfrom,                # call $sfrom->didit
-				\$self->{bytes_from},  # to count incoming bytes
+				\$self->{bytes_to},    # to count bytes coming from 'to'
+				$self->{id},           # for debug messages
 			],
 			++$callback_id
 		];
@@ -678,7 +701,8 @@ sub callbacks {
 				$sockets_from->[$i],   # forward data using socket FROM(nat)
 				$targets_to->[$i],     # to TO(original)
 				$sto,                  # call $sto->didit
-				\$self->{bytes_to},    # to count incoming bytes
+				\$self->{bytes_from},  # to count bytes coming from 'from'
+				$self->{id},           # for debug messages
 			],
 			++$callback_id
 		];
@@ -691,7 +715,7 @@ sub callbacks {
 # internal function used for forwarding data in callbacks()
 ############################################################################
 sub _forward_data {
-	my ($read_socket,$write_socket,$dstaddr,$group,$bytes) = @_;
+	my ($read_socket,$write_socket,$dstaddr,$group,$bytes,$id) = @_;
 	recv( $read_socket, my $buf,2**16,0 ) || do {
 		DEBUG( 10,"recv data failed: $!" );
 		return;
@@ -711,7 +735,7 @@ sub _forward_data {
 		my ($port,$addr) = unpack_sockaddr_in( $bin );
 		return inet_ntoa($addr).':'.$port;
 	};
-	DEBUG( 50,"transferred %d bytes on %s via %s to %s",
+	DEBUG( 50,"{$id} transferred %d bytes on %s via %s to %s",
 		length($buf), $name->( getsockname($read_socket )),
 		$name->(getsockname( $write_socket )),$name->($dstaddr));
 }
@@ -724,7 +748,8 @@ sub _forward_data {
 ############################################################################
 sub dump {
 	my Net::SIP::NATHelper::Session $self = shift;
-	return ( $self->{sfrom} && $self->{sfrom}{id} || 'NO.SFROM' ).",".
+	return "{$self->{id}}".
+		( $self->{sfrom} && $self->{sfrom}{id} || 'NO.SFROM' ).",".
 		( $self->{sto} && $self->{sto}{id} || 'NO.STO' )."\n";
 }
 
@@ -742,6 +767,7 @@ package Net::SIP::NATHelper::SocketGroup;
 use fields qw( id created lastmod socks targets media orig_media );
 use Net::SIP::Util 'create_rtp_sockets';
 use Net::SIP::Debug;
+use Time::HiRes 'gettimeofday';
 use Socket;
 
 ############################################################################
@@ -790,7 +816,7 @@ sub new {
 		orig_media => [ @$media ],
 		media => \@new_media,
 		lastmod => 0,
-		created => time(),
+		created => scalar( gettimeofday() ),
 	);
 	return $self;
 }
@@ -803,7 +829,7 @@ sub new {
 ############################################################################
 sub didit {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
-	$self->{lastmod} = time();
+	$self->{lastmod} = gettimeofday();
 }
 
 ############################################################################

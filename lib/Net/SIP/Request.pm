@@ -107,7 +107,6 @@ sub create_response {
 	my Net::SIP::Request $self = shift;
 	my ($code,$msg,$args,$body) = @_;
 
-	# XXXX fix to so that to-tag gets added
 	my %header = (
 		cseq      => scalar($self->get_header('cseq')),
 		'call-id' => scalar($self->get_header('call-id')),

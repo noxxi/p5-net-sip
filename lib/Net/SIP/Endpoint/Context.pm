@@ -22,6 +22,7 @@ use fields (
 	'route',   # for 'route' header, comes usually from 'record-route' info in response
 	'via',     # for 'via' header in created responses, comes from incoming request
 	'incoming', # flag if call is incoming, e.g. 'to' is myself
+	'local_tag', # local tag which gets assigned to either from or to depending on incoming
 
 	# ===== Internals
 	# \@array of hashrefs for infos about pending transactions
@@ -43,7 +44,7 @@ use Net::SIP::Debug;
 use Errno qw( EINVAL EPERM EFAULT );
 use Hash::Util 'lock_keys';
 use List::Util 'first';
-use Net::SIP::Util qw(sip_hdrval2parts invoke_callback);
+use Net::SIP::Util ':all';
 
 ############################################################################
 # Creates new context
@@ -69,8 +70,13 @@ sub new {
 	# create tag on my side (to|from)
 	my $side = $self->{incoming} ? 'to':'from';
 	my ($data,$param) = sip_hdrval2parts( $side => $self->{$side} );
-	unless ( $param->{tag} ) {
-		$self->{$side}.=";tag=".md5_hex( time(), rand(2**32), $self->{$side} );
+	if ( my $tag = $param->{tag} ) {
+		# FIXME: what to do if local_tag was already set to different value?
+		$self->{local_tag} = $tag;
+	} else {
+		$self->{$side}.=";tag=".(
+			$self->{local_tag} = md5_hex( time(), rand(2**32), $self->{$side} )
+		);
 	}
 
 	DEBUG( 100,"CREATE context $self" );
@@ -447,6 +453,19 @@ sub handle_request {
 	# extract route information for future requests to the UAC (re-invites)
 	if ( my @route = $request->get_header( 'record-route' )) {
 		$self->{route} = \@route;
+	}
+
+	{
+		# check if to has already a (my) tag, if not add it to request,
+		# so that it gets added to responses
+		my $to = $request->get_header( 'to' );
+		my ($data,$param) = sip_hdrval2parts( to => $to );
+		if ( ! $param->{tag} ) {
+			DEBUG( 50,"added my tag to to header in request" );
+			$param->{tag} = $self->{local_tag};
+			$to = sip_parts2hdrval( 'to',$data,$param );
+			$request->set_header( to => $to );
+		}
 	}
 
 	if ( $method eq 'BYE' || $method eq 'CANCEL' ) {

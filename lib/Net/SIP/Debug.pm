@@ -161,6 +161,7 @@ sub debug {
 	$msg = $prefix." ".$msg;
 	$msg =~s{\n}{\n$prefix\t}g;
 	return $msg if defined wantarray; # don't print
+	$msg =~s{[^[:space:][:print:]]}{_}g;
 	print STDERR $msg,"\n";
 }
 

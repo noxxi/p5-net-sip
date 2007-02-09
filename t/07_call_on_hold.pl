@@ -2,20 +2,24 @@
 
 #############################################################################
 #
+# very similar to t/06_call_with_reinvite.t, except that the reinvite
+# puts the UAS on hold
 #  - UAS listens
 #  - UAC calls UAS
 #  - UAS accepts call
 #  - UAC sends some data to UAS
-#  - after some time UAS re-invites UAC
+#  - after some time UAS re-invites UAC, but with c=0.0.0.0, e.g
+#    it puts the call on hold
 #  - UAC accepts
-#  - UAS sends some data to UAC
+#  - UAS sends some data to UAC, UAC does not send back even if
+#    recv_echo is used
 #  - after a while UAC hangs up
 #
 #############################################################################
 
 use strict;
 use warnings;
-use Test::More tests => 17;
+use Test::More tests => 16;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -47,9 +51,9 @@ fd_grep_ok( 'RTP#50#', $uas );
 fd_grep_ok( 'got rtp packet#50', $uac );
 
 # BYE from UAC
+# UAS should not receive anything
 fd_grep_ok( 'Send BYE',$uac );
-fd_grep_ok( 'Got RTP',$uas );
-fd_grep_ok( 'Received BYE',$uas );
+fd_grep_ok( 'Received BYE after 0 bytes read',$uas );
 fd_grep_ok( 'BYE done',$uac );
 
 
@@ -152,7 +156,7 @@ sub uas {
 				'send_recv',
 				[ \&_send_rtp, \( my $i=0 ) ],
 				1,
-				$write_bytes
+				$write_bytes,
 			),
 			recv_bye => \$recv_bye,
 		);
@@ -161,6 +165,7 @@ sub uas {
 	$call->reinvite(
 		clear_sdp => 1,
 		cb_final => $init_media_send,
+		call_on_hold => 1,
 	);
 
 	# wait until INVITE succeeds
@@ -170,8 +175,7 @@ sub uas {
 
 	# wait until I got BYE
 	$ua->loop( 10, \$recv_bye );
-	print "Got RTP\n" if $bytes;
-	print "Received BYE\n" if $recv_bye;
+	print "Received BYE after $bytes bytes read\n" if $recv_bye;
 
 	# make sure the reply for the BYE makes it on the wire
 	$ua->loop(1);
