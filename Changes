@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.21
+  - new sample samples/3pcc.pl for 3rd party call control
+  - small fixes
+
 0.20
   - enhancements on tests, new tests for reinvite and call on hold
   - lots of bugfixes: re-invites, NAT, call on hold, branch tag
