@@ -3,8 +3,6 @@
 # implements a simple stateless proxy
 # all packets will be forwarded between Leg#1 to Leg#2. If there is
 # only one leg it will use only this leg.
-# FIXME: there is no support yet for more than one legs, eg it needs
-#   to know which leg to use as outgoing leg
 ###########################################################################
 
 use strict;
@@ -103,7 +101,8 @@ sub _default_rewrite_contact {
 # Returns: NONE
 ###########################################################################
 sub receive {
-	my ($self,$packet,$incoming_leg,$from) = @_;
+	my Net::SIP::StatelessProxy $self = shift;
+	my ($packet,$incoming_leg,$from) = @_;
 	DEBUG( 10,"received ".$packet->dump );
 
 	if ( ( my $reg = $self->{registrar} )

@@ -60,6 +60,7 @@ t/07_call_on_hold.pl
 t/testlib.pl
 samples/invite_and_recv.pl
 samples/invite_and_send.pl
+samples/3pcc.pl
 bin/nathelper.pl
 bin/stateless_proxy.pl
 bin/answer_machine.pl

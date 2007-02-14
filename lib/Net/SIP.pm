@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 package Net::SIP;
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();
@@ -35,6 +35,7 @@ BEGIN {
 		Net::SIP::NATHelper::Server
 		Net::SIP::NATHelper::Local
 		Net::SIP::Debug
+		Net::SIP::Leg
 		)) {
 
 		my $pkg = $_; # copy from alias
