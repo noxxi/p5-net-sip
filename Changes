@@ -1,5 +1,11 @@
 Revision history for Net::SIP
 
+0.22
+  - enforce perl5.8 and prerequisite Net::DNS in Makefile.PL
+  - NATHelper::Base - more controling of resource usage with
+    max_sockets and max_sockets_in_group and/or by redefining
+    (un)get_rtp_sockets
+
 0.21
   - new sample samples/3pcc.pl for 3rd party call control
   - small fixes
