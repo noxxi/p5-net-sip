@@ -15,9 +15,23 @@ active sessions and expiring sessions.
 
 =over 4
 
-=item new
+=item new ( %ARGS )
 
 Creates a new object.
+%ARGS can be of:
+
+=over 8
+
+=item max_sockets N
+
+Restricts the maximum number of sockets allocated inside the object to N.
+
+=item max_sockets_in_group N
+
+Restricts the maximum number of sockets allocated for a single socket group
+(e.g. a single call to B<get_rtp_sockets>) to N.
+
+=back
 
 =back
 
@@ -70,9 +84,13 @@ The method is usually called whenever a SDP body is given and on ACK requests.
 
 This will cause the close of the session described by the arguments
 (which have the same meaning like in B<activate_session>). Usually
-called for BYE or CANCEL requests.
+called for BYE or CANCEL requests. For CANCEL it will be called with
+CSEQ (because it should cancel a specific transaction) while for
+BYE it will called with CSEQ undef, because it should end all sessions
+in this call.
 
-It will return a reference to a hash with the following items:
+It will return a list with infos about all closed sessions. Each of
+these infos is a reference to a hash with the following items:
 
 =over 8
 
@@ -121,6 +139,43 @@ and see, what changed.
 Each of these callbacks should be invoked once the file descriptor gets
 readable and the callback will then forward the received packet to the
 other side of the session.
+
+=item sessions ( [ CALLBACK ] )
+
+This will call CALLBACK on all sessions and return an array containing
+the results of the callbacks together. If no CALLBACK is given it will
+return all session objects.
+
+To use this function you might need to know the interna of the session
+objects (see source code), but in most cases it is enough to know, that
+session objects have a method L<info_as_hash> which will return infos 
+about the session as hash like described in L<close_session>.
+
+=item get_rtp_sockets ( NEW_ADDR, @MEDIA )
+
+Allocates sockets for on address NEW_ADDR for @MEDIA. @MEDIA is in
+the format given by B<get_media> in L<Net::SIP::SDP>.
+
+Returns reference to array of allocated media, each item in the
+array is C<< [ ADDR,BASE_PORT,\@SOCKS,\@TARGETS ] >>, where ADDR
+is NEW_ADDR, BASE_PORT the base port for the allocated sockets,
+@SOCKS the allocated sockets and @TARGETS the C<sockaddr_in> of
+the original targets, e.g. where it needs to forward the data
+received on the sockets.
+
+If not all necssary sockets could be allocated it will allocate
+none and return C<()>.
+
+This method might be redefined to better control resource allocation
+or to cache temporally unused resources together with unget_rtp_sockets.
+
+=item unget_rtp_sockets ( NEW_MEDIA )
+
+Will take resources back. NEW_MEDIA is the result from B<get_rtp_sockets>.
+Returns nothing.
+
+Together with get_rtp_sockets it could be redefined to not destroy
+resources but to cache them for future use.
 
 =item dump
 

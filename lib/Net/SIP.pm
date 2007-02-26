@@ -1,6 +1,8 @@
 use strict;
 use warnings;
 
+require 5.008;
+
 package Net::SIP;
 our $VERSION = '0.21';
 

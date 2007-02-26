@@ -46,20 +46,32 @@ use warnings;
 
 
 package Net::SIP::NATHelper::Base;
+use fields qw( calls max_sockets max_sockets_in_group socket_count group_count  );
+
 use Net::SIP::Util ':all';
 use Net::SIP::Debug;
-use List::Util 'first';
+use List::Util qw( first sum );
 use Time::HiRes 'gettimeofday';
+use Errno 'EMFILE';
+use Socket;
 
 ############################################################################
 # create new Net::SIP::NATHelper::Base
-# Args: ($class);
+# Args: ($class,%args);
 # Returns: $self
 ############################################################################
 sub new {
-	my ($class) = @_;
+	my ($class,%args) = @_;
 	# Hash of Net::SIP::NATHelper::Call indexed by call-id
-	return bless {}, $class;
+	my $self = fields::new($class);
+	%$self = (
+		calls => {},
+		socket_count => 0,
+		group_count => 0,
+		max_sockets => delete $args{max_sockets},
+		max_sockets_in_group => delete $args{max_sockets_in_group},
+	);
+	return $self;
 }
 
 
@@ -87,9 +99,9 @@ sub allocate_sockets {
 	my Net::SIP::NATHelper::Base $self = shift;
 	my $callid = shift;
 
-	my $call = $self->{$callid}
+	my $call = $self->{calls}{$callid}
 		||= Net::SIP::NATHelper::Call->new( $callid );
-	return $call->allocate_sockets( @_ );
+	return $call->allocate_sockets( $self,@_ );
 }
 
 ############################################################################
@@ -110,7 +122,7 @@ sub activate_session {
 	my Net::SIP::NATHelper::Base $self = shift;
 	my $callid = shift;
 
-	my $call = $self->{$callid};
+	my $call = $self->{calls}{$callid};
 	unless ( $call ) {
 		DEBUG( 10,"tried to activate non-existing call $callid" );
 		return;
@@ -125,7 +137,7 @@ sub activate_session {
 #   $cseq:   optional sequence number, only for CANCEL requests
 #   $idfrom: ID for from-side
 #   $idto:   ID for to-side
-# Returns: \@session_info
+# Returns: @session_info
 #   @session_info: list of hashes from session info_as_hash
 # Comment: this SIP packet should be forwarded, even if the call
 #  is not known here, because it did not receive the response from
@@ -135,7 +147,7 @@ sub close_session {
 	my Net::SIP::NATHelper::Base $self = shift;
 	my $callid = shift;
 
-	my $call = $self->{$callid};
+	my $call = $self->{calls}{$callid};
 	unless ( $call ) {
 		DEBUG( 10,"tried to close non-existing call $callid" );
 		return;
@@ -165,12 +177,13 @@ sub expire {
 	$args{active} ||= 30;   # active sessions after 30 seconds
 	DEBUG( 100,"expire now=$args{time} unused=$args{unused} active=$args{active}" );
 	my @expired;
-	foreach my $callid ( keys %$self ) {
-		my $call = $self->{$callid};
+	my $calls = $self->{calls};
+	foreach my $callid ( keys %$calls ) {
+		my $call = $calls->{$callid};
 		push @expired, $call->expire( %args );
 		if ( $call->is_empty ) {
 			DEBUG( 50,"remove call $callid" );
-			delete $self->{$callid};
+			delete $calls->{$callid};
 		}
 	}
 	return @expired;
@@ -183,7 +196,21 @@ sub expire {
 ############################################################################
 sub callbacks {
 	my Net::SIP::NATHelper::Base $self = shift;
-	return map { $_->callbacks } values %$self;
+	return map { $_->callbacks } values %{ $self->{calls} };
+}
+
+############################################################################
+# run over all sessions and execute callback
+# Args: $self;$callback
+#   $callback: callback, defaults to simply return the session
+# Returns: @rv
+#   @rv: array with the return values of all callbacks together
+############################################################################
+sub sessions {
+	my Net::SIP::NATHelper::Base $self = shift;
+	my $callback = shift;
+	$callback ||= sub { return shift }; # default callback returns session
+	return map { $_->sessions( $callback ) } values %{ $self->{calls} };
 }
 
 ############################################################################
@@ -194,8 +221,8 @@ sub callbacks {
 sub dump {
 	my Net::SIP::NATHelper::Base $self = shift;
 	my $result = "";
-	foreach ( sort keys %$self ) {
-		$result.= $self->{$_}->dump;
+	foreach ( values %{ $self->{calls} } ) {
+		$result.= $_->dump;
 	}
 	return $result;
 }
@@ -207,9 +234,86 @@ sub dump {
 ############################################################################
 sub number_of_calls {
 	my Net::SIP::NATHelper::Base $self = shift;
-	return scalar( keys %$self )
+	return scalar( keys %{ $self->{calls} })
 }
 
+############################################################################
+# get RTP sockets
+# can be redefined to allow enforcing of resource limits, caching of
+# sockets...
+# right now creates fresh RTP sockets unless max_sockets is reached,
+# in which case it returns () with $! set to EMFILE
+# Args: ($self,$new_addr,$media)
+#    $new_addr: IP for new sockets
+#    $media: old media like given from Net::SIP::SDP::get_media
+# Returns: \@new_media
+#    @new_media: list of [ addr,base_port,\@socks,\@targets]
+#      where addr and base_port are the address and base port for the new
+#      media, @socks the list of sockets and @targets the matching targets
+#      based on the original media
+############################################################################
+sub get_rtp_sockets {
+	my Net::SIP::NATHelper::Base $self = shift;
+	my ($new_addr,$media) = @_;
+	my @new_media;
+
+	my $need_sockets = sum( map { $_->{range} } @$media );
+	if ( my $max = $self->{max_sockets_in_group} ) {
+		if ( $need_sockets > $max ) {
+			DEBUG( 1,"allocation of RTP sockets denied because max_sockets_in_group limit reached" );
+			$! = EMFILE;
+			return;
+		}
+	}
+		
+	if ( my $max = $self->{max_sockets} ) {
+		if ( $self->{socket_count} + $need_sockets > $max ) {
+			DEBUG( 1,"allocation of RTP sockets denied because max_sockets limit reached" );
+			$! = EMFILE;
+			return;
+		}
+	}
+
+	foreach my $m (@$media) {
+		my ($addr,$port,$range) = @{$m}{qw/addr port range/};
+
+		# allocate new sockets
+		my ($new_port,@socks) = create_rtp_sockets( $new_addr,$range );
+		unless (@socks) {
+			DEBUG( 1,"allocation of RTP sockets failed: $!" );
+			return;
+		}
+
+		# determine target for sock, e.g. original address
+		my $addr_bin = inet_aton($addr);
+		my @targets;
+		for( my $i=0;$i<@socks;$i++ ) {
+			my $dst = sockaddr_in( $port+$i,$addr_bin );
+			push @targets,$dst;
+		}
+
+		DEBUG( 100,"m_old=$addr $port/$range new_port=$new_port" );
+		push @new_media, [ $new_addr,$new_port,\@socks,\@targets ];
+	}
+
+	$self->{socket_count} += $need_sockets;
+	$self->{group_count} ++;
+
+	return \@new_media;
+}
+
+############################################################################
+# free created RTP sockets
+# Args: $self,$media
+#   $media: see return code from get_rtp_sockets
+# Returns: NONE
+############################################################################
+sub unget_rtp_sockets {
+	my Net::SIP::NATHelper::Base $self = shift;
+	my $media = shift;
+	$self->{group_count} --;
+	$self->{socket_count} -= sum( map { int(@{ $_->[2] }) } @$media );
+}
 
 ############################################################################
 ############################################################################
@@ -226,6 +330,7 @@ use fields qw( callid from );
 use Hash::Util 'lock_keys';
 use List::Util 'max';
 use Net::SIP::Debug;
+use Net::SIP::Util 'invoke_callback';
 
 sub new {
 	my ($class,$callid) = @_;
@@ -239,12 +344,12 @@ sub new {
 
 ############################################################################
 # allocate sockets for rewriting SDP body
-# Args: ($self,$cseq,$idfrom,$idto,$side,$addr,$media)
+# Args: ($nathelper,$self,$cseq,$idfrom,$idto,$side,$addr,$media)
 # Returns: $media
 ############################################################################
 sub allocate_sockets {
 	my Net::SIP::NATHelper::Call $self = shift;
-	my ($cseq,$idfrom,$idto,$side,$addr,$media) = @_;
+	my ($nathelper,$cseq,$idfrom,$idto,$side,$addr,$media) = @_;
 
 	# find existing data for $idfrom,$cseq
 	my $cseq_data = $self->{from}{$idfrom};
@@ -279,13 +384,13 @@ sub allocate_sockets {
 	if ( $side == 0 ) { # FROM
 		$sgroup = $data->{socket_group_from} ||= do {
 			DEBUG( 10,"new socketgroup with idfrom $idfrom" );
-			Net::SIP::NATHelper::SocketGroup->new( $idfrom,$addr,$media )
+			Net::SIP::NATHelper::SocketGroup->new( $nathelper,$idfrom,$addr,$media )
 				|| return;
 		};
 	} else {
 		$sgroup = $data->{socket_groups_to}{$idto} ||= do {
 			DEBUG( 10,"new socketgroup with idto $idto" );
-			Net::SIP::NATHelper::SocketGroup->new( $idto,$addr,$media )
+			Net::SIP::NATHelper::SocketGroup->new( $nathelper,$idto,$addr,$media )
 				|| return;
 		};
 	}
@@ -525,8 +630,28 @@ sub callbacks {
 		}
 	}
 	return @cb;
-
 }
+
+############################################################################
+# run over all session and execte callback
+# Args: $self,$callback
+# Returns: @rv
+#  @rv: results of all callback invocations together
+############################################################################
+sub sessions {
+	my Net::SIP::NATHelper::Call $self = shift;
+	my $callback = shift;
+	my $by_from = $self->{from};
+	my @rv;
+	foreach my $by_cseq ( values %$by_from ) {
+		foreach my $data ( values %$by_cseq ) {
+			push @rv, map { invoke_callback($callback,$data) } 
+				values %{ $data->{sessions} };
+		}
+	}
+	return @rv;
+}
+
 ############################################################################
 # Dump debug information into string
 # Args: $self
@@ -764,61 +889,40 @@ sub dump {
 ############################################################################
 
 package Net::SIP::NATHelper::SocketGroup;
-use fields qw( id created lastmod socks targets media orig_media );
-use Net::SIP::Util 'create_rtp_sockets';
+use fields qw( id created lastmod new_media orig_media nathelper );
 use Net::SIP::Debug;
 use Time::HiRes 'gettimeofday';
 use Socket;
 
 ############################################################################
 # create new socket group based on the original media and a local address
-# Args: ($class,$id,$new_addr,$media)
+# Args: ($class,$nathelper,$id,$new_addr,$media)
 # Returns: $self|()
 # Comment: () will be returned if allocation of sockets fails
 ############################################################################
 sub new {
-	my ($class,$id,$new_addr,$media) = @_;
-
-	my (@rtp_sockets,@targets,@new_media);
-	foreach my $m (@$media) {
-		my ($addr,$port,$range) = @{$m}{qw/addr port range/};
-
-		# allocate new sockets
-		my ($new_port,@socks) = create_rtp_sockets( $new_addr,$range );
-		unless (@socks) {
-			DEBUG( 1,"allocation of RTP sockets failed: $!" );
-			return;
-		}
-		push @rtp_sockets,@socks;
-		push @new_media, [ $new_addr,$new_port,int(@socks) ];
-
-		DEBUG( 100,"m_old=$addr $port/$range new_port=$new_port" );
-
-		# and save targets, e.g. where data received on these new socks
-		# gets forwarded to.
-		my $addr_bin = inet_aton($addr);
-		for( my $i=0;$i<@socks;$i++ ) {
-			my $dst = sockaddr_in( $port+$i,$addr_bin );
-			push @targets,$dst;
-		}
-	}
-
-	unless (@rtp_sockets) {
-		DEBUG( 100,"no sockets to allocate for socketgroup" );
-		return;
-	}
+	my ($class,$nathelper,$id,$new_addr,$media) = @_;
+	my $new_media = $nathelper->get_rtp_sockets( $new_addr,$media )
+		or return;
 
 	my $self = fields::new($class);
 	%$self = (
+		nathelper => $nathelper,
 		id => $id,
-		socks => \@rtp_sockets,
-		targets => \@targets,
 		orig_media => [ @$media ],
-		media => \@new_media,
+		new_media => $new_media,
 		lastmod => 0,
 		created => scalar( gettimeofday() ),
 	);
 	return $self;
+}
+
+############################################################################
+# give allocated sockets back to NATHelper
+############################################################################
+sub DESTROY {
+	my Net::SIP::NATHelper::SocketGroup $self = shift;
+	$self->{nathelper}->unget_rtp_sockets( $self->{new_media} )
 }
 
 
@@ -839,7 +943,12 @@ sub didit {
 ############################################################################
 sub get_media {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
-	return $self->{media};
+	my @media = map { [ 
+		$_->[0],           # addr
+		$_->[1],           # base port
+		int(@{$_->[2]})    # range, e.g number of sockets
+	]} @{ $self->{new_media} };
+	return \@media;
 }
 
 ############################################################################
@@ -849,7 +958,7 @@ sub get_media {
 ############################################################################
 sub get_socks {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
-	return $self->{socks};
+	return [ map { @{$_->[2]} } @{$self->{new_media}} ];
 }
 
 ############################################################################
@@ -859,7 +968,7 @@ sub get_socks {
 ############################################################################
 sub get_targets {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
-	return $self->{targets};
+	return [ map { @{$_->[3]} } @{$self->{new_media}} ];
 }
 
 ############################################################################
@@ -871,7 +980,7 @@ sub dump {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
 	my $result = $self->{id}." >> ".join( ' ',
 		map { "$_->[0]:$_->[1]/$_->[2]" }
-		@{$self->{media}} ).
+		@{$self->get_media} ).
 		"\n";
 	return $result;
 }
