@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.23
+  - fix memleak in NATHelper::Base
+  - support for derived NATHelper::Base in NATHelper::Server 
+  - update docu for NATHelper::Base::expire
+
 0.22
   - enforce perl5.8 and prerequisite Net::DNS in Makefile.PL
   - NATHelper::Base - more controling of resource usage with
