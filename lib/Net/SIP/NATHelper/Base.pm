@@ -562,7 +562,7 @@ sub expire {
 					if ( ! $lastmod ) {
 						# was never used
 						if ( $v->{created} < $expire_unused ) {
-							DEBUG( 10,"expired socketgroup $v->{id} because lastmod($lastmod) < unused($expire_unused)" );
+							DEBUG( 10,"expired socketgroup $v->{id} because created($v->{created}) < unused($expire_unused)" );
 							$expired_sg{$v} = 1;
 						}
 					} elsif ( $lastmod < $expire_active ) {
@@ -602,7 +602,7 @@ sub is_empty {
 		my $by_cseq = $by_from->{$idfrom};
 		foreach my $cseq ( keys %$by_cseq ) {
 			my $data = $by_cseq->{$cseq};
-			if ( ! $data->{socket_groups_to} && ! $data->{socket_group_from} ) {
+			if ( ! %{ $data->{socket_groups_to}} && ! $data->{socket_group_from} ) {
 				DEBUG( 100,"deleted unused cseq $cseq in $self->{callid}|$idfrom" );
 				delete $by_cseq->{$cseq};
 			}

@@ -119,14 +119,31 @@ Stateless proxies should forward the packet even if the session did
 not exist, because the packet might be a retransmit referring to an
 already closed session.
 
-=item expire
+=item expire ( [ %ARGS ] )
 
-This causes the sessions and sockets to expire. Expiration will be done
-after 3 minutes of inactivity (this value comes implicitly from the SIP
-specifications about retransmits...).
-
+This causes the sessions and sockets to expire. 
 It will return a list with a hash for each expired session.
 See L<close_session> for details on the returned information.
+
+With %ARGS the behavior can be customized:
+
+=over 8
+
+=item time
+
+Current time, can be given to save system call for getting current time.
+
+=item unused
+
+Expire time for unused sockets. Default ist 180, e.g. 3 minutes.
+
+=item active
+
+Expire time for active sessions. Default to 30 seconds. If no data
+gets transfered through the session for C<active> seconds the session
+will be closed.
+
+=back
 
 =item callbacks
 

@@ -20,17 +20,23 @@ use Data::Dumper;
 
 ############################################################################
 # new NAThelper
-# Args: ($class,@socket)
+# Args: ($class,?$helper,@socket)
+#  $helper: Net::SIP::NATHelper::Base object, will be created if not given
 #  @socket: SOCK_STREAM sockets for communication SIP proxies
 # Returns: $self
 ############################################################################
 sub new {
-	my ($class,@cfd) = @_;
-	my $helper = Net::SIP::NATHelper::Base->new;
+	my $class = shift;
+	my $helper;
+	if ( @_ && UNIVERSAL::isa( $_[0],'Net::SIP::NATHelper::Base' )) {
+		$helper = shift;
+	} else {
+		$helper = Net::SIP::NATHelper::Base->new;
+	}
 	return bless {
 		helper => $helper,
 		callbacks => [],
-		cfd => \@cfd,
+		cfd => \@_,
 	},$class;
 }
 

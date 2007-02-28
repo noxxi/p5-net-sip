@@ -13,10 +13,13 @@ using RPC via sockets.
 
 =over 4
 
-=item new ( FDS )
+=item new ( [ HELPER ], @FDS )
 
 Will create an object which listens on all file descriptors
 given in FDS for RPC from clients.
+
+If HELPER is given and a L<Net::SIP::NATHelper::Base> object
+or derived it will be used, otherwise the helper will be created.
 
 =back
 
