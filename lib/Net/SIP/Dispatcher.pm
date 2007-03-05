@@ -564,13 +564,13 @@ sub resolve_uri {
 	my $ip_addr;
 	if ( $domain =~m{^(\d+\.\d+\.\d+\.\d+)(?::(\d+))?$} ) {
 		# if domain part of URI is IPv4[:port]
-		$default_port = $2;
+		$default_port = $2 if defined $2;
 		$ip_addr = $1;
 		# e.g. 10.0.3.4 should match *.3.0.10.in-addr.arpa
 		$domain = join( '.', reverse split( m{\.},$ip_addr )).'.in-addr.arpa';
 	} else {
 		$domain =~s{\.*(?::(\d+))?$}{}; # remove trailing dots + port
-		$default_port = $1 if $1;
+		$default_port = $1 if defined $1;
 	}
 	DEBUG( 100,"domain=$domain" );
 
