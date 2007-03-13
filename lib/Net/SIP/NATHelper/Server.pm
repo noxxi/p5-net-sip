@@ -7,13 +7,13 @@ use warnings;
 #   read commands from socket and propagete them to NATHelper, send
 #   replies back
 #
-# FIXME: integrate into other eventloops, do not build own
 ############################################################################
 
 package Net::SIP::NATHelper::Server;
+use fields qw( helper callbacks cfd commands );
+
 use Net::SIP qw(invoke_callback :debug);
 use Net::SIP::NATHelper::Base;
-
 use Storable qw(thaw nfreeze);
 use Data::Dumper;
 
@@ -39,12 +39,14 @@ sub new {
 	} else {
 		$helper = Net::SIP::NATHelper::Base->new;
 	}
-	return bless {
+	my $self = fields::new( $class );
+	%$self = (
 		helper => $helper,
 		callbacks => [],
 		cfd => \@_,
 		commands => { %default_commands },
-	},$class;
+	);
+	return $self,
 }
 
 ############################################################################

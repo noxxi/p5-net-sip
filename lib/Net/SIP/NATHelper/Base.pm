@@ -106,11 +106,12 @@ sub allocate_sockets {
 
 ############################################################################
 # activate session
-# Args: ($self,$callid,$cseq,$idfrom,$idto)
+# Args: ($self,$callid,$cseq,$idfrom,$idto;$param)
 #   $callid: call-id
 #   $cseq:   sequence number for cseq
 #   $idfrom: ID for from-side
 #   $idto:   ID for to-side
+#   $param:  user defined param which gets returned from info_as_hash
 # Returns: ($info,$duplicate)
 #   $info:  hash from sessions info_as_hash
 #   $duplicate: TRUE if session was already created
@@ -400,12 +401,12 @@ sub allocate_sockets {
 
 ############################################################################
 # activate session
-# Args: ($self,$cseq,$idfrom,$idto)
+# Args: ($self,$cseq,$idfrom,$idto;$param)
 # Returns: ($info,$duplicate)
 ############################################################################
 sub activate_session {
 	my Net::SIP::NATHelper::Call $self = shift;
-	my ($cseq,$idfrom,$idto) = @_;
+	my ($cseq,$idfrom,$idto,$param) = @_;
 
 	my $by_cseq = $self->{from}{$idfrom};
 	my $data = $by_cseq && $by_cseq->{$cseq};
@@ -428,7 +429,7 @@ sub activate_session {
 	}
 
 	my $sess = $sessions->{$idto} =
-		Net::SIP::NATHelper::Session->new( $gfrom,$gto );
+		Net::SIP::NATHelper::Session->new( $gfrom,$gto,$param );
 	DEBUG( 10,"new session {$sess->{id}} $self->{callid},$cseq $idfrom -> $idto" );
 
 	return ( $sess->info_as_hash( $self->{callid},$cseq ), 0 );
@@ -693,7 +694,7 @@ sub dump {
 ############################################################################
 
 package Net::SIP::NATHelper::Session;
-use fields qw( sfrom sto created bytes_from bytes_to callbacks id );
+use fields qw( sfrom sto created bytes_from bytes_to callbacks id param );
 use Net::SIP::Debug;
 use List::Util 'max';
 use Time::HiRes 'gettimeofday';
@@ -703,11 +704,11 @@ my $session_id = 0;
 
 ############################################################################
 # create new Session between two SocketGroup's
-# Args: ($class,$socketgroup_from,$socketgroup_to)
+# Args: ($class,$socketgroup_from,$socketgroup_to;$param)
 # Returns: $self
 ############################################################################
 sub new {
-	my ($class,$sfrom,$sto) = @_;
+	my ($class,$sfrom,$sto,$param) = @_;
 	my $self = fields::new( $class );
 
 	# sanity check that both use the same number of sockets
@@ -723,6 +724,7 @@ sub new {
 		bytes_from => 0,
 		bytes_to => 0,
 		callbacks => undef,
+		param => $param,
 		id => ++$session_id,
 	);
 	return $self;
@@ -759,6 +761,7 @@ sub info_as_hash {
 		bytes_to => $self->{bytes_to},
 		created => $self->{created},
 		sessionid => $self->{id},
+		param => $self->{param},
 		%more,
 	}
 }

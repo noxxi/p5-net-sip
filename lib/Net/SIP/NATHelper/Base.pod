@@ -64,7 +64,7 @@ If the allocation of sockets failed (because of resource constraints)
 it will return undef. This will usually cause the caller do simply
 not forward the packet and wait for the reetransmit (at least for UDP).
 
-=item activate_session ( CALLID,CSEQ,IDFROM,IDTO )
+=item activate_session ( CALLID,CSEQ,IDFROM,IDTO,[\%PARAM] )
 
 Activates a session in the transaction defined by CALLID,CSEQ. This
 will cause all sessions for older transactions in the same call (identified
@@ -74,7 +74,11 @@ IDFROM and IDTO represent the sides of the session, e.g. for the activation
 to succeed there had to be an B<allocate_sockets> call for each of these
 sides.
 
-The method returns two itens: The first is information about the session
+PARAM is an optional hash reference. If given it will be added as user
+information to the new session and given back in the information hash
+returned by L<close_session> etc. 
+
+The method returns two items: The first is information about the session
 like returned in L<close_session>, the second is a flag, which is true,
 if the activation was for an already astablished session.
 
