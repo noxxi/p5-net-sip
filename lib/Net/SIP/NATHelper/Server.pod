@@ -37,6 +37,10 @@ Currently implemented commands are "allocate","activate" and
 "close" which will map to the local methods B<allocate_sockets>,
 B<activate_session> and B<close_session>.
 
+One might redefine or add commands by changing C<< $self->{commands} >>.
+The key of this hash reference is the command name and the value
+is the callback.
+
 Unknown commands will be ignored, e.g nothing returned.
 
 =item loop

@@ -121,13 +121,17 @@ sub new {
 		|| Net::SIP::Dispatcher::Eventloop->new;
 
 	my $d2p = delete $args{domain2proxy} || delete $args{d2p};
-	my $disp = delete $args{dispatcher}
-		|| Net::SIP::Dispatcher->new(
+	my $disp;
+	if ( $disp = delete $args{dispatcher} ) {
+		$disp->add_leg( @$legs );
+	} else {
+		$disp =  Net::SIP::Dispatcher->new(
 			$legs,
 			$loop,
 			outgoing_proxy => $ob,
 			domain2proxy => $d2p,
 		);
+	}
 
 	my $endpoint = Net::SIP::Endpoint->new( $disp );
 

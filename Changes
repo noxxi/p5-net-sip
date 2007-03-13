@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.24
+  - make adding commands to NATHelper::Server easier
+  - small fixes
+
 0.23
   - fix memleak in NATHelper::Base
   - support for derived NATHelper::Base in NATHelper::Server 

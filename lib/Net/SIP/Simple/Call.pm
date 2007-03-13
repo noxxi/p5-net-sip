@@ -49,6 +49,7 @@ use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
 use Net::SIP::Debug;
 use Socket;
 use Storable 'dclone';
+use Carp 'croak';
 
 ###########################################################################
 # create a new call based on a controller

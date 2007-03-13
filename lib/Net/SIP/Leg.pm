@@ -43,13 +43,7 @@ sub new {
 	my ($class,%args) = @_;
 	my $self = fields::new($class);
 
-	if ( my $sock = $self->{sock} = delete $args{sock} ) {
-		# get data from socket
-		($self->{port}, my $addr) = unpack_sockaddr_in( $sock->sockname );
-		$self->{addr}  = inet_ntoa( $addr );
-		$self->{proto} = ( $sock->socktype == SOCK_STREAM ) ? 'tcp':'udp'
-
-	} elsif ( my $addr = delete $args{addr} ) {
+	if ( my $addr = delete $args{addr} ) {
 		my $port = delete $args{port};
 		# port = 0 -> get port from system
 		if ( ! defined $port ) {
@@ -57,16 +51,26 @@ sub new {
 			$port ||= 5060;
 		}
 		my $proto = $self->{proto} = delete $args{proto} || 'udp';
-		$self->{sock} = IO::Socket::INET->new(
-			Proto => $proto,
-			LocalPort => $port,
-			LocalAddr => $addr,
-		) || die "failed $proto $addr:$port $!";
+		if ( ! ( $self->{sock} = delete $args{sock} ) ) {
+			$self->{sock} = IO::Socket::INET->new(
+				Proto => $proto,
+				LocalPort => $port,
+				LocalAddr => $addr,
+			) || die "failed $proto $addr:$port $!";
+		}
+		if ( ! $port ) {
+			# get the assigned port
+			($port) = unpack_sockaddr_in( getsockname( $self->{sock} ));
+		}
 
-		# get the assigned port
-		($port) = unpack_sockaddr_in( getsockname( $self->{sock} ));
 		$self->{port} = $port;
 		$self->{addr} = $addr;
+
+	} elsif ( my $sock = $self->{sock} = delete $args{sock} ) {
+		# get data from socket
+		($self->{port}, my $addr) = unpack_sockaddr_in( $sock->sockname );
+		$self->{addr}  = inet_ntoa( $addr );
+		$self->{proto} = ( $sock->socktype == SOCK_STREAM ) ? 'tcp':'udp'
 	}
 
 	unless ( $self->{contact}  = delete $args{contact} ) {

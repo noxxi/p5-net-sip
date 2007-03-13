@@ -17,6 +17,12 @@ use Net::SIP::NATHelper::Base;
 use Storable qw(thaw nfreeze);
 use Data::Dumper;
 
+my %default_commands = (
+	allocate => sub { shift->allocate_sockets(@_) },
+	activate => sub { shift->activate_session(@_) },
+	close    => sub { shift->close_session(@_) },
+);
+
 
 ############################################################################
 # new NAThelper
@@ -37,6 +43,7 @@ sub new {
 		helper => $helper,
 		callbacks => [],
 		cfd => \@_,
+		commands => { %default_commands },
 	},$class;
 }
 
@@ -78,15 +85,11 @@ sub do_command {
 	};
 
 	DEBUG( 100, "request=".Dumper([$cmd,@args]));
-	my $reply =
-		$cmd eq 'allocate' ? $self->allocate_sockets(@args) :
-		$cmd eq 'activate' ? $self->activate_session(@args) :
-		$cmd eq 'close'    ? $self->close_session(@args)    :
-		do {
-			DEBUG( 10,"unknown command: $cmd" );
-			return;
-		}
-		;
+	my $cb = $self->{commands}{$cmd} or do {
+		DEBUG( 10,"unknown command: $cmd" );
+		return;
+	};
+	my $reply = invoke_callback($cb,$self,@args);
 	unless ( defined( $reply )) {
 		DEBUG( 10, "no reply for $cmd" );
 	}
