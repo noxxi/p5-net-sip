@@ -106,7 +106,7 @@ sub new_from_parts {
 					|| die "no $_ in media description";
 			}
 			$m_self{range} = delete($m{range})
-				|| $m_self{proto} eq 'RTP/AVP' ? 2:1;
+				|| ( $m_self{proto} eq 'RTP/AVP' ? 2:1 );
 			defined( my $fmt = delete $m{fmt} )
 				|| die "no fmt in media description";
 			my $mline = _join_m( @m_self{qw(media port range proto)},$fmt );
@@ -423,10 +423,27 @@ sub replace_media_listen {
 ###########################################################################
 # extract addr from [c]connection field and back
 ###########################################################################
+
+my $RX_IP4 = do {
+	my $part = qr{2(?:[0-4]\d|5[0-5]|\d)|[01]\d{0,2}|[3-9]\d};
+	qr{^$part\.$part\.$part\.$part$}
+};
+my $RX_IP6 = do {
+	my $hex4 = qr{[\da-fA-F]{4}};
+	my $hexseq = qr{ $hex4 (?: : $hex4 )* }x;
+	qr{^(?: $hexseq (?: :: (?:$hexseq)? )? | :: $hexseq )$ }x;
+};
+
 sub _split_c {
 	my ($ntyp,$atyp,$addr) = split( ' ',shift,3 );
 	$ntyp eq 'IN'  or die "nettype $ntyp not supported";
-	$atyp eq 'IP4' || $atyp eq 'IP6' or die "addrtype $atyp not supported";
+	if ( $atyp eq 'IP4' ) {
+		die "bad IP4 address: '$addr'" if $addr !~m{$RX_IP4};
+	} elsif ( $atyp eq 'IP6' ) {
+		die "bad IP6 address: '$addr'" if $addr !~m{$RX_IP6};
+	} else {
+		die "addrtype $atyp not supported"
+	}
 	return $addr;
 }
 sub _join_c {

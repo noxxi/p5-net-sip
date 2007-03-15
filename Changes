@@ -3,6 +3,7 @@ Revision history for Net::SIP
 0.24
   - make adding commands to NATHelper::Server easier
   - add user params for NATHelper::Session during activate_session
+  - SDP: make sure that IP4/IP6 is valid IP
   - small fixes
 
 0.23
