@@ -1,5 +1,18 @@
 Revision history for Net::SIP
 
+0.25
+  - small fixes to SDP
+  - added concept of chains, e.g. put an Authorize object in
+    front of Registrar inside a ReceiveChain and all REGISTER
+    requests will be authorized,
+    see Net::SIP::{Authorize,ReceiveChain}
+  - StatelessProxy can no longer have an internal Registrar.
+    use ReceiveChain to put a Registrar in front of the proxy
+    instead
+  - new test t/08_register_with_auth.pl to test Authorize 
+    and ReceiveChain
+  - fix Request::authorize
+    
 0.24
   - make adding commands to NATHelper::Server easier
   - add user params for NATHelper::Session during activate_session
