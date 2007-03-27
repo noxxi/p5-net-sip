@@ -68,9 +68,8 @@ leg.
 
 =item auth
 
-Authorization data, either C<< [ user,pass ] >> or reference to hash with realm as
-the key and C<< [ user,pass ] >> as the value.
-See method B<authorize> in L<Net::SIP::Request> for more details.
+Authorization data, see method B<authorize> in L<Net::SIP::Request> for details
+about the format.
 
 =item domain
 
@@ -220,6 +219,14 @@ method, the method itself will not wait.
 
 Sets up a simple proxy using L<Net::SIP::StatelessProxy>.
 See there for the meaning of %ARGS.
+
+Like with B<listen> you need to B<loop> after calling this
+method, the method itself will not wait.
+
+=item create_chain ( OBJECTS, %ARGS )
+
+Sets up a chain using L<Net::SIP::ReceiveChain>.
+See there for the meaning of OBJECT and %ARGS.
 
 Like with B<listen> you need to B<loop> after calling this
 method, the method itself will not wait.

@@ -11,6 +11,7 @@ use warnings;
 package Net::SIP::Authorize;
 use Carp 'croak';
 use Net::SIP::Debug;
+use Net::SIP::Util ':all';
 use Digest::MD5 'md5_hex';
 use fields qw( realm user2pass i_am_proxy dispatcher );
 
@@ -55,8 +56,8 @@ sub receive {
 
 	# check authorization on request
 	my ($rq_key,$rs_key,$acode) = $self->{i_am_proxy}
-		? ( 'authorization','www-authenticate',401 )
-		: ( 'proxy-authorization', 'proxy-authenticate',407 )
+		? ( 'proxy-authorization', 'proxy-authenticate',407 )
+		: ( 'authorization','www-authenticate',401 )
 		;
 	my @auth = $packet->get_header( $rq_key );
 	my $user2pass = $self->{user2pass};
@@ -66,6 +67,7 @@ sub receive {
 	my (@keep_auth,$authorized);
 	foreach my $auth ( @auth ) {
 
+
 		# RFC 2617
 		my ($data,$param) = sip_hdrval2parts( $rq_key => $auth );
 		if ( $param->{realm} ne $realm ) {
@@ -74,7 +76,7 @@ sub receive {
 			next;
 		}
 		my ($user,$nonce,$uri,$resp,$qop,$cnonce,$algo ) = 
-			@{$self}{ qw/ username nonce uri response qop cnonce algorithm / };
+			@{$param}{ qw/ username nonce uri response qop cnonce algorithm / };
 		if ( lc($data) ne 'digest'
 			|| ( $algo && lc($algo) ne 'md5' )
 			|| ( $qop && $qop ne 'auth' ) ) {
@@ -124,7 +126,7 @@ sub receive {
 
 	# not authorized yet, ask to authenticate
 	# keep it simple RFC2069 style
-	my $digest = qq[Digest algorithm=MD5 real="$realm"].
+	my $digest = qq[Digest algorithm=MD5, realm="$realm",].
 		' nonce="'. md5_hex( $realm.rand(2**32)).'"';
 
 	my $resp = $packet->create_response(

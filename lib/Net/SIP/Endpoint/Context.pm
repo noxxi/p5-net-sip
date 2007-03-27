@@ -15,6 +15,7 @@ use fields (
 	'from',    # from where
 	'to',      # to where
 	'auth',    # [ user,pass ] or { realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... }
+			   # or callback(realm,user)->pass
 			   # if given, handle_response might automatically try to authorize requests
 	'contact', # optional contact
 	'callid',  # call-id value
@@ -349,9 +350,7 @@ sub handle_response {
 		# Authorization required
 		my $r = $tr->{request};
 		my $auth = $self->{auth};
-		if ( $auth && $r->authorize( $response,
-			UNIVERSAL::isa($auth,'HASH') ? %$auth :  @$auth
-			)) {
+		if ( $auth && $r->authorize( $response, $auth )) {
 			# found something to authorize
 			# redo request
 			# update local cseq from cseq in request

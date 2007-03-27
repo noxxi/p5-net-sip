@@ -61,6 +61,7 @@ t/04_call_with_rtp.t
 t/05_call_with_stateless_proxy.t
 t/06_call_with_reinvite.t
 t/07_call_on_hold.pl
+t/08_register_with_auth.pl
 t/testlib.pl
 samples/invite_and_recv.pl
 samples/invite_and_send.pl

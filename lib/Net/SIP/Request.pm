@@ -11,6 +11,8 @@ use warnings;
 
 package Net::SIP::Request;
 use base 'Net::SIP::Packet';
+use Net::SIP::Debug;
+use Net::SIP::Util 'invoke_callback';
 
 use Digest::MD5 'md5_hex';
 
@@ -125,9 +127,10 @@ sub create_response {
 # Digest Authorization specified in RFC2617
 # Args: ($self,$response,@args)
 #   $response: Net::SIP::Response for $self which has code 401 or 407
-#   @args: either ($user,$pass) if there is one user+pass for all realms
-#       or ( realm1 => [ $user,$pass ], realm2 => [...].. )
+#   @args: either [ $user,$pass ] if there is one user+pass for all realms
+#       or { realm1 => [ $user,$pass ], realm2 => [...].. }
 #       for different user,pass in different realms
+#       or callback(realm)->[ user,pass ]
 # Returns:  0|1
 #    1: if (proxy-)=authorization headers were added to $self
 #    0: if $self was not modified, e.g. no usable authenticate
@@ -135,16 +138,16 @@ sub create_response {
 ###########################################################################
 sub authorize {
 	my Net::SIP::Request $self = shift;
-	my ($response,@args) = @_;
+	my ($response,$user2pass) = @_;
 
-	# find out if called as (user,pass) or ( realm => [u,p],... )
-	my ($default_upw,%realm2upw);
-	if ( @args == 2 && !ref($args[1]) ) {
-		$default_upw = \@args;
-	} elsif ( @args/2 == int(@args/2) ) {
-		%realm2upw = @args;
+	# find out format of user2pass
+	my ($default_upw,$realm2upw,$cb_upw);
+	if ( ref($user2pass) eq 'ARRAY' && ! ref( $user2pass->[0] )) {
+		$default_upw = $user2pass;
+	} elsif ( ref($user2pass) eq 'HASH' ) {
+		$realm2upw = %$user2pass;
 	} else {
-		die "bad args"
+		$cb_upw = $user2pass;
 	}
 
 
@@ -170,7 +173,11 @@ sub authorize {
 					next;
 				}
 				my $realm = $h->{realm};
-				my $upw = $realm2upw{$realm} || $default_upw || next;
+				my $upw = 
+					$cb_upw      ? invoke_callback( $cb_upw, $realm ) :
+					$realm2upw   ? $realm2upw->{$realm} :
+					$default_upw ? $default_upw :
+					next;
 
 				# for meaning of a1,a2... and for the full algorithm see RFC2617, 3.2.2
 				my $a1 = join(':',$upw->[0],$realm,$upw->[1] ); # 3.2.2.2
@@ -205,10 +212,12 @@ sub authorize {
 					));
 				}
 
-				my $header = 'Digest';
-				foreach ( sort keys %digest ) {
-					$header.= " $_=\"$digest{$_}\"";
-				}
+				# RFC2617 has it's specific ideas what should be quoted and what not
+				# so we assemble it manually
+				my $header = qq[Digest username="$digest{username}", realm="$digest{realm}",].
+					qq[ nonce="$digest{nonce}", uri=$digest{uri}, response="$digest{response}"];
+				$header.= qq[, cnonce="$digest{cnonce}"] if $digest{cnonce};
+				$header.= qq[, qop=$digest{qop}] if $digest{qop};
 				$self->add_header( $resp, $header );
 				$auth++;
 			}

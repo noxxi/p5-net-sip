@@ -55,7 +55,7 @@ use Net::SIP::Debug;
 #     proxy          - alias to outgoing_proxy
 #     route|routes   - \@list with SIP routes in right syntax "<sip:host:port;lr>"...
 #     registrar      - use registrar for registration
-#     auth           - auth data: [ user,pass ] or { realm1 => [user,pass],.. }
+#     auth           - auth data: see Request->authorize for format
 #     from           - myself, used for calls and registration
 #     loop           - predefined Net::SIP::Dispatcher::Eventloop, used if
 #                      shared between UAs
@@ -425,10 +425,7 @@ sub create_stateless_proxy {
 ###########################################################################
 sub create_chain {
 	my Net::SIP::Simple $self = shift;
-	my $chain = Net::SIP::ReceiveChain->new(
-		dispatcher => $self->{dispatcher},
-		@_
-	);
+	my $chain = Net::SIP::ReceiveChain->new( @_ );
 	$self->{dispatcher}->set_receiver( $chain );
 	return $chain;
 }

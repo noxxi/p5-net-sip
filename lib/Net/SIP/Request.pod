@@ -26,7 +26,7 @@ Has methods to create responses to requests and to authorize requests.
   ...
   if ( $resp->code eq '401' or $resp->code eq '407' ) {
 	# need to authorize request
-	$invite->authorize( $resp, username, password );
+	$invite->authorize( $resp, [ username, password ] );
 
 	# somehow send again and retrieve response $resp
 	...
@@ -81,14 +81,15 @@ be based on the request, but can be added or overriden using \%HEADER.
 
 For details to \%HEADER and BODY see B<new_from_parts> in L<Net::SIP::Packet>.
 
-=item authorize ( RESPONSE, @AUTH )
+=item authorize ( RESPONSE, AUTH )
 
 Tries to authorize request C<$self> based on the information in RESPONSE
-(a 401 or 407 "Authorization required" response) and @AUTH. @AUTH is either
-C<< (user,pass) >> if a global authorization info exists for all realms or
-C<< ( realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... ) >> if
-different credentials are provided for different realms. The realms, for
-which authorization is needed, are read from RESPONSE.
+(a 401 or 407 "Authorization required" response) and AUTH. AUTH is either
+C<< [ user,pass ] >> if a global authorization info exists for all realms or
+C<< { realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... } >> if
+different credentials are provided for different realms or a callback
+C<< callback(realm)->[user,pass] >>. 
+The realms, for which authorization is needed, are read from RESPONSE.
 
 The request C<$self> is modified in-place. If a modification occurred, e.g.
 if (parts of) the authorization requests could be resolved it will return
