@@ -9,10 +9,9 @@ use strict;
 use warnings;
 
 package Net::SIP::StatelessProxy;
-use fields qw( dispatcher registrar rewrite_contact nathelper );
+use fields qw( dispatcher rewrite_contact nathelper );
 
 use Net::SIP::Util ':all';
-use Net::SIP::Registrar;
 use Digest::MD5 'md5_hex';
 use Carp 'croak';
 use List::Util 'first';
@@ -23,11 +22,6 @@ use Net::SIP::Debug;
 # Args: ($class,%args)
 #   %args
 #     dispatcher: the Net::SIP::Dispatcher object managing the proxy
-#     registrar: \%hash with args for Net::SIP::Registrar
-#        if registrar is given it will try to handle all REGISTER
-#        requests using the registrar and fall back to the normal
-#        behavior if registrar cannot handle the request.
-#        can also be an existing Net::SIP::Registrar object
 #     rewrite_contact: callback to rewrite contact header. If called with from header
 #        it should return a string of form \w+. If called
 #        again with this string it should return the original header back.
@@ -43,16 +37,6 @@ sub new {
 
 	my $disp = $self->{dispatcher} =
 		delete $args{dispatcher} || croak 'no dispatcher given';
-	if ( my $r = delete $args{registrar} ) {
-		if ( UNIVERSAL::can( $r,'receive' )) {
-			$self->{registrar} = $r;
-		} else {
-			$self->{registrar} = Net::SIP::Registrar->new(
-				dispatcher => $disp,
-				%$r
-			);
-		}
-	}
 	$self->{rewrite_contact} ||= [ \&_default_rewrite_contact, $self ];
 	$self->{nathelper} = delete $args{nathelper};
 
@@ -98,21 +82,12 @@ sub _default_rewrite_contact {
 #    $packet: Net::SIP::Request
 #    $leg: incoming leg
 #    $from: ip:port where packet came from
-# Returns: NONE
+# Returns: TRUE if packet was fully handled
 ###########################################################################
 sub receive {
 	my Net::SIP::StatelessProxy $self = shift;
 	my ($packet,$incoming_leg,$from) = @_;
 	DEBUG( 10,"received ".$packet->dump );
-
-	if ( ( my $reg = $self->{registrar} )
-		and $packet->is_request
-		and $packet->method eq 'REGISTER' ) {
-		# try to handle by builtin registrar
-		# this might fail if it is not responsable for domain
-		$reg->receive( $packet,$incoming_leg,$from )
-			&& return;
-	}
 
 	# Prepare for forwarding, e.g adjust headers
 	# (add record-route)

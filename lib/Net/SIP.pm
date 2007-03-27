@@ -4,7 +4,7 @@ use warnings;
 require 5.008;
 
 package Net::SIP;
-our $VERSION = '0.24';
+our $VERSION = '0.25_1';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();
@@ -32,6 +32,8 @@ BEGIN {
 		Net::SIP::Dispatcher::Eventloop
 		Net::SIP::Registrar
 		Net::SIP::StatelessProxy
+		Net::SIP::ReceiveChain
+		Net::SIP::Authorize
 		Net::SIP::Endpoint
 		Net::SIP::NATHelper::Client
 		Net::SIP::NATHelper::Server

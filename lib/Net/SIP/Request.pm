@@ -163,7 +163,7 @@ sub authorize {
 				# and only empty qop or qop=auth (not auth-int or other)
 
 				if ( lc($a->{data}) ne 'digest'
-					|| $h->{method} && lc($h->{method}) ne 'md5'
+					|| $h->{algorithm} && lc($h->{algorithm}) ne 'md5'
 					|| $h->{qop} && lc($h->{qop}) ne 'auth' ) {
 					no warnings;
 					#warn "unsupported authorization method $a->{data} method=$h->{method} qop=$h->{qop}";

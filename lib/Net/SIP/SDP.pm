@@ -93,6 +93,7 @@ sub new_from_parts {
 	foreach my $m (@media) {
 		DEBUG_DUMP( 100,$m );
 		my %m = %$m;
+		delete $m{lines};
 		my @lines;
 		my %m_self = ( lines => \@lines );
 
@@ -107,7 +108,7 @@ sub new_from_parts {
 			}
 			$m_self{range} = delete($m{range})
 				|| ( $m_self{proto} eq 'RTP/AVP' ? 2:1 );
-			defined( my $fmt = delete $m{fmt} )
+			defined( my $fmt = $m_self{fmt} = delete $m{fmt} )
 				|| die "no fmt in media description";
 			my $mline = _join_m( @m_self{qw(media port range proto)},$fmt );
 			push @lines, [ 'm',$mline ];

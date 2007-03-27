@@ -31,6 +31,8 @@ use Net::SIP::Dispatcher::Eventloop;
 use Net::SIP::Endpoint;
 use Net::SIP::Registrar;
 use Net::SIP::StatelessProxy;
+use Net::SIP::Authorize;
+use Net::SIP::ReceiveChain;
 use Net::SIP::Leg;
 # crossref, because its derived from Net::SIP::Simple
 # now load in Net::SIP
@@ -387,7 +389,7 @@ sub listen {
 #     min_expires: minimum expires time accepted, default 30
 #     domains|domain: domain or \@list of domains the registrar is responsable
 #       for. special domain '*' catches all
-# Returns: NONE
+# Returns: $registrar
 ###########################################################################
 sub create_registrar {
 	my Net::SIP::Simple $self = shift;
@@ -396,16 +398,14 @@ sub create_registrar {
 		@_
 	);
 	$self->{dispatcher}->set_receiver( $registrar );
+	return $registrar;
 }
 
 ###########################################################################
-# setup a stateless proxy with the optional ability to be
-# a registrar too
+# setup a stateless proxy 
 # Args: ($self,%args)
-#   %args:
-#     registrar: \%hash with args if it works additionally as a registrar,
-#       see Net::SIP::Registrar->new
-# Returns: NONE
+#   %args: see Net::SIP::StatelessProxy
+# Returns: $proxy
 ###########################################################################
 sub create_stateless_proxy {
 	my Net::SIP::Simple $self = shift;
@@ -414,6 +414,23 @@ sub create_stateless_proxy {
 		@_
 	);
 	$self->{dispatcher}->set_receiver( $proxy );
+	return $proxy;
+}
+
+###########################################################################
+# setup chain of handlers, e.g. first authorize all requests, everything
+# else gets handled by stateless proxy etc
+# Args: ($self,$objects,%args) 
+# Returns: $chain
+###########################################################################
+sub create_chain {
+	my Net::SIP::Simple $self = shift;
+	my $chain = Net::SIP::ReceiveChain->new(
+		dispatcher => $self->{dispatcher},
+		@_
+	);
+	$self->{dispatcher}->set_receiver( $chain );
+	return $chain;
 }
 
 1;

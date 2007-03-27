@@ -18,12 +18,8 @@ other leg.
 Because this is a stateless proxy no retransmits will be done
 by the proxy.
 
-The proxy can be used in connection with L<Net::SIP::Registrar>
-to work as a registrar too. In this case incoming packets from
-the dispatcher need to be forwarded to the registrar and only
-if the registrar does not handle the packet (method B<receive>
-in L<Net::SIP::Registrar> returns C<()> ) it should be handled
-by the proxy.
+If the proxy should work as a registrar too it should be put
+after a L<Net::SIP::Registrar> in a L<Net::SIP::ReceiveChain>.
 
 While forwarding the proxy will be insert itself into the packet,
 e.g. it will add B<Via> and B<Record-Route> header while
@@ -49,18 +45,6 @@ influenced:
 =item dispatcher
 
 The L<Net::SIP::Dispatcher> object managing the proxy.
-
-=item registrar
-
-This is either a hash reference which can be used in the constructor
-of L<Net::SIP::Registrar> or a registrar object itself (only criteria
-is that it needs to have a method B<receive> with the behavior
-described for L<Net::SIP::Registrar>).
-
-If given all incoming REGISTER requests will be forwarded to the
-registrar (by calling it's method B<receive>) and only if the
-registrar does not handle the packet (method returns C<()>) it will
-be handled by the proxy.
 
 =item rewrite_contact
 

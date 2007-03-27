@@ -36,6 +36,10 @@ lib/Net/SIP/Registrar.pm
 lib/Net/SIP/Registrar.pod
 lib/Net/SIP/StatelessProxy.pm
 lib/Net/SIP/StatelessProxy.pod
+lib/Net/SIP/ReceiveChain.pm
+lib/Net/SIP/ReceiveChain.pod
+lib/Net/SIP/Authorize.pm
+lib/Net/SIP/Authorize.pod
 lib/Net/SIP/Simple.pm
 lib/Net/SIP/Simple.pod
 lib/Net/SIP/Simple/Call.pm

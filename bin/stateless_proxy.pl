@@ -135,9 +135,18 @@ $disp->set_registrar( $registrar );
 
 my $stateless_proxy = Net::SIP::StatelessProxy->new(
 	dispatcher => $disp,
-	registrar => $registrar
 );
-$disp->set_receiver( $stateless_proxy );
+if ( $registrar ) {
+	# create chain, where first the registrar gets the packet
+	# and the proxy will handle it only, if the registrar
+	# does not handle it
+	my $chain = Net::SIP::ReceiveChain->new( 
+		[ $registrar, $stateless_proxy ]
+	);
+	$disp->set_receiver( $chain );
+} else {
+	$disp->set_receiver( $stateless_proxy );
+}
 
 ###################################################
 # run..
