@@ -13,7 +13,7 @@ use Carp 'croak';
 use Net::SIP::Debug;
 use Net::SIP::Util ':all';
 use Digest::MD5 'md5_hex';
-use fields qw( realm user2pass i_am_proxy dispatcher );
+use fields qw( realm opaque user2pass i_am_proxy dispatcher );
 
 ###########################################################################
 # creates new Authorize object
@@ -30,6 +30,7 @@ sub new {
 	my ($class,%args) = @_;
 	my $self = fields::new( $class );
 	$self->{realm} = $args{realm} || 'p5-net-sip';
+	$self->{opaque} = $args{opaque};
 	$self->{user2pass} = $args{user2pass} || croak 'no user2pass known';
 	$self->{i_am_proxy} = $args{i_am_proxy};
 	$self->{dispatcher} = $args{dispatcher} || croak 'no dispatcher';
@@ -62,6 +63,7 @@ sub receive {
 	my @auth = $packet->get_header( $rq_key );
 	my $user2pass = $self->{user2pass};
 	my $realm = $self->{realm};
+	my $opaque = $self->{opaque};
 
 	# there might be multiple auth, pick the right realm
 	my (@keep_auth,$authorized);
@@ -75,6 +77,16 @@ sub receive {
 			push @keep_auth,$auth;
 			next;
 		}
+		if ( defined $opaque ) {
+			if ( ! defined $param->{opaque} ) {
+				DEBUG( 10,"expected opaque value, but got nothing" );
+				next;
+			} elsif ( $param->{opaque} ne $opaque ) {
+				DEBUG( 10,"got wrong opaque value '$param->{opaque}', expected '$opaque'" );
+				next;
+			}
+		}
+
 		my ($user,$nonce,$uri,$resp,$qop,$cnonce,$algo ) = 
 			@{$param}{ qw/ username nonce uri response qop cnonce algorithm / };
 		if ( lc($data) ne 'digest'
@@ -127,6 +139,7 @@ sub receive {
 	# not authorized yet, ask to authenticate
 	# keep it simple RFC2069 style
 	my $digest = qq[Digest algorithm=MD5, realm="$realm",].
+		( defined($opaque) ? qq[ opaque="$opaque",] : '' ).
 		' nonce="'. md5_hex( $realm.rand(2**32)).'"';
 
 	my $resp = $packet->create_response(

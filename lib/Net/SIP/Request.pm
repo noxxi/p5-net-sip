@@ -189,6 +189,7 @@ sub authorize {
 					nonce => $h->{nonce},
 					uri => $self->uri,
 				);
+				$digest{opaque} = $h->{opaque} if defined $h->{opaque};
 
 				# 3.2.2.1
 				if ( $h->{qop} ) {
@@ -216,8 +217,9 @@ sub authorize {
 				# so we assemble it manually
 				my $header = qq[Digest username="$digest{username}", realm="$digest{realm}",].
 					qq[ nonce="$digest{nonce}", uri=$digest{uri}, response="$digest{response}"];
-				$header.= qq[, cnonce="$digest{cnonce}"] if $digest{cnonce};
-				$header.= qq[, qop=$digest{qop}] if $digest{qop};
+				$header.= qq[, opaque="$digest{opaque}"] if defined $digest{opaque};
+				$header.= qq[, cnonce="$digest{cnonce}"] if defined $digest{cnonce};
+				$header.= qq[, qop=$digest{qop}] if defined $digest{qop};
 				$self->add_header( $resp, $header );
 				$auth++;
 			}
