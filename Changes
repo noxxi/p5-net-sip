@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.28
+  - Request.pm - make sure that nc-count is send when authorizing
+    and qop was set. This is required according to rfc2617
+
 0.27
   - Authorize.pm, Request.pm - support 'opaque' field in digest
     authorization (when authorizing or when requesting authorization)

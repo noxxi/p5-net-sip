@@ -193,7 +193,7 @@ sub authorize {
 
 				# 3.2.2.1
 				if ( $h->{qop} ) {
-					my $nc = $digest{nc} = 1;
+					my $nc = $digest{nc} = '00000001';
 					my $cnonce = $digest{cnonce} = sprintf("%08x",rand(2**32));
 					$digest{qop} = $h->{qop};
 					$digest{response} = md5_hex( join(':',
@@ -215,11 +215,12 @@ sub authorize {
 
 				# RFC2617 has it's specific ideas what should be quoted and what not
 				# so we assemble it manually
-				my $header = qq[Digest username="$digest{username}", realm="$digest{realm}",].
-					qq[ nonce="$digest{nonce}", uri=$digest{uri}, response="$digest{response}"];
-				$header.= qq[, opaque="$digest{opaque}"] if defined $digest{opaque};
-				$header.= qq[, cnonce="$digest{cnonce}"] if defined $digest{cnonce};
-				$header.= qq[, qop=$digest{qop}] if defined $digest{qop};
+				my $header = qq[Digest username="$digest{username}",realm="$digest{realm}",].
+					qq[nonce="$digest{nonce}",uri="$digest{uri}",response="$digest{response}"];
+				$header.= qq[,opaque="$digest{opaque}"] if defined $digest{opaque};
+				$header.= qq[,cnonce="$digest{cnonce}"] if defined $digest{cnonce};
+				$header.= qq[,qop=$digest{qop}] if defined $digest{qop};
+				$header.= qq[,nc=$digest{nc}] if defined $digest{nc};
 				$self->add_header( $resp, $header );
 				$auth++;
 			}
