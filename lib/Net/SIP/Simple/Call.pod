@@ -121,6 +121,14 @@ is either 'OK' or 'FAIL' ('OK' if final response meant success, else 'FINAL'),
 and %INFO contains more information, like C<< ( CODE => response_code ) >>
 in case failures caused by an unsuccessful response.
 
+=item cb_preliminary
+
+Callback usable by B<invoke_callback> in L<Net::SIP::Util> which will be
+invoked, when it received a preliminary response on locally created INVITE.
+
+Callback will be invoked with C<< ( SELF, CODE, RESPONSE ) >> where
+CODE is the response code and RESPONSE the L<Net::SIP::Response> packet.
+
 =item cb_established
 
 Callback usable by B<invoke_callback> in L<Net::SIP::Util> which will be

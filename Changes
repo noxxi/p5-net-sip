@@ -1,5 +1,20 @@
 Revision history for Net::SIP
 
+0.29_1
+  - Option cb_established for Simple::Call:reinvite to specify
+    callback which will be triggered when preliminary response
+    is received
+
+0.29
+  - make sure that max-forwards is added to every Request from the
+    endpoint and that all INVITE have a contact header because these
+    are mandatory according to RFC
+  - invoke 'filter' callback in Net::SIP::Simple::listen with the
+    Request object as an additional argument, cb_create callback
+    in listen needs to return TRUE or the call will be closed
+    !!!! Warning: this might break code which did not return TRUE
+    from cb_create !!!!!
+
 0.28
   - Request.pm - make sure that nc-count is send when authorizing
     and qop was set. This is required according to rfc2617

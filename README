@@ -1,5 +1,5 @@
 This is a module for handling SIP, the IETF standard for VOIP
-(RFC3289).
+(RFC3261).
 It is written completly in perl.
 
 With the help of this module you can write SIP endpoints (e.g
@@ -14,8 +14,9 @@ The module is designed to be completly asynchronous, e.g. you
 either integrate it in your own event handling or you can use 
 the simple event handling which is included.
 
-It was tested on Linux (Ubuntu 6.10) and MacOSX 10.3 with 
-various perl versions starting with perl5.8.7.
+It was tested on Linux (Ubuntu 6.10, 7.04), MacOSX 10.3+10.4,
+OpenBSD3.9+4.1 with various perl versions starting with 
+perl5.8.7.
 
 Sample Code was tested with Snom 300 Phones, Asterisk 1.2,
 Fritz!Box and KPhone.

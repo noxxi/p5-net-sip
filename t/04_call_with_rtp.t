@@ -116,7 +116,7 @@ sub uas {
 	# Listen
 	my $call_closed;
 	$uas->listen(
-		cb_create      => sub { diag( 'call created' ) },
+		cb_create      => sub { diag( 'call created' );1 },
 		cb_established => sub { diag( 'call established' ) },
 		cb_cleanup     => sub {
 			diag( 'call cleaned up' );

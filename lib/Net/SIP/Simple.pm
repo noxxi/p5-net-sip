@@ -355,7 +355,7 @@ sub listen {
 		};
 
 		if ( my $filter = $args->{filter} ) {
-			my $rv = invoke_callback( $filter, $ctx->{from} );
+			my $rv = invoke_callback( $filter, $ctx->{from},$request );
 			if ( !$rv ) {
 				DEBUG( 1, "call from '$ctx->{from}' rejected" );
 				$self->{endpoint}->close_context( $ctx );
@@ -368,7 +368,13 @@ sub listen {
 		my $cb = UNIVERSAL::can( $call,'receive' ) || die;
 
 		# notify caller about new call
-		invoke_callback( $args->{cb_create}, $call, $request );
+		if ( my $cbc = $args->{cb_create} ) {
+			if ( ! invoke_callback( $cbc, $call, $request ) ) {
+				DEBUG( 1, "call from '$ctx->{from}' rejected in cb_create" );
+				$self->{endpoint}->close_context( $ctx );
+				return;
+			}
+		}
 		if ( my $ccb = $args->{cb_cleanup} ) {
 			push @{ $call->{call_cleanup}}, $ccb;
 		}

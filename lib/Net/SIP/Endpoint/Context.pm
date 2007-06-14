@@ -150,6 +150,10 @@ sub new_request {
 			# XXX handle quotes right, e.g "<bla>" <sip:bla@fasel.com>
 			$uri = $1 if $uri =~m{<(\S+)>$};
 		}
+
+		# contact is mandatory for INVITE
+		$contact = $from if $method eq 'INVITE' and ! defined $contact;
+
 		$request = Net::SIP::Request->new(
 			$method,     # Method
 			$uri,        # URI
@@ -160,6 +164,7 @@ sub new_request {
 				route => $self->{route},
 				cseq => "$cseq $method",
 				'call-id' => $self->{callid},
+				'max-forwards' => 70,
 				%args
 			},
 			$body

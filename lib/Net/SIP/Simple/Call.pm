@@ -39,6 +39,8 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       need to be established
 #   cb_final: callback which will be called on final response in INVITE
 #       with (status,self,%args) where status is OK|FAIL
+#   cb_preliminary: callback which will be called on preliminary response
+#       in INVITE with (self,code,packet)
 #   cb_established: callback which will be called on receiving ACK in INVITE
 #       with (status,self) where status is OK|FAIL
 #   sip_header: hashref of SIP headers to add
@@ -186,6 +188,7 @@ sub reinvite {
 		if ( $code =~m{^1\d\d} ) {
 			# preliminary response, ignore
 			DEBUG(10,"got preliminary response of %s|%s to INVITE",$code,$packet->msg );
+			invoke_callback( $param->{cb_preliminary},$self,$code,$packet );
 			return;
 		} elsif ( $code !~m{^2\d\d} ) {
 			DEBUG(10,"got response of %s|%s to INVITE",$code,$packet->msg );

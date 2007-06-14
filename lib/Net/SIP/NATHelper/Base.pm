@@ -925,7 +925,7 @@ sub new {
 ############################################################################
 sub DESTROY {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
-	$self->{nathelper}->unget_rtp_sockets( $self->{new_media} )
+	($self->{nathelper} || return )->unget_rtp_sockets( $self->{new_media} )
 }
 
 

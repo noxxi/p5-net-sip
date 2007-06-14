@@ -184,7 +184,8 @@ Special keys not described in L<Net::SIP::Simple::Call>:
 =item filter
 
 A callback usable by B<invoke_callback> in L<Net::SIP::Util> which gets
-called with the value of the B<From> header in the incoming request.
+called with the value of the B<From> header and the L<Net::SIP::Request>
+object from the incoming request.
 If the callback returns TRUE the call gets accepted, otherwise not.
 
 =item cb_create
@@ -192,6 +193,7 @@ If the callback returns TRUE the call gets accepted, otherwise not.
 Callback which will be called on accepting the call. Will be called
 with the newly created L<Net::SIP::Simple::Call> object and the creating
 L<Net::SIP::Request> packet as argument.
+Must return TRUE or the call gets not answered.
 
 =item cb_established
 

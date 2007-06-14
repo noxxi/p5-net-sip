@@ -196,6 +196,7 @@ sub uas {
 		my ($call,$request) = @_;
 		print "call created\n";
 		print $request->as_string;
+		1;
 	};
 	$uas->listen(
 		cb_create      => $cb_create,
