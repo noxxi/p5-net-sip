@@ -369,7 +369,7 @@ sub listen {
 
 		# notify caller about new call
 		if ( my $cbc = $args->{cb_create} ) {
-			if ( ! invoke_callback( $cbc, $call, $request ) ) {
+			if ( ! invoke_callback( $cbc, $call, $request,$leg,$from ) ) {
 				DEBUG( 1, "call from '$ctx->{from}' rejected in cb_create" );
 				$self->{endpoint}->close_context( $ctx );
 				return;

@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 9;
+use Test::More tests => 10;
 
 use Net::SIP;
 use Net::SIP::Util ':all';
@@ -67,7 +67,18 @@ sub uac {
 	ok( $uac, 'UAC created' );
 
 	ok( <$pipe>, "UAS ready\n" ); # wait until UAS is ready
-	my $call = $uac->invite( 'you.uas@example.com' );
+	my $ringing = 0;
+	my $call = $uac->invite( 
+		'you.uas@example.com',
+		cb_preliminary => sub { 
+			my ($self,$code,$packet) = @_;
+			if ( $code == 180 ) {
+				diag( 'got ringing' );
+				$ringing ++
+			}
+		}
+	);
+	ok( $ringing,'got ringing' );
 	ok( ! $uac->error, 'no error on UAC' );
 	ok( $call, 'Call established' );
 
@@ -95,7 +106,13 @@ sub uas {
 	# Listen
 	my $call_closed;
 	$uas->listen(
-		cb_create      => sub { diag( 'call created' );1 },
+		cb_create      => sub { 
+			my ($call,$request,$leg,$from) = @_;
+			diag( 'call created' );
+			my $response = $request->create_response( '180','Ringing' );
+	        $call->{endpoint}->new_response( $call->{ctx},$response,$leg,$from );
+			1;
+		},
 		cb_established => sub { diag( 'call established' ) },
 		cb_cleanup     => sub {
 			diag( 'call cleaned up' );

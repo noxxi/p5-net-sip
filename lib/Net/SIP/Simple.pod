@@ -191,8 +191,10 @@ If the callback returns TRUE the call gets accepted, otherwise not.
 =item cb_create
 
 Callback which will be called on accepting the call. Will be called
-with the newly created L<Net::SIP::Simple::Call> object and the creating
-L<Net::SIP::Request> packet as argument.
+with C<< CALL,REQUEST,LEG,FROM >> where CALL is the newly created 
+L<Net::SIP::Simple::Call> object, REQUEST the creating L<Net::SIP::Request> 
+packet, LEG the incoming leg and FROM the C<< "ip:port" >> of the sender.
+
 Must return TRUE or the call gets not answered.
 
 =item cb_established

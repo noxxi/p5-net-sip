@@ -1,9 +1,12 @@
 Revision history for Net::SIP
 
-0.29_1
+0.30
   - Option cb_established for Simple::Call:reinvite to specify
     callback which will be triggered when preliminary response
     is received
+    more parameter for cb_create in Simple::listen, so that
+    it can create a response (like 180 Ringing) to the peer
+    see documentation and the adapted t/02_listen_and_invite.t
 
 0.29
   - make sure that max-forwards is added to every Request from the
