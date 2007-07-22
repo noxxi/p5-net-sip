@@ -1,7 +1,7 @@
 Revision history for Net::SIP
 
 0.30
-  - Option cb_established for Simple::Call:reinvite to specify
+  - Option cb_preliminary for Simple::Call:reinvite to specify
     callback which will be triggered when preliminary response
     is received
     more parameter for cb_create in Simple::listen, so that
