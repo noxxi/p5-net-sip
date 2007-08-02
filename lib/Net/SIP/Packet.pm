@@ -74,22 +74,18 @@ sub new_from_parts {
 		$header = \@hnew;
 	}
 
-	my $self = fields::new($class);
-	my $rebless;
 	if ( $code =~m{^\d} ) {
 		# Response
-		$self->{code} = $code;
-		$self->{text} = defined($text) ? $text:'';
-		$rebless = 'Net::SIP::Response';
+		$class = 'Net::SIP::Response' if $class eq 'Net::SIP::Packet';
 	} else {
 		# Request
-		$self->{code} = uc($code);                             # uppercase method
-		$self->{text} = defined($text) ? $text:'';
-		$rebless = 'Net::SIP::Request';
+		$code = uc($code);                             # uppercase method
+		$class = 'Net::SIP::Request' if $class eq 'Net::SIP::Packet';
 	}
 
-	# rebless to Net::SIP::{Request,Response}
-	bless $self,$rebless if $class eq 'Net::SIP::Packet';
+	my $self = fields::new($class);
+	$self->{code} = $code;
+	$self->{text} = defined($text) ? $text:'';
 
 	# $self->{header} is list of Net::SIP::HeaderPair which cares about normalized
 	# keys while maintaining the original key, so that one can restore header
@@ -135,14 +131,14 @@ sub new_from_parts {
 ###########################################################################
 sub new_from_string {
 	my ($class,$string) = @_;
-	my $self = fields::new($class);
-	$self->{as_string} = $string;
+	my $data = _string2parts( $string );
 	if ( $class eq 'Net::SIP::Packet' ) {
-		# rebless
-		# as a side effect is_request will parse string so that code,header etc
-		# will be set
-		bless $self,( $self->is_request ? 'Net::SIP::Request':'Net::SIP::Response' );
+		$class = $data->{code} =~m{^\d} 
+			? 'Net::SIP::Response'
+			:'Net::SIP::Request';
 	}
+	my $self = fields::new($class);
+	%$self = %$data;
 	return $self;
 }
 
@@ -490,27 +486,36 @@ sub dump {
 sub as_parts {
 	my $self = shift;
 
-	# if parts are up to date return immediatly
+	# if parts are up to date return immediatly#
+	if ( ! $self->{code} ) {
+		my $data = _string2parts( $self->{as_string} );
+		%$self = ( %$self,%$data );
+	}
 	return @{$self}{qw(code text header body)} if $self->{code};
+}
+
+sub _string2parts {
+	my $string = shift;
+	my %result = ( as_string => $string );
 
 	# otherwise parse request
-	my ($header,$body) = split( m{\r?\n\r?\n}, $self->{as_string},2 );
+	my ($header,$body) = split( m{\r?\n\r?\n}, $string,2 );
 	my @header = split( m{\r?\n}, $header );
 
 	if ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
 		# Response, e.g. SIP/2.0 407 Authorization required
-		$self->{code} = $1;
-		$self->{text} = $2;
+		$result{code} = $1;
+		$result{text} = $2;
 	} elsif ( $header[0] =~m{^(\w+)\s+(\S.*?)\s+SIP/2\.0\s*$} ) {
 		# Request, e.g. INVITE <sip:bla@fasel> SIP/2.0
-		$self->{code} = $1;
-		$self->{text} = $2;
+		$result{code} = $1;
+		$result{text} = $2;
 	} else {
 		die "bad request: starts with '$header[0]'";
 	}
 	shift(@header);
 
-	$self->{body} = $body;
+	$result{body} = $body;
 
 	my @hdr;
 	my @lines;
@@ -566,10 +571,9 @@ sub as_parts {
 		}
 		push @lines, [ $line, int(@v) ];
 	}
-	$self->{header} = \@hdr;
-	$self->{lines}  = \@lines;
-
-	return @{$self}{qw( code text header body )};
+	$result{header} = \@hdr;
+	$result{lines}  = \@lines;
+	return \%result;
 }
 
 ###########################################################################

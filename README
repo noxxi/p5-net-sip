@@ -16,7 +16,7 @@ the simple event handling which is included.
 
 It was tested on Linux (Ubuntu 6.10, 7.04), MacOSX 10.3+10.4,
 OpenBSD3.9+4.1 with various perl versions starting with 
-perl5.8.7.
+perl5.8.7, including 5.9.5.
 
 Sample Code was tested with Snom 300 Phones, Asterisk 1.2,
 Fritz!Box and KPhone.

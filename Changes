@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.31
+  - make it usable for perl5.9, tested with 5.9.5
+
 0.30
   - Option cb_preliminary for Simple::Call:reinvite to specify
     callback which will be triggered when preliminary response
