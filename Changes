@@ -1,5 +1,13 @@
 Revision history for Net::SIP
 
+0.32
+  - Net::SIP::Registrar checks on non-REGISTER requests if the
+    target it registered with itself and then rewrites the URI in
+    the packet. This can be used for a combined Registar+Proxy,
+    see samples/test_registrar_and_proxy.pl
+  - samples/invite_and_*.pl have now option -L|--leg to specify
+    a local address
+
 0.31
   - make it usable for perl5.9, tested with 5.9.5
 

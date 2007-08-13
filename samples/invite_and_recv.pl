@@ -29,6 +29,7 @@ Options:
   -R|--registrar host[:port]   register at given address
   -O|--outfile filename        write received RTP data to file
   -T|--time interval           hang up after interval seconds
+  -L|--leg ip[:port]           use given local ip[:port] for outgoing leg
   --username name              username for authorization
   --password pass              password for authorization
   --route host[:port]          add SIP route, can be specified multiple times
@@ -36,6 +37,7 @@ Options:
 Examples:
   $0 -T 10 -O record.data sip:30\@192.168.178.4 sip:31\@192.168.178.1
   $0 --username 30 --password secret --proxy=192.168.178.3 sip:30\@example.com 31
+  $0 --username 30 --password secret --leg 192.168.178.4 sip:30\@example.com 31
 
 EOS
 	exit( @_ ? 1:0 );
@@ -46,7 +48,7 @@ EOS
 # Get options
 ###################################################
 
-my ($proxy,$outfile,$registrar,$username,$password,$hangup);
+my ($proxy,$outfile,$registrar,$username,$password,$hangup,$local_leg);
 my (@routes,$debug);
 GetOptions(
 	'd|debug:i' => \$debug,
@@ -55,6 +57,7 @@ GetOptions(
 	'R|registrar=s' => \$registrar,
 	'O|outfile=s' => \$outfile,
 	'T|time=i' => \$hangup,
+	'L|leg=s' => \$local_leg,
 	'username=s' =>\$username,
 	'password=s' =>\$password,
 	'route=s' => \@routes,
@@ -69,25 +72,32 @@ $to || usage( "no target" );
 $registrar ||= $proxy;
 
 ###################################################
-# if no proxy is given we need to find out
-# about the leg using the IP given from FROM
+# find local leg
 ###################################################
-my $leg;
-if ( !$proxy ) {
-	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
+my ($local_host,$local_port);
+if ( $local_leg ) {
+	($local_host,$local_port) = split( m/:/,$local_leg,2 );
+} elsif ( ! $proxy ) {
+	# if no proxy is given we need to find out
+	# about the leg using the IP given from FROM
+	($local_host,$local_port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
 		or die "cannot find SIP domain in '$from'";
-	my $addr = gethostbyname( $host )
-		|| die "cannot get IP from SIP domain '$host'";
+}
+
+my $leg;
+if ( $local_host ) {
+	my $addr = gethostbyname( $local_host )
+		|| die "cannot get IP from SIP domain '$local_host'";
 	$addr = inet_ntoa( $addr );
 
 	$leg = IO::Socket::INET->new(
 		Proto => 'udp',
 		LocalAddr => $addr,
-		LocalPort => $port || 5060,
+		LocalPort => $local_port || 5060,
 	);
 
 	# if no port given and port 5060 is already used try another one
-	if ( !$leg && !$port ) {
+	if ( !$leg && !$local_port ) {
 		$leg = IO::Socket::INET->new(
 			Proto => 'udp',
 			LocalAddr => $addr,

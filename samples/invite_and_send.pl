@@ -32,6 +32,7 @@ Options:
   -P|--proxy host[:port]       use outgoing proxy, register there unless registrar given
   -R|--registrar host[:port]   register at given address
   -S|--send filename           send content of file, can be given multiple times
+  -L|--leg ip[:port]           use given local ip[:port] for outgoing leg
   --username name              username for authorization
   --password pass              password for authorization
 
@@ -49,7 +50,7 @@ EOS
 # Get options
 ###################################################
 
-my ($proxy,@files,$registrar,$username,$password);
+my ($proxy,@files,$registrar,$username,$password,$local_leg);
 my ($debug,$hangup);
 GetOptions(
 	'd|debug:i' => \$debug,
@@ -57,6 +58,7 @@ GetOptions(
 	'P|proxy=s' => \$proxy,
 	'R|registrar=s' => \$registrar,
 	'S|send=s' => \@files,
+	'L|leg=s' => \$local_leg,
 	'username=s' =>\$username,
 	'password=s' =>\$password,
 ) || usage( "bad option" );
@@ -70,33 +72,42 @@ $to || usage( "no target" );
 $registrar ||= $proxy;
 
 ###################################################
-# if no proxy is given we need to find out
-# about the leg using the IP given from FROM
+# find local leg
 ###################################################
-my $leg;
-if ( !$proxy ) {
-	my ($host,$port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
+my ($local_host,$local_port);
+if ( $local_leg ) {
+	($local_host,$local_port) = split( m/:/,$local_leg,2 );
+} elsif ( ! $proxy ) {
+	# if no proxy is given we need to find out
+	# about the leg using the IP given from FROM
+	($local_host,$local_port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
 		or die "cannot find SIP domain in '$from'";
-	my $addr = gethostbyname( $host )
-		|| die "cannot get IP from SIP domain '$host'";
+}
+
+my $leg;
+if ( $local_host ) {
+	my $addr = gethostbyname( $local_host )
+		|| die "cannot get IP from SIP domain '$local_host'";
 	$addr = inet_ntoa( $addr );
 
 	$leg = IO::Socket::INET->new(
 		Proto => 'udp',
 		LocalAddr => $addr,
-		LocalPort => $port || 5060,
+		LocalPort => $local_port || 5060,
 	);
 
 	# if no port given and port 5060 is already used try another one
-	if ( !$leg && !$port ) {
+	if ( !$leg && !$local_port ) {
 		$leg = IO::Socket::INET->new(
 			Proto => 'udp',
 			LocalAddr => $addr,
 			LocalPort => 0
 		) || die "cannot create leg at $addr: $!";
 	}
+
 	$leg = Net::SIP::Leg->new( sock => $leg );
 }
+
 
 ###################################################
 # SIP code starts here

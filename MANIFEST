@@ -65,6 +65,7 @@ t/08_register_with_auth.pl
 t/testlib.pl
 samples/invite_and_recv.pl
 samples/invite_and_send.pl
+samples/test_registrar_and_proxy.pl
 samples/3pcc.pl
 bin/nathelper.pl
 bin/stateless_proxy.pl

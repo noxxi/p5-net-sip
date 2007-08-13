@@ -62,7 +62,16 @@ sub receive {
 
 	# accept only REGISTER
 	$packet->is_request || return;
-	$packet->method eq 'REGISTER' || return;
+	if ( $packet->method ne 'REGISTER' ) {
+		# if we know the target rewrite the destination URI
+		my $uri = $packet->uri;
+		DEBUG( 1,"method ".$packet->method." uri=<$uri>" );
+		my @found = $self->query( $uri );
+		@found or return;
+		DEBUG( 1,"rewrite URI $uri in ".$packet->method." to $found[0]" );
+		$packet->set_uri( $found[0] );
+		return; # propagate to next in chain
+	}
 
 	my $from = $packet->get_header( 'from' ) or do {
 		DEBUG( 1,"no from in register request. DROP" );
