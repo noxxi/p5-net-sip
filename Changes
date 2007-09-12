@@ -1,5 +1,11 @@
 Revision history for Net::SIP
 
+0.33
+  - fix rt#29153 in StatelessProxy.pm ($1 from prev regex
+    used after call of user function, which could change it)
+  - Endpoint::new_response - make sure that 2xx responses to
+    INVITE carry a contact header
+
 0.32
   - Net::SIP::Registrar checks on non-REGISTER requests if the
     target it registered with itself and then rewrites the URI in

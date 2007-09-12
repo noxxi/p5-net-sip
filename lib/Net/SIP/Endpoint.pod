@@ -226,4 +226,7 @@ associated request came in.
 
 CTX is the context from the call, where the associated request came in.
 
+If the response is a 2xx response to a INVITE and no C<contact> header 
+is given as required from the RFC it will add one based on the CTX.
+
 =back

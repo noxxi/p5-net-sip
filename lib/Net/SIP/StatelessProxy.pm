@@ -122,9 +122,9 @@ sub receive {
 
 		my ($to) = sip_hdrval2parts( uri => $packet->uri );
 		$to = $1 if $to =~m{<(\w+:\S+)>};
-		if ( $to =~m{^(.*?)(\w+)(\@.*)}
-			&& ( my $back = invoke_callback( $rewrite_contact,$2 ) )) {
-			$to = $1.$back;
+		my ($pre,$name) = $to =~m{^(.*?)(\w+)\@};
+		if ( $name && ( my $back = invoke_callback( $rewrite_contact,$name ) )) {
+			$to = $pre.$back;
 			DEBUG( 10,"rewrote URI from '%s' to '%s'", $packet->uri, $to );
 			$packet->set_uri( $to )
 		}

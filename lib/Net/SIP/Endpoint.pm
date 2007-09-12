@@ -326,6 +326,13 @@ sub new_response {
 	my ($ctx,$response,$leg,$addr) = @_;
 
 	$self->{ctx}{ $ctx->callid } = $ctx if $ctx; # keep context
+	if ( $ctx && ! $response->get_header( 'contact' ) && $response->method eq 'INVITE' ) {
+		my $code = $response->code;
+		if ( $code>=200 && $code<300 ) {
+			# 2xx response requires contact header
+			$response->set_header( contact => $ctx->contact );
+		}
+	}
 	$self->{dispatcher}->deliver( $response,
 		leg      => $leg,
 		dst_addr => $addr,

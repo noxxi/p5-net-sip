@@ -99,6 +99,24 @@ sub callid {
 }
 
 ############################################################################
+# gets contact, either from contact info on context (only for outgoing)
+# or from 'from'/'to'
+# Args: $self
+# Returns: $contact
+############################################################################
+sub contact {
+	my Net::SIP::Endpoint::Context $self = shift;
+	if ( $self->{incoming} ) {
+		my ($data) = sip_hdrval2parts( to => $self->{to} );
+		return $data;
+	} else {
+		return $self->{contact} if $self->{contact};
+		my ($data) = sip_hdrval2parts( from => $self->{from} );
+		return $data;
+	}
+}
+
+############################################################################
 # get peer
 # Args: $self
 # Returns: $peer

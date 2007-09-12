@@ -88,6 +88,12 @@ Defaults to 0, e.g. the first request will get the sequence number 1.
 
 Returns callid of current call.
 
+=item contact
+
+Returns contact of current call.
+For outgoing calls this is the C<contact> given in the constructor or
+if not given C<from>. For incoming calls this is C<to>.
+
 =item peer
 
 Returns peer of call. For incoming calls this is the sender, for
