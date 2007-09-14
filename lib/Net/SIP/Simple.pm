@@ -23,6 +23,7 @@ use fields (
 	'from',               # SIP address of caller
 	'domain',             # default domain for SIP addresses
 	'last_error',         # last error
+	'options',            # hash with field,values for response to OPTIONS request
 );
 
 use Carp qw(croak);
@@ -57,6 +58,7 @@ use Net::SIP::Debug;
 #     registrar      - use registrar for registration
 #     auth           - auth data: see Request->authorize for format
 #     from           - myself, used for calls and registration
+#     options        - hash with fields,values for reply to OPTIONS request
 #     loop           - predefined Net::SIP::Dispatcher::Eventloop, used if
 #                      shared between UAs
 #     dispatcher     - predefined Net::SIP::Dispatcher, used if
@@ -85,6 +87,22 @@ sub new {
 		$from = "$from <sip:$from\@$domain>"
 			if $from !~m{\s} && $from !~m{\@};
 	}
+
+	my $options = delete $args{options} || {};
+	{
+		@{$options}{ map { lc } keys(%$options) } = values(%$options); # lc keys
+		my %default_options = (
+			allow => 'INVITE, ACK, CANCEL, OPTIONS, BYE',
+			accept => 'application/sdp',
+			'accept-encoding' => '',
+			'accept-language' => 'en',
+			supported => '',
+		);
+		while ( my ($k,$v) = each %default_options ) {
+			$options->{$k} = $v if ! defined $options->{$k};
+		}
+	}
+
 
 	my $legs = delete $args{legs} || delete $args{leg};
 	$legs = [ $legs ] if $legs && ref($legs) ne 'ARRAY';
@@ -148,6 +166,7 @@ sub new {
 		dispatcher => $disp,
 		loop => $loop,
 		route => $routes,
+		options => $options,
 	);
 	return $self;
 }
@@ -348,11 +367,17 @@ sub listen {
 	# handle new requests
 	my $receive = sub {
 		my ($self,$args,$endpoint,$ctx,$request,$leg,$from) = @_;
-		$request->method eq 'INVITE' or do {
+		my $method = $request->method;
+		if ( $method eq 'OPTIONS' ) {
+			my $response = $request->create_response( '200','OK',$self->{options} );
+			$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+			$self->{endpoint}->close_context( $ctx );
+			return;
+		} elsif ( $method ne 'INVITE' ) {
 			DEBUG( 10,"drop non-INVITE request: ".$request->dump );
 			$self->{endpoint}->close_context( $ctx );
 			return;
-		};
+		}
 
 		if ( my $filter = $args->{filter} ) {
 			my $rv = invoke_callback( $filter, $ctx->{from},$request );

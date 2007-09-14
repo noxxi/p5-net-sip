@@ -321,6 +321,11 @@ sub receive {
 				invoke_callback($param->{cb_established},'OK',$self);
 				invoke_callback($param->{init_media},$self,$param);
 			}
+
+		} elsif ( $method eq 'OPTIONS' ) {
+
+			my $response = $packet->create_response( '200','OK',$self->{options} );
+			$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
 		}
 
 	} else {

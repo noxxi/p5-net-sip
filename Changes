@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.34
+  - Net::SIP::Simple: handle OPTIONS requests. These are for 
+    instance used by Asterisk to determine if the registered 
+    party accepts incoming calls.
+ 
 0.33
   - fix rt#29153 in StatelessProxy.pm ($1 from prev regex
     used after call of user function, which could change it)
