@@ -1,0 +1,15 @@
+These are programs to conduct simple benchmarks.
+See usage() in files (option -h|--help) for more information.
+
+listen.pl 
+- listen for incoming connection
+- echo RTP back
+- can handle multiple connections in parallel
+
+call.pl
+- create muliple parallel calls and send special crafted RTP traffic
+  The RTP are not real voice data, but sequence and timestamps inside
+  an RTP frame.
+- expect the RTP to be echod back, analyse the response and report
+  delays, lost packets etc
+- 

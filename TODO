@@ -27,4 +27,3 @@ PrioA:
 
 - implementation
   * full support for TCP
-  * maybe add Contact header by default for Endpoint?

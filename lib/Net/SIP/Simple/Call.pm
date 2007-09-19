@@ -91,6 +91,9 @@ sub cleanup {
 	while ( my $cb = shift @{ $self->{call_cleanup} } ) {
 		invoke_callback($cb,$self)
 	}
+	if ( my $ctx = $self->{ctx} ) {
+		$self->{endpoint}->close_context( $ctx );
+	}
 	%$self = ();
 	DEBUG( 100,"done" );
 }

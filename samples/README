@@ -1,0 +1,25 @@
+This directory contains some examples for using Net::SIP.
+
+invite_and_recv.pl
+- invite peer, recv RTP data and store them inside file
+- can register
+- can deal with upstream proxy
+- can handle authorization against proxy/registrar
+- see -h|--help for more information
+
+invite_and_send.pl
+- similar to invite_and_recv, but does send files to other party
+- can handle multiple files by using re-INVITEs
+- see -h|--help for more information
+
+test_registrar_and_proxy.pl
+- simple application which works as a registrar and proxy
+- see comments on top of the short file for more information
+
+3pcc.pl
+- third party call control, e.g. invites 1st party w/o sending SDP
+  body, invites 2nd party with SDP body from 1st and then re-INVITES
+  1st party with SDP from 2nd
+
+bench/*
+- programs for benchmarking, see bench/README

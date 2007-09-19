@@ -63,10 +63,14 @@ t/06_call_with_reinvite.t
 t/07_call_on_hold.pl
 t/08_register_with_auth.pl
 t/testlib.pl
+samples/README
 samples/invite_and_recv.pl
 samples/invite_and_send.pl
 samples/test_registrar_and_proxy.pl
 samples/3pcc.pl
+samples/bench/README
+samples/bench/call.pl
+samples/bench/listen.pl
 bin/nathelper.pl
 bin/stateless_proxy.pl
 bin/answer_machine.pl

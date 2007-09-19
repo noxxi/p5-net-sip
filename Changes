@@ -1,5 +1,13 @@
 Revision history for Net::SIP
 
+0.35
+  - Net::SIP::Simple::Call - close call context in $call->cleanup,
+    otherwise it could leak file descriptors if the call wasn't
+    closed clean (with BYE or CANCEL).
+  - new test applications for simple benchmarks in samples/bench
+  - documentation: new file samples/README describes the files in 
+    samples/
+
 0.34
   - Net::SIP::Simple: handle OPTIONS requests. These are for 
     instance used by Asterisk to determine if the registered 
