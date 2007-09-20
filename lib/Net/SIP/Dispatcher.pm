@@ -24,6 +24,7 @@ use fields (
 	'outgoing_leg',   # Leg for outgoing_proxy
 	'queue',          # \@list of outstanding Net::SIP::Dispatcher::Packet
 	'response_cache', # Cache of responses, used to reply to retransmits
+	'disp_expire',    # expire/retransmit timer
 );
 
 use Net::SIP::Leg;
@@ -34,6 +35,7 @@ use List::Util 'first';
 use Net::DNS;
 use Carp 'croak';
 use Net::SIP::Debug;
+use Scalar::Util 'weaken';
 
 
 ###########################################################################
@@ -101,10 +103,15 @@ sub new {
 
 	# regularly prune queue
 	my $sub = sub {
-		my ($self,$loop) = @_;
-		$self->queue_expire($loop->looptime);
+		my ($rself,$timer) = @_;
+		if ( my $self = $$rself ) {
+			$self->queue_expire( $self->{eventloop}->looptime );
+		} else {
+			$timer->cancel;
+		}
 	};
-	$self->add_timer( 1,[ $sub,$self,$eventloop ],1,'disp_expire' );
+	weaken( my $rself = \$self );
+	$self->{disp_expire} = $self->add_timer( 1,[ $sub,$rself ],1,'disp_expire' );
 
 	return $self;
 }
@@ -161,7 +168,8 @@ sub add_leg {
 
 		if ( my $fd = $leg->fd ) {
 			my $cb = sub {
-				my ($self,$leg) = @_;
+				my ($rself,$leg) = @_;
+				my $self = $$rself || return;
 
 				# leg->receive might return undef if the packet wasnt
 				# read successfully. for tcp connections the receive
@@ -176,7 +184,8 @@ sub add_leg {
 				# handle received packet
 				$self->receive( $packet,$leg,$from );
 			};
-			$self->{eventloop}->addFD( $fd, [ $cb,$self,$leg ]);
+			weaken( my $rself = \$self );
+			$self->{eventloop}->addFD( $fd, [ $cb,$rself,$leg ]);
 		}
 	}
 }
@@ -196,6 +205,28 @@ sub remove_leg {
 			$self->{eventloop}->delFD( $fd );
 		}
 	}
+}
+
+sub cleanup {
+	my Net::SIP::Dispatcher $self = shift;
+	my $legs = $self->{legs};
+	my $loop = $self->{eventloop} || return; # global destroy?
+	while ( my $leg = shift @$legs ) {
+		my $fd = $leg && $leg->fd || return; # if no $leg assume global destroy
+		$loop->delFD( $fd );
+	}
+	if ( my $t = $self->{disp_expire} ) {
+		$t->cancel;
+		$self->{disp_expire} = undef;
+	}
+	@{ $self->{queue}} = ();
+	$self->{receiver} = undef;
+}
+
+sub DESTROY {
+	my Net::SIP::Dispatcher $self = shift;
+	$self->cleanup;
+	%$self = ();
 }
 
 ###########################################################################
@@ -475,7 +506,8 @@ sub __deliver {
 
 	# I have leg and addr, send packet thru leg to addr
 	my $cb = sub {
-		my ($self,$qentry,$error) = @_;
+		my ($rself,$qentry,$error) = @_;
+		my $self = $$rself || return;
 		if ( !$error  && $qentry->{retransmits} ) {
 			# remove from queue even if timeout
 			$self->cancel_delivery( $qentry );
@@ -486,7 +518,8 @@ sub __deliver {
 	# adds via on cloned packet, calls cb if definite success (tcp)
 	# or error
 	DEBUG( 50,"deliver through leg $leg \@$dst_addr" );
-	$leg->deliver( $qentry->{packet},$dst_addr, [ $cb,$self,$qentry ] );
+	weaken( my $rself = \$self );
+	$leg->deliver( $qentry->{packet},$dst_addr, [ $cb,$rself,$qentry ] );
 
 	if ( !$qentry->{retransmits} ) {
 		# remove from queue if no timeout

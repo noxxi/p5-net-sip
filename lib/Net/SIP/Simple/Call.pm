@@ -66,6 +66,7 @@ sub new {
 	my ($class,$control,$ctx,$param) = @_;
 	my $self = fields::new( $class );
 	%$self = %$control;
+	$self->{ua_cleanup} = [];
 	$self->{ctx} = ref($ctx) ? $ctx : {
 		to => $ctx,
 		from => $self->{from},
@@ -94,8 +95,8 @@ sub cleanup {
 	if ( my $ctx = $self->{ctx} ) {
 		$self->{endpoint}->close_context( $ctx );
 	}
-	%$self = ();
-	DEBUG( 100,"done" );
+	$self->{param} = {};
+	$self->SUPER::cleanup;
 }
 
 sub rtp_cleanup {

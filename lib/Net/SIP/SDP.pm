@@ -157,7 +157,8 @@ sub new_from_string {
 	my ($class,$string) = @_;
 
 	# split into lines
-	Carp::confess('bla' ) if ref( $string ) eq 'HASH';
+	Carp::confess('expected string or ARRAY ref' ) 
+		if ref($string) && ref( $string ) ne 'ARRAY';
 	my @lines = ref($string)
 		? @$string
 		: split( m{\r?\n}, $string );

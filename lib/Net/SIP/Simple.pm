@@ -24,6 +24,7 @@ use fields (
 	'domain',             # default domain for SIP addresses
 	'last_error',         # last error
 	'options',            # hash with field,values for response to OPTIONS request
+	'ua_cleanup',         # cleanup callbacks
 );
 
 use Carp qw(croak);
@@ -88,6 +89,9 @@ sub new {
 			if $from !~m{\s} && $from !~m{\@};
 	}
 
+	my $ua_cleanup = [];
+	my $self = fields::new( $class );
+
 	my $options = delete $args{options} || {};
 	{
 		@{$options}{ map { lc } keys(%$options) } = values(%$options); # lc keys
@@ -144,6 +148,14 @@ sub new {
 	my $disp;
 	if ( $disp = delete $args{dispatcher} ) {
 		$disp->add_leg( @$legs );
+		push @$ua_cleanup, [ 
+			sub {
+				my ($self,$legs) = @_;
+				$self->{dispatcher}->remove_leg(@$legs);
+			}, 
+			$self,$legs
+		] if @$legs;
+
 	} else {
 		$disp =  Net::SIP::Dispatcher->new(
 			$legs,
@@ -151,11 +163,14 @@ sub new {
 			outgoing_proxy => $ob,
 			domain2proxy => $d2p,
 		);
+		push @$ua_cleanup, [
+			sub { shift->{dispatcher}->cleanup },
+			$self
+		];
 	}
 
 	my $endpoint = Net::SIP::Endpoint->new( $disp );
 
-	my $self = fields::new( $class );
 	my $routes = delete $args{routes} || delete $args{route};
 	%$self = (
 		auth => $auth,
@@ -167,8 +182,17 @@ sub new {
 		loop => $loop,
 		route => $routes,
 		options => $options,
+		ua_cleanup => $ua_cleanup,
 	);
 	return $self;
+}
+
+sub cleanup {
+	my Net::SIP::Simple $self = shift;
+	while ( my $cb = shift @{ $self->{ua_cleanup} } ) {
+		invoke_callback($cb,$self)
+	}
+	%$self = ();
 }
 
 ###########################################################################
