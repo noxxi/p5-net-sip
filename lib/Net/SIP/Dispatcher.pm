@@ -103,15 +103,16 @@ sub new {
 
 	# regularly prune queue
 	my $sub = sub {
-		my ($rself,$timer) = @_;
-		if ( my $self = $$rself ) {
+		my ($self,$timer) = @_;
+		if ( $self ) {
 			$self->queue_expire( $self->{eventloop}->looptime );
 		} else {
 			$timer->cancel;
 		}
 	};
-	weaken( my $rself = \$self );
-	$self->{disp_expire} = $self->add_timer( 1,[ $sub,$rself ],1,'disp_expire' );
+	my $cb = [ $sub,$self ];
+	weaken( $cb->[1] );
+	$self->{disp_expire} = $self->add_timer( 1,$cb,1,'disp_expire' );
 
 	return $self;
 }
@@ -168,8 +169,8 @@ sub add_leg {
 
 		if ( my $fd = $leg->fd ) {
 			my $cb = sub {
-				my ($rself,$leg) = @_;
-				my $self = $$rself || return;
+				my ($self,$leg) = @_;
+				$self || return;
 
 				# leg->receive might return undef if the packet wasnt
 				# read successfully. for tcp connections the receive
@@ -184,8 +185,9 @@ sub add_leg {
 				# handle received packet
 				$self->receive( $packet,$leg,$from );
 			};
-			weaken( my $rself = \$self );
-			$self->{eventloop}->addFD( $fd, [ $cb,$rself,$leg ]);
+			$cb = [ $cb,$self,$leg ];
+			weaken( $cb->[1] );
+			$self->{eventloop}->addFD( $fd, $cb );
 		}
 	}
 }
@@ -506,8 +508,8 @@ sub __deliver {
 
 	# I have leg and addr, send packet thru leg to addr
 	my $cb = sub {
-		my ($rself,$qentry,$error) = @_;
-		my $self = $$rself || return;
+		my ($self,$qentry,$error) = @_;
+		$self || return;
 		if ( !$error  && $qentry->{retransmits} ) {
 			# remove from queue even if timeout
 			$self->cancel_delivery( $qentry );
@@ -519,7 +521,9 @@ sub __deliver {
 	# or error
 	DEBUG( 50,"deliver through leg $leg \@$dst_addr" );
 	weaken( my $rself = \$self );
-	$leg->deliver( $qentry->{packet},$dst_addr, [ $cb,$rself,$qentry ] );
+	$cb = [ $cb,$self,$qentry ];
+	weaken( $cb->[1] );
+	$leg->deliver( $qentry->{packet},$dst_addr,$cb );
 
 	if ( !$qentry->{retransmits} ) {
 		# remove from queue if no timeout
