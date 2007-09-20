@@ -1,5 +1,12 @@
 Revision history for Net::SIP
 
+0.36
+  - small performance improvements for Net::SIP::Simple::RTP
+    and samples/bench
+  - fixed race condition on Net::SIP::Dispatcher::Eventloop (e.g
+    one callback disabled fd, but it tried to call callback for the
+    disabled fd)
+
 0.35
   - Net::SIP::Simple::Call - close call context in $call->cleanup,
     otherwise it could leak file descriptors if the call wasn't

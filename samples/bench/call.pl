@@ -1,6 +1,5 @@
 use strict;
 use Net::SIP qw(:all);
-use Time::HiRes 'gettimeofday';
 use Getopt::Long qw(:config posix_default bundling);
 
 my $debug;
@@ -21,42 +20,11 @@ GetOptions(
 ) || usage( 'bad options' );
 Debug->level( $debug || 1 ) if defined $debug;
 
-sub usage {
-	print STDERR "ERROR: @_\n" if @_;
-	print STDERR <<USAGE;
-
-
-Makes N parallel calls from FROM to TO and writes statistics about received, lost
-packets and delays. Does not send real RTP, but hides non-RTP data within RTP frames
-to compute statistics.
-Usage: $0 options
-Options:
- -h|--help      This usage
- -d|--debug     Switch on debugging with optional level
- -F|--from      local address, default $from
- -T|--to        peer address, default $to
- -P|--proxy     Adress of target or proxy on path to target, default $outgoing_proxy
- -N|--parallel  Number of parallel calls, default $ncalls
- -S|--stat-timer  How often to print statistics, default every $stat_timer seconds
-
-The statistics look like this:
-
- 28 pkt=1005/0/0 delay(ms)=5.68/1.08/41.79
- |       |   | |            |    |    |
- |       |   | |            ---------------- avg/min/max delay in ms
- |       |   | |---------------------------- ignored packets (retransmits..)
- |       |   |------------------------------ lost packets (or received out of order)
- |       |---------------------------------- good packets received
- |------------------------------------------ seconds since start
-
-USAGE
-	exit(2);
-}
-
-
+my $loop = Net::SIP::Dispatcher::Eventloop->new;
 my $ua = Simple->new(
 	from => $from,
 	outgoing_proxy => $outgoing_proxy,
+	loop => $loop,
 );
 
 my (@connected,$start_bench,$min_delay,$max_delay);
@@ -101,7 +69,9 @@ sub stat_timer {
 
 sub send_rtp {
 	my $rseq = shift;
-	my ($sec,$msec) = gettimeofday();
+	my $now = $loop->looptime;
+	my $sec = int($now);
+	my $msec = ( $now - $sec ) * 1_000_000;
 	my $seq = $start_bench ? $$rseq++ : 0;
 	return pack( "NNN",$seq,$sec,$msec ) . ( ' ' x 148 );
 }
@@ -122,7 +92,7 @@ sub recv_rtp {
 	$lost += $diff-1;
 	$$rseq = $seq;
 	$ok++;
-	my $now = gettimeofday();
+	my $now = $loop->looptime;
 	my $then = $sec + $msec/10**6;
 	my $delay = $now - $then;
 	die "now=".localtime($now)." then=".localtime($then) if $delay<0;
@@ -130,3 +100,37 @@ sub recv_rtp {
 	$min_delay = $delay if ! defined $min_delay || $min_delay > $delay;
 	$max_delay = $delay if ! defined $max_delay || $max_delay < $delay;
 }
+
+sub usage {
+	print STDERR "ERROR: @_\n" if @_;
+	print STDERR <<USAGE;
+
+
+Makes N parallel calls from FROM to TO and writes statistics about received, lost
+packets and delays. Does not send real RTP, but hides non-RTP data within RTP frames
+to compute statistics.
+Usage: $0 options
+Options:
+ -h|--help      This usage
+ -d|--debug     Switch on debugging with optional level
+ -F|--from      local address, default $from
+ -T|--to        peer address, default $to
+ -P|--proxy     Adress of target or proxy on path to target, default $outgoing_proxy
+ -N|--parallel  Number of parallel calls, default $ncalls
+ -S|--stat-timer  How often to print statistics, default every $stat_timer seconds
+
+The statistics look like this:
+
+ 28 pkt=1005/0/0 delay(ms)=5.68/1.08/41.79
+ |       |   | |            |    |    |
+ |       |   | |            ---------------- avg/min/max delay in ms
+ |       |   | |---------------------------- ignored packets (retransmits..)
+ |       |   |------------------------------ lost packets (or received out of order)
+ |       |---------------------------------- good packets received
+ |------------------------------------------ seconds since start
+
+USAGE
+	exit(2);
+}
+
+

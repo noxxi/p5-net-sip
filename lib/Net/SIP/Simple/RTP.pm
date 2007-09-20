@@ -47,24 +47,29 @@ sub media_recv_echo {
 			my @delay_buffer;
 			my $echo_back = sub {
 				my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
-				my $buf = _receive_rtp( $sock,$writeto,$targs,$didit );
-				#DEBUG( "$didit=$$didit" );
-				$$didit = 1;
-				return if $delay<0;
-				return if ! $remote; # call on hold ?
-				push @$delay_buffer, $buf;
-				while ( @$delay_buffer > $delay ) {
-					send( $s_sock,shift(@$delay_buffer),0,$remote );
+				while (1) {
+					my $buf = _receive_rtp( $sock,$writeto,$targs,$didit );
+					defined($buf) or last;
+					#DEBUG( "$didit=$$didit" );
+					$$didit = 1;
+					next if $delay<0;
+					next if ! $remote; # call on hold ?
+					push @$delay_buffer, $buf;
+					while ( @$delay_buffer > $delay ) {
+						send( $s_sock,shift(@$delay_buffer),0,$remote );
+					}
 				}
 			};
 
 			$call->{loop}->addFD( $sock,
 				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{},\$didit ] );
+			my $was_blocking = $s_sock->blocking(0);
 			push @{ $call->{ rtp_cleanup }}, [ sub {
-				my ($call,$sock) = @_;
+				my ($call,$sock,$blocking) = @_;
 				DEBUG( 100,"rtp_cleanup: remove socket %d",fileno($sock));
 				$call->{loop}->delFD( $sock );
-			}, $call,$sock ];
+				$sock->blocking(1) if $blocking;
+			}, $call,$sock,$was_blocking ];
 		}
 
 		# on RTP inactivity for at least 10 seconds close connection
@@ -126,8 +131,15 @@ sub media_send_recv {
 			$addr = $addr->[0] if ref($addr);
 
 			# recv once I get an event on RTP socket
-			my $receive = sub { my $sock = pop; _receive_rtp( $sock,@_ ); };
+			my $receive = sub { 
+				my ($writeto,$targs,$didit,$sock) = @_;
+				while (1) {
+					my $buf = _receive_rtp( $sock,$writeto,$targs,$didit ); 
+					defined($buf) or return;
+				}
+			};
 			$call->{loop}->addFD( $sock, [ $receive,$writeto,{},\$didit ] );
+			my $was_blocking = $sock->blocking(0);
 
 			# sending need to be done with a timer
 			# ! $addr == call on hold
@@ -135,7 +147,7 @@ sub media_send_recv {
 				my $cb_done = $args->{cb_rtp_done} || sub { shift->bye };
 				my $timer = $call->{dispatcher}->add_timer(
 					0, # start immediatly
-					[ \&_send_rtp,$s_sock,$addr,$readfrom, {
+					[ \&_send_rtp,$s_sock,$call->{loop},$addr,$readfrom, {
 						repeat => $repeat || 1,
 						cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ]
 					}],
@@ -144,10 +156,11 @@ sub media_send_recv {
 				);
 
 				push @{ $call->{ rtp_cleanup }}, [ sub {
-					my ($call,$sock,$timer) = @_;
+					my ($call,$sock,$timer,$wb) = @_;
 					$call->{loop}->delFD( $sock );
+					$sock->blocking(1) if $wb;
 					$timer->cancel();
-				}, $call,$sock,$timer ];
+				}, $call,$sock,$timer,$was_blocking ];
 			}
 		}
 
@@ -187,8 +200,8 @@ sub _receive_rtp {
 	my ($sock,$writeto,$targs,$didit) = @_;
 
 	my $from = recv( $sock,my $buf,2**16,0 );
+	return if ! $from || !defined($buf) || $buf eq '';
 	DEBUG( 50,"received %d bytes from RTP", length($buf));
-	$buf || return;
 
 	if(0) {
 		use Socket;
@@ -229,7 +242,7 @@ sub _receive_rtp {
 
 	if ( ref($writeto)) {
 		# callback
-		invoke_callback( $writeto,$payload );
+		invoke_callback( $writeto,$payload,$seq,$tstamp );
 	} elsif ( $writeto ) {
 		# save into file
 		my $fd = $targs->{fdr};
@@ -246,8 +259,9 @@ sub _receive_rtp {
 ###########################################################################
 # Helper to read  RTP data from file (PCMU 8000) and send them through
 # the RTP socket
-# Args: ($sock,$addr,$readfrom,$targs)
+# Args: ($sock,$loop,$addr,$readfrom,$targs)
 #   $sock: RTP socket
+#   $loop: event loop (used for looptime for timestamp)
 #   $addr: where to send data
 #   $readfrom: filename for reading or callback which will return payload
 #   $targs: \%hash to hold state info between calls of this function
@@ -257,11 +271,10 @@ sub _receive_rtp {
 #     'repeat' makes only sense if $readfrom is filename
 # Return: NONE
 ###########################################################################
-use Time::HiRes 'gettimeofday';
 sub _send_rtp {
-	my ($sock,$addr,$readfrom,$targs,$timer) = @_;
+	my ($sock,$loop,$addr,$readfrom,$targs,$timer) = @_;
 
-	my $buf;
+	my ($buf);
 	if ( ref($readfrom) ) {
 		# payload by callback
 		$buf = invoke_callback( $readfrom );
@@ -299,22 +312,23 @@ sub _send_rtp {
 	$buf || die $!;
 
 	# add RTP header
-	my ($high,$low) = gettimeofday();
-	my $timestamp = ( $high << 16 ) | ( $low >> 16 );
+	my $now = $loop->looptime;
+	my $timestamp = ( $now * 10_000 ) % 2**32; # 10*ms precision in 32 bit
 	$targs->{wseq}++;
+	my $seq = $targs->{wseq};
 
-	{
+	if (0) {
 		my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );
 		$fa = inet_ntoa($fa);
 		my ($tp,$ta) = unpack_sockaddr_in( $addr );
 		$ta = inet_ntoa($ta);
-		DEBUG( 50, "$fa:$fp -> $ta:$tp seq=$targs->{wseq} ts=%x",$timestamp );
+		DEBUG( 50, "$fa:$fp -> $ta:$tp seq=$seq ts=%x",$timestamp );
 	}
 
 	my $header = pack('CCnNN',
 		0b10000000, # Version 2
 		0b00000000, # PMCU 8000
-		$targs->{wseq}, # sequence
+		$seq, # sequence
 		$timestamp,
 		0x1234,    # source ID
 	);

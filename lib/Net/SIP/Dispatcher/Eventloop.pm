@@ -164,13 +164,13 @@ sub loop {
 			map { vec( $rin,fileno($_->[0]),1 ) = 1 } @to_read;
 			DEBUG( 100, "handles=".join( " ",map { fileno($_->[0]) } @to_read ));
 			die $! if select( my $rout = $rin,undef,undef,$to ) < 0;
-			my @can_read = grep { vec($rout,fileno($_->[0]),1) } @to_read;
-			DEBUG( 100, "can_read=".join( " ",map { fileno($_->[0]) } @can_read ));
-
 			# returned from select
 			$looptime = $self->{now} = gettimeofday();
-
-			foreach my $fd_data (@can_read) {
+			DEBUG( 100, "can_read=".join( " ",map { $_ } grep { $fds->[$_] && vec($rout,$_,1) } (0..$#$fds)));
+			for( my $fn=0;$fn<@$fds;$fn++ ) {
+				vec($rout,$fn,1) or next;
+				my $fd_data = $fds->[$fn] or next;
+				DEBUG( 1,"fn=$fn" );
 				invoke_callback( $fd_data->[1],$fd_data->[0] );
 			}
 		} else {
