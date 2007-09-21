@@ -6,6 +6,9 @@ Revision history for Net::SIP
   - fixed race condition on Net::SIP::Dispatcher::Eventloop (e.g
     one callback disabled fd, but it tried to call callback for the
     disabled fd)
+  - added Net::SIP::Simple::cleanup and made some references to the
+    objects within callbacks weak, so that no objects and file
+    descriptors would leak if properly used
 
 0.35
   - Net::SIP::Simple::Call - close call context in $call->cleanup,

@@ -18,6 +18,7 @@ use fields (
 use Net::SIP::Debug;
 use Net::SIP::Endpoint::Context;
 use Net::SIP::Util qw(invoke_callback);
+use Scalar::Util 'weaken';
 
 ############################################################################
 # create a new endpoint
@@ -34,7 +35,9 @@ sub new {
 
 	# announce myself as upper layer for incoming packets to
 	# the dispatcher
-	$dispatcher->set_receiver( $self );
+	my $cb = [ \&receive,$self ];
+	weaken( $cb->[1] );
+	$dispatcher->set_receiver( $cb );
 
 	return $self;
 }
@@ -225,7 +228,7 @@ sub close_context {
 # Returns: NONE
 ############################################################################
 sub receive {
-	my Net::SIP::Endpoint $self = shift;
+	my Net::SIP::Endpoint $self = shift || return;
 	my ($packet,$leg,$from) = @_;
 	return $packet->is_response
 		? $self->receive_response( $packet,$leg,$from )

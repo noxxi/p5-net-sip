@@ -166,8 +166,11 @@ B<cb_rtp_done>. See there.
 Will be called to clean up the call. Necessary because callbacks etc can cause
 cyclic references which need to be broken.
 Calls B<rtp_cleanup> too.
+Works by invoking all callbacks which are stored as \@list in C<< $self->{call_cleanup} >>.
 
-Works be invoking all callbacks which are stored as \@list in C<< $self->{call_cleanup} >>.
+This will called automatically at a clean end of a call (e.g. on BYE or CANCEL, either
+issued locally or received from the peer). If there is not clean end and one wants
+to destroy the call unclean one need to call this method manually.
 
 =item rtp_cleanup
 

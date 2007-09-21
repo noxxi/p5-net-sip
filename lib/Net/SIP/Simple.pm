@@ -1,4 +1,4 @@
-###########################################################################
+#########################################################################
 # Net::SIP::Simple
 # simple methods for creation of UAC,UAS
 # - register    register Address
@@ -148,14 +148,6 @@ sub new {
 	my $disp;
 	if ( $disp = delete $args{dispatcher} ) {
 		$disp->add_leg( @$legs );
-		push @$ua_cleanup, [ 
-			sub {
-				my ($self,$legs) = @_;
-				$self->{dispatcher}->remove_leg(@$legs);
-			}, 
-			$self,$legs
-		] if @$legs;
-
 	} else {
 		$disp =  Net::SIP::Dispatcher->new(
 			$legs,
@@ -163,11 +155,14 @@ sub new {
 			outgoing_proxy => $ob,
 			domain2proxy => $d2p,
 		);
-		push @$ua_cleanup, [
-			sub { shift->{dispatcher}->cleanup },
-			$self
-		];
 	}
+	push @$ua_cleanup, [ 
+		sub {
+			my ($self,$legs) = @_;
+			$self->{dispatcher}->remove_leg(@$legs);
+		}, 
+		$self,$legs
+	] if @$legs;
 
 	my $endpoint = Net::SIP::Endpoint->new( $disp );
 
@@ -187,6 +182,11 @@ sub new {
 	return $self;
 }
 
+###########################################################################
+# cleanup object, e.g. remove legs it added to dispatcher
+# Args: ($self)
+# Returns: NONE
+###########################################################################
 sub cleanup {
 	my Net::SIP::Simple $self = shift;
 	while ( my $cb = shift @{ $self->{ua_cleanup} } ) {

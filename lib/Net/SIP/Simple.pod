@@ -41,7 +41,14 @@ with a few lines perl code.
 
 =item new ( %ARGS )
 
-Creates new Net::SIP::Simple object. %ARGS can be:
+Creates new Net::SIP::Simple object.
+
+It will return the new object for further operations, but the object itself will
+contain back references to itself in the form of callbacks into the eventloop
+and dispatcher.  This means that that object will not self-destroy, but you need
+to call B<cleanup> if you want it to go away.
+
+%ARGS can be:
 
 =over 8
 
@@ -115,6 +122,12 @@ of L<Net::SIP::Dispatcher> for more details.
 =head1 METHODS
 
 =over 4
+
+=item cleanup
+
+Cleans up object, removes legs it added from the dispatcher.
+Needs to be called if you want to destroy the object, because it will not
+self-destroy (see B<new>).
 
 =item error ( ERROR )
 

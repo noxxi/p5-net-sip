@@ -60,8 +60,8 @@ t/03_forward_stateless.t
 t/04_call_with_rtp.t
 t/05_call_with_stateless_proxy.t
 t/06_call_with_reinvite.t
-t/07_call_on_hold.pl
-t/08_register_with_auth.pl
+t/07_call_on_hold.t
+t/08_register_with_auth.t
 t/testlib.pl
 samples/README
 samples/invite_and_recv.pl

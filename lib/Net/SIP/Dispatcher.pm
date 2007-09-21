@@ -123,16 +123,22 @@ sub new {
 # Args: ($self,$receiver)
 #   $receiver: object which has receive( Net::SIP::Leg,Net::SIP::Packet )
 #     method to handle incoming SIP packets or callback
+#     might be undef - in this case the existing receiver will be removed
 # Returns: NONE
 ###########################################################################
 sub set_receiver {
 	my Net::SIP::Dispatcher $self = shift;
-	my $receiver = shift;
-	if ( my $sub = UNIVERSAL::can($receiver,'receive' )) {
-		# Object with method receive()
-		$receiver = [ $sub,$receiver ]
+	if ( my $receiver = shift ) {
+		if ( my $sub = UNIVERSAL::can($receiver,'receive' )) {
+			# Object with method receive()
+			$receiver = [ $sub,$receiver ]
+		}
+		$self->{receiver} = $receiver;
+	} else {
+		# remove receiver
+		$self->{receiver} = undef
 	}
-	$self->{receiver} = $receiver;
+		
 }
 
 ###########################################################################
@@ -207,28 +213,6 @@ sub remove_leg {
 			$self->{eventloop}->delFD( $fd );
 		}
 	}
-}
-
-sub cleanup {
-	my Net::SIP::Dispatcher $self = shift;
-	my $legs = $self->{legs};
-	my $loop = $self->{eventloop} || return; # global destroy?
-	while ( my $leg = shift @$legs ) {
-		my $fd = $leg && $leg->fd || return; # if no $leg assume global destroy
-		$loop->delFD( $fd );
-	}
-	if ( my $t = $self->{disp_expire} ) {
-		$t->cancel;
-		$self->{disp_expire} = undef;
-	}
-	@{ $self->{queue}} = ();
-	$self->{receiver} = undef;
-}
-
-sub DESTROY {
-	my Net::SIP::Dispatcher $self = shift;
-	$self->cleanup;
-	%$self = ();
 }
 
 ###########################################################################
