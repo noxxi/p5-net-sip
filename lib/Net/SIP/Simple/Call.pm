@@ -52,6 +52,7 @@ use Net::SIP::Debug;
 use Socket;
 use Storable 'dclone';
 use Carp 'croak';
+use Scalar::Util 'weaken';
 
 ###########################################################################
 # create a new call based on a controller
@@ -174,7 +175,7 @@ sub reinvite {
 
 	# predefined callback
 	my $cb = sub {
-		my Net::SIP::Simple::Call $self = shift;
+		my Net::SIP::Simple::Call $self = shift || return;
 		my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
 
 		if ( $errno ) {
@@ -213,13 +214,14 @@ sub reinvite {
 		}
 		invoke_callback( $param->{cb_final},'OK',$self );
 		invoke_callback( $param->{init_media},$self,$param );
-
 	};
 
 	my $stopvar = 0;
 	$param->{cb_final} ||= \$stopvar;
+	$cb = [ $cb,$self ];
+	weaken( $cb->[1] );
 	$self->{ctx} = $self->{endpoint}->invite(
-		$ctx, [ $cb,$self ], $sdp,
+		$ctx, $cb, $sdp,
 		$param->{sip_header} ? %{ $param->{sip_header} } : ()
 	);
 	if ( $param->{cb_final} == \$stopvar ) {
@@ -251,7 +253,8 @@ sub bye {
 
 	my $bye_cb = [
 		sub {
-			my ($self,$cb,$args,$endpoint,$ctx,$error,$code) = @_;
+			my Net::SIP::Simple::Call $self = shift || return;
+			my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
 			# we don't care about the cause of this callback
 			# it might be a successful or failed reply packet or no reply
 			# packet at all (timeout) - the call is considered closed
@@ -266,6 +269,7 @@ sub bye {
 		},
 		$self,$cb,\%args
 	];
+	weaken( $bye_cb->[1] );
 
 	$self->{endpoint}->new_request( 'BYE',$self->{ctx}, $bye_cb );
 }

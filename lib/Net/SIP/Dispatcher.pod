@@ -157,6 +157,12 @@ Delivers B<Net::SIP::Packet> PACKET.
 ID for packet, used in B<cancel_delivery>. If not given the transaction
 ID of PACKET given by method B<tid> will be used.
 
+=item callid
+
+Call-ID for packet, used in B<cancel_delivery> to cancel all deliveries for
+a specific call. If not given the Call-Id of PACKET given by method B<callid> 
+will be used.
+
 =item callback
 
 callback which will be called on definite delivery of packet (only possible
@@ -265,11 +271,18 @@ address by calling B<can_deliver_to> on the leg (see L<Net::SIP::Leg>).
 
 =back
 
-=item cancel_delivery ( ID )
+=item cancel_delivery ( TYP?,ID )
 
 Cancels retransmission of packet with id ID. Called from endpoint
 if response to packet came in, which means that the packet was
 successfully delivered.
+
+If TYP given packets can be canceled by something else. TYP can be
+C<callid>, in which case all deliveries for a specific call will be
+canceled. It can be C<id> which will cancel the packet with id ID.
+Or itcan be C<qentry> in which case ID will be interpreted as
+the L<Net::SIP::Dispatcher::Packet> object in the queue and it will
+cancel this packet.
 
 =item receive ( PACKET, LEG, FROM )
 

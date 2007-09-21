@@ -199,7 +199,7 @@ sub _request_delivery_callback {
 }
 
 ############################################################################
-# remove context from Endpoint
+# remove context from Endpoint and cancel all outstanding deliveries
 # Args: ($self,$id)
 #  $id: either id for ctx or context object or SIP packet
 # Returns: $ctx
@@ -214,6 +214,8 @@ sub close_context {
 		DEBUG( 50,"no context for call-id $id found" );
 		return;
 	};
+	# cancel all outstanding deliveries
+	$self->{dispatcher}->cancel_delivery( callid => $id );
 	return $ctx;
 }
 

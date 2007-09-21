@@ -1,5 +1,13 @@
 Revision history for Net::SIP
 
+0.37
+  - Endpoint::close_context now cancel all outstanding deliveries 
+    for this context in the dispatcher. Extented queue objects 
+    and Dispatcher::cancel_delivery to make this possible
+  - tests for file descriptor leaks (09_fdleak.t,10_fdleak.t)
+  - some more Scalar::Util::weaken for callbacks in Simple::Call
+    to stop circular references
+
 0.36
   - small performance improvements for Net::SIP::Simple::RTP
     and samples/bench

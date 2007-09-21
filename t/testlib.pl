@@ -8,6 +8,20 @@ use IO::Socket;
 #
 ############################################################################
 
+# small implementations if not used from Test::More (09_fdleak.t)
+if ( ! defined &ok ) {
+	no strict 'refs';
+	*{'ok'} = sub {
+		my ($bool,$desc) = @_;
+		print $bool ? "ok ":"not ok ", '# ',$desc || '',"\n";
+	};
+	*{'diag'} = sub { print STDERR "@_\n"; };
+	*{'like'} = sub {
+		my ( $data,$rx,$desc ) = @_;
+		ok( $data =~ $rx ? 1:0, $desc );
+	};
+}
+
 $SIG{ __DIE__ } = sub {
 	ok( 0,"@_" );
 	killall();
@@ -138,7 +152,7 @@ sub fd_grep {
 sub fd_grep_ok {
 	my $pattern = shift;
 	my ($rv,$name) = fd_grep( $pattern, @_ );
-	local $Test::Builder::Level = $Test::Builder::Level+1;
+	local $Test::Builder::Level = $Test::Builder::Level || 0 +1;
 	ok( $rv,"[$name] $pattern" );
 	die "fatal error" if !$rv && ! defined wantarray;
 	return $rv;
@@ -241,5 +255,7 @@ sub deliver {
 	invoke_callback( $self->{dump_outgoing},$packet,$to );
 	return $self->SUPER::deliver( $packet,$to,$callback );
 }
+
+
 
 1;

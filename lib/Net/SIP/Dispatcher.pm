@@ -315,22 +315,45 @@ sub deliver {
 
 ###########################################################################
 # cancel delivery of all packets with specific id
-# Args: ($self,$id)
+# Args: ($self,$typ?,$id)
+#   $typ: what to cancel, e.g. 'id','callid' or 'qentry', optional,
+#     defaults to 'id' if $id is not ref or 'qentry' if $id is ref
 #   $id: id to cancel, can also be queue entry
 # Returns: NONE
 ###########################################################################
 sub cancel_delivery {
 	my Net::SIP::Dispatcher $self = shift;
-	my ($id) = @_;
-	my $q = $self->{queue};
-	if ( ref($id)) {
-		# it's a *::Dispatcher::Packet
-		DEBUG( 100,"cancel packet $id: $id->{id}" );
-		@$q = grep { $_ != $id } @$q;
+	my ($callid,$id,$qentry);
+	if ( @_ == 2 ) {
+		my $typ = shift;
+		if ( $typ eq 'callid' ) { $callid = shift }
+		elsif ( $typ eq 'id' ) { $id = shift }
+		elsif ( $typ eq 'qentry' ) { $qentry = shift }
+		else {
+			croak( "bad typ '$typ', should be id|callid|qentry" );
+		}
 	} else {
+		$id = shift;
+		if ( ref($id)) {
+			$qentry = $id;
+			$id = undef;
+		}
+	}
+	my $q = $self->{queue};
+	if ( $qentry ) {
+		# it's a *::Dispatcher::Packet
+		DEBUG( 100,"cancel packet id: $qentry->{id}" );
+		@$q = grep { $_ != $qentry } @$q;
+	} elsif ( defined $id ) {
 		no warnings; # $_->{id} can be undef
-		DEBUG( 100, "cancel packet $id" );
+		DEBUG( 100, "cancel packet id $id" );
 		@$q = grep { $_->{id} ne $id } @$q;
+	} elsif ( defined $callid ) {
+		no warnings; # $_->{callid} can be undef
+		DEBUG( 100, "cancel packet callid $callid" );
+		@$q = grep { $_->{callid} ne $callid } @$q;
+	} else {
+		croak( "cancel_delivery w/o id" );
 	}
 }
 
@@ -787,6 +810,7 @@ sub dns_domain2srv {
 package Net::SIP::Dispatcher::Packet;
 use fields (
 	'id',           # transaction id, used for canceling delivery if response came in
+	'callid',       # callid, used for canceling all deliveries for this call
 	'packet',       # the packet which nees to be delivered
 	'dst_addr',     # to which adress the packet gets delivered, is array-ref because
 					# the DNS/SRV lookup might return multiple addresses and protocols
@@ -817,6 +841,7 @@ sub new {
 	my $self = fields::new( $class );
 	%$self = %args;
 	$self->{id} ||= $self->{packet}->tid;
+	$self->{callid} ||= $self->{packet}->callid;
 
 	if ( my $addr = $self->{dst_addr} ) {
 		$self->{dst_addr} = [ $addr ] if !ref($addr)
