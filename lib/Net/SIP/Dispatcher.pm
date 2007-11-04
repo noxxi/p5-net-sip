@@ -775,16 +775,42 @@ sub dns_domain2srv {
 	my $dns = Net::DNS::Resolver->new;
 
 	# Try to get SRV records for _sip._udp.domain or _sip._tcp.domain
-	my @resp;
+	my (@resp,%addr2ip);
 	foreach my $proto ( @$protos ) {
 		if ( my $q = $dns->query( '_'.$sip_proto.'._'.$proto.'.'.$domain,'SRV' )) {
 			foreach my $rr ( $q->answer ) {
-				$rr->type eq 'SRV' || next;
-				# XXX fixme, get IPs for name
-				push @resp,[ $rr->priority, $proto,$rr->name,$rr->port ]
+				if ( $rr->type eq 'A' ) {
+					push @{ $addr2ip{$rr->name} }, $rr->address;
+				} elsif ( $rr->type eq 'SRV' ) {
+					push @resp,[ $rr->priority, $proto,$rr->target,$rr->port ]
+				}
 			}
 		}
 	}
+
+	# name to addr based on additional records in DNS answer
+	my @resp_resolved;
+	for my $r (@resp) {
+		if ( my $addr = $addr2ip{ $r->[2] } ) {
+			for (@$addr) {
+				my @cp = @$r;
+				$cp[2] = $_;
+				push @resp_resolved, \@cp;
+			}
+		} else {
+			# either already IP or no additional data for resolving -> later
+			my @cp = @$r;
+			# XXX fixme blocking DNS lookup
+			my $ipn = gethostbyname( $r->[2] ) or do {
+				DEBUG( 1,"cannot resolve $r->[2]" );
+				next;
+			};
+			$cp[2] = inet_ntoa($ipn);
+			push @resp_resolved, \@cp;
+		}
+	}
+	@resp = @resp_resolved;
+
 	# if no SRV records try to resolve address directly
 	unless (@resp) {
 		# try addr directly
@@ -792,7 +818,8 @@ sub dns_domain2srv {
 		if ( my $q = $dns->query( $domain,'A' )) {
 			foreach my $rr ($q->answer ) {
 				$rr->type eq 'A' || next;
-				# XXX fixme, get *all* IPs for name
+				# XXX fixme, check that name in response corresponds to query
+				# (beware of CNAMEs!)
 				push @resp,map {
 					[ -1, $_ , $rr->address,$default_port ]
 				} @$protos;

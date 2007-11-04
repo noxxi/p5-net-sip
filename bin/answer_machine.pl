@@ -158,7 +158,7 @@ sub play_welcome {
 
 	my $from = $call->get_peer;
 	my $filename = sprintf "%d_%s_.pcmu-8000", time(),$from;
-	$filename =~s{[/[:^print:]]}{_}g; # normalize
+	$filename =~s{[/<>:\.[:^print:]]}{_}g; # normalize
 	DEBUG( "call=$call param=$param peer=$from filename='$filename'" );
 	$filename = $savedir."/".$filename if $savedir;
 

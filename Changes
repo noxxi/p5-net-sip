@@ -1,5 +1,12 @@
 Revision history for Net::SIP
 
+0.38
+  - fix dns lookup problem for SRV records. Instead of using the
+    IP it used the service name (e.g. _sip._udp....) as the target
+    of the packet
+  - bin/answer_machine.pl - crude attempt to create filenames
+    which don't have chars special to windows ('<',...)
+
 0.37
   - Endpoint::close_context now cancel all outstanding deliveries 
     for this context in the dispatcher. Extented queue objects 
