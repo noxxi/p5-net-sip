@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.39
+  - work around missing support for non-blocking sockets in IO::Socket
+    on MSWin32 platform
+
 0.38
   - fix dns lookup problem for SRV records. Instead of using the
     IP it used the service name (e.g. _sip._udp....) as the target

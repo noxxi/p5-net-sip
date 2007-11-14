@@ -17,6 +17,10 @@ use Net::SIP::Util qw(invoke_callback);
 use Socket;
 use Net::SIP::Debug;
 
+
+# on MSWin32 non-blocking sockets are not supported from IO::Socket
+use constant CAN_NONBLOCKING => $^O ne 'MSWin32';
+
 ###########################################################################
 # creates function which will initialize Media for echo back
 # Args: ($writeto,$delay)
@@ -47,7 +51,7 @@ sub media_recv_echo {
 			my @delay_buffer;
 			my $echo_back = sub {
 				my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
-				while (1) {
+				for my $dummy (1) {
 					my $buf = _receive_rtp( $sock,$writeto,$targs,$didit );
 					defined($buf) or last;
 					#DEBUG( "$didit=$$didit" );
@@ -58,18 +62,19 @@ sub media_recv_echo {
 					while ( @$delay_buffer > $delay ) {
 						send( $s_sock,shift(@$delay_buffer),0,$remote );
 					}
+					CAN_NONBLOCKING && redo; # try recv again
 				}
 			};
 
 			$call->{loop}->addFD( $sock,
 				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{},\$didit ] );
-			my $was_blocking = $s_sock->blocking(0);
+			my $reset_to_blocking = CAN_NONBLOCKING && $s_sock->blocking(0);
 			push @{ $call->{ rtp_cleanup }}, [ sub {
-				my ($call,$sock,$blocking) = @_;
+				my ($call,$sock,$rb) = @_;
 				DEBUG( 100,"rtp_cleanup: remove socket %d",fileno($sock));
 				$call->{loop}->delFD( $sock );
-				$sock->blocking(1) if $blocking;
-			}, $call,$sock,$was_blocking ];
+				$sock->blocking(1) if $rb;
+			}, $call,$sock,$reset_to_blocking ];
 		}
 
 		# on RTP inactivity for at least 10 seconds close connection
@@ -136,10 +141,11 @@ sub media_send_recv {
 				while (1) {
 					my $buf = _receive_rtp( $sock,$writeto,$targs,$didit ); 
 					defined($buf) or return;
+					CAN_NONBLOCKING or return;
 				}
 			};
 			$call->{loop}->addFD( $sock, [ $receive,$writeto,{},\$didit ] );
-			my $was_blocking = $sock->blocking(0);
+			my $reset_to_blocking = CAN_NONBLOCKING && $sock->blocking(0);
 
 			# sending need to be done with a timer
 			# ! $addr == call on hold
@@ -156,11 +162,11 @@ sub media_send_recv {
 				);
 
 				push @{ $call->{ rtp_cleanup }}, [ sub {
-					my ($call,$sock,$timer,$wb) = @_;
+					my ($call,$sock,$timer,$rb) = @_;
 					$call->{loop}->delFD( $sock );
-					$sock->blocking(1) if $wb;
+					$sock->blocking(1) if $rb;
 					$timer->cancel();
-				}, $call,$sock,$timer,$was_blocking ];
+				}, $call,$sock,$timer,$reset_to_blocking ];
 			}
 		}
 
@@ -332,6 +338,7 @@ sub _send_rtp {
 		$timestamp,
 		0x1234,    # source ID
 	);
+	DEBUG( 100,"send %d bytes to RTP", length($buf));
 	send( $sock,$header.$buf,0,$addr ) || die $!;
 }
 
