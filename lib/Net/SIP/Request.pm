@@ -156,10 +156,27 @@ sub authorize {
 		'proxy-authenticate' => 'proxy-authorization',
 		'www-authenticate' => 'authorization',
 	);
+
 	while ( my ($req,$resp) = each %auth_map ) {
+		my $existing_auth;
 		if ( my @auth = $response->get_header_hashval( $req ) ) {
 			foreach my $a (@auth) {
 				my $h = $a->{parameter};
+
+				# check if we already have an authorize header for this realm/opaque
+				if ( ! $existing_auth ) {
+					$existing_auth = {};
+					foreach my $hdr ( $self->get_header_hashval( $resp )) {
+						my @auth = grep { defined } map { $hdr->{parameter}{$_} }qw( realm opaque );
+						$existing_auth->{ join( "\0",@auth ) } = 1;
+					}
+				}
+
+				my @auth = grep { defined } map { $h->{$_} }qw( realm opaque );
+				if ( $existing_auth->{ join( "\0",@auth ) } ) {
+					# we have this auth header already, don't repeat
+					next;
+				}
 
 				# RFC2617
 				# we support only md5 (not md5-sess or other)
@@ -190,7 +207,7 @@ sub authorize {
 					uri => $self->uri,
 				);
 				$digest{opaque} = $h->{opaque} if defined $h->{opaque};
-
+						
 				# 3.2.2.1
 				if ( $h->{qop} ) {
 					my $nc = $digest{nc} = '00000001';

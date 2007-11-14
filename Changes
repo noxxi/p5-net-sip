@@ -3,6 +3,8 @@ Revision history for Net::SIP
 0.39
   - work around missing support for non-blocking sockets in IO::Socket
     on MSWin32 platform
+  - fix  http://rt.cpan.org/Ticket/Display.html?id=30691 where the same realm
+    was authorized again and again if the given user/pass where wrong
 
 0.38
   - fix dns lookup problem for SRV records. Instead of using the
