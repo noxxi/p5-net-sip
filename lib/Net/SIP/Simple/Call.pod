@@ -18,7 +18,7 @@ e.g. (re-)invites on existing context etc.
 
 =over 4
 
-=item new ( CONTROL, CTX, %ARGS )
+=item new ( CONTROL, CTX, \%ARGS )
 
 Creates a new L<Net::SIP::Simple::Call> object to control a call.
 Usually called from B<invite> in L<Net::SIP::Simple>.
@@ -51,6 +51,16 @@ in L<Net::SIP::Simple> and L<Net::SIP::Simple::RTP>.
 
 Callback will be invoked with the call C<$self> and the connection
 parameter as an argument (as hash reference).
+
+=item rtp_param
+
+Data for the codec used in the media specified by B<init_media> and
+for the initialization of the default SDP data. This is an array reference
+C<< [pt,size,interval,name] >> where B<pt> is the payload type, B<size> is the
+size of the payload and B<interval> the interval in which the RTP packets
+will be send. B<name> is optional and if given an rtpmap entry will be added
+to the SDP so that the name is associated with the given payload type.
+The default is for PCMU/8000: C<< [0,160,160/8000] >>.
 
 =item sdp
 

@@ -5,7 +5,6 @@
 #    can save received data
 # - media_send_recv: receive and optionally save data. Sends back data
 #    from file with optional repeat count
-# only PCMU 8000 data will be handled at the moment
 ###########################################################################
 
 use strict;
@@ -155,9 +154,10 @@ sub media_send_recv {
 					0, # start immediatly
 					[ \&_send_rtp,$s_sock,$call->{loop},$addr,$readfrom, {
 						repeat => $repeat || 1,
-						cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ]
+						cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ],
+						rtp_param => $args->{rtp_param},
 					}],
-					160/8000, # 8000 bytes per second, 160 bytes per sample
+					$args->{rtp_param}[2], # repeat timer
 					'rtpsend',
 				);
 
@@ -265,7 +265,7 @@ sub _receive_rtp {
 ###########################################################################
 # Helper to read  RTP data from file (PCMU 8000) and send them through
 # the RTP socket
-# Args: ($sock,$loop,$addr,$readfrom,$targs)
+# Args: ($sock,$loop,$addr,$readfrom,$targs,$timer)
 #   $sock: RTP socket
 #   $loop: event loop (used for looptime for timestamp)
 #   $addr: where to send data
@@ -275,6 +275,7 @@ sub _receive_rtp {
 #     send (<=0 means forever) and 'cb_done' holds a [\&sub,@arg] callback
 #     to end the call after sending all data
 #     'repeat' makes only sense if $readfrom is filename
+#   $timer: timer which gets canceled once all data are send
 # Return: NONE
 ###########################################################################
 sub _send_rtp {
@@ -308,7 +309,8 @@ sub _send_rtp {
 				open( $fd,'<',$readfrom ) || die $!;
 				$targs->{fd} = $fd;
 			}
-			last if read( $fd,$buf,160 ) == 160;
+			my $size = $targs->{rtp_param}[1]; # 160 for PCMU/8000
+			last if read( $fd,$buf,$size ) == $size;
 			# try to reopen file
 			close($fd);
 			$targs->{fd} = undef;
@@ -333,7 +335,7 @@ sub _send_rtp {
 
 	my $header = pack('CCnNN',
 		0b10000000, # Version 2
-		0b00000000, # PMCU 8000
+		$targs->{rtp_param}[0], # 0 == PMCU 8000
 		$seq, # sequence
 		$timestamp,
 		0x1234,    # source ID

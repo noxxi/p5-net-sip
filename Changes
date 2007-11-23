@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.39_1
+  - primitive support for other codecs in Net::SIP::Simple, see 
+    rtp_param in Net::SIP::Simple::Call
+
 0.39
   - work around missing support for non-blocking sockets in IO::Socket
     on MSWin32 platform

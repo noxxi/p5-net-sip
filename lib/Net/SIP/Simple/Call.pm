@@ -46,6 +46,12 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #   sip_header: hashref of SIP headers to add
 #   call_on_hold: one-shot parameter to set local media addr to 0.0.0.0,
 #       will be set to false after use
+#   rtp_param: [ pt,size,interval,name ] RTP payload type, packet size and interval
+#       between packets managed in Net::SIP::Simple::RTP, default is PCMU/8000,
+#       e.g [ 0,160,160/8000 ]
+#       a name can be added in which case an rtpmap entry will be created in the
+#       SDP, e.g. [ 97,240,0.03,'iLBC/8000' ]
+###########################################################################
 
 use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
 use Net::SIP::Debug;
@@ -78,6 +84,7 @@ sub new {
 	$self->{rtp_cleanup}  = [];
 	$self->{param} = $param ||= {};
 	$param->{init_media} ||= $self->rtp( 'media_recv_echo' );
+	$param->{rtp_param}  ||= [ 0,160,160/8000 ]; # PCMU/8000: 5*160 bytes/second
 	return $self;
 }
 
@@ -432,10 +439,12 @@ sub _setup_local_rtp_socks {
 				};
 			}
 		} else {
+			my $rp = $param->{rtp_param};
 			push @media, {
 				proto => 'RTP/AVP',
 				media => 'audio',
-				fmt   => 0, # PCMU/8000
+				fmt   => $rp->[0] || 0, # PCMU/8000
+				$rp->[3] ? ( a => "rtpmap:$rp->[0] $rp->[3]" ) :(),
 			}
 		}
 
