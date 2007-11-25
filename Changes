@@ -1,6 +1,6 @@
 Revision history for Net::SIP
 
-0.39_2
+0.39_3
   - set Via header correct in the case of udp and port 5061.
     No longer set Via based on contact header, base it only on address
     of leg

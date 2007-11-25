@@ -49,7 +49,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #   rtp_param: [ pt,size,interval,name ] RTP payload type, packet size and interval
 #       between packets managed in Net::SIP::Simple::RTP, default is PCMU/8000,
 #       e.g [ 0,160,160/8000 ]
-#       a name can be added in which case an rtpmap entry will be created in the
+#       a name can be added in which case an rtpmap and ptme entry will be created in the
 #       SDP, e.g. [ 97,240,0.03,'iLBC/8000' ]
 ###########################################################################
 
@@ -444,7 +444,9 @@ sub _setup_local_rtp_socks {
 				proto => 'RTP/AVP',
 				media => 'audio',
 				fmt   => $rp->[0] || 0, # PCMU/8000
-				$rp->[3] ? ( a => "rtpmap:$rp->[0] $rp->[3]" ) :(),
+				$rp->[3] ? ( 
+					a => [ "rtpmap:$rp->[0] $rp->[3]" , "ptime:".$rp->[2]*1000 ]
+				) :(),
 			}
 		}
 
