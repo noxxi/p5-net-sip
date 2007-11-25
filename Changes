@@ -1,6 +1,9 @@
 Revision history for Net::SIP
 
-0.39_1
+0.39_2
+  - set Via header correct in the case of udp and port 5061.
+    No longer set Via based on contact header, base it only on address
+    of leg
   - primitive support for other codecs in Net::SIP::Simple, see 
     rtp_param in Net::SIP::Simple::Call
 

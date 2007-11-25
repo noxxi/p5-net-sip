@@ -73,21 +73,20 @@ sub new {
 		$self->{proto} = ( $sock->socktype == SOCK_STREAM ) ? 'tcp':'udp'
 	}
 
-	unless ( $self->{contact}  = delete $args{contact} ) {
-		my ($port,$sip_proto) =
-			$self->{port} == 5060 ? ( '','sip' ) :
-			$self->{port} == 5061 && $self->{proto} eq 'udp' ? ( '','sips' ) :
-			( ":$self->{port}",'sip' )
-			;
-		$self->{contact} = $sip_proto.':'.$self->{addr}.$port;
-	}
+	my ($port,$sip_proto) =
+		$self->{port} == 5060 ? ( '','sip' ) :
+		( $self->{port} == 5061 and $self->{proto} eq 'tcp' ) ? ( '','sips' ) :
+		( ":$self->{port}",'sip' )
+		;
+	my $leg_addr = $self->{addr}.$port;
+	$self->{contact}  = delete $args{contact} || "$sip_proto:$leg_addr";
 
 	$self->{branch} = 'z9hG4bK'.
 		( delete $args{branch} || md5_hex( @{$self}{qw( addr port proto )} ));
 
 	$self->{contact} =~m{^\w+:(.*)};
 	$self->{via} =  sprintf( "SIP/2.0/%s %s;branch=%s",
-		uc($self->{proto}),$1, $self->{branch} );
+		uc($self->{proto}),$leg_addr, $self->{branch} );
 
 	return $self;
 }
