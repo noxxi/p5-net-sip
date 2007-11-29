@@ -1,6 +1,8 @@
 Revision history for Net::SIP
 
-0.39_3
+0.39_5
+  - Net::SIP::Simple::RTP - when sending data from file set the timestamp
+    based on sequence number and packet size ( == samples in packet for 8bit)
   - set Via header correct in the case of udp and port 5061.
     No longer set Via based on contact header, base it only on address
     of leg

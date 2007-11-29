@@ -320,10 +320,11 @@ sub _send_rtp {
 	$buf || die $!;
 
 	# add RTP header
-	my $now = $loop->looptime;
-	my $timestamp = ( $now * 10_000 ) % 2**32; # 10*ms precision in 32 bit
 	$targs->{wseq}++;
 	my $seq = $targs->{wseq};
+	# 32 bit timestamp based on seq and packet size
+	# FIXME: it assumes here that packet size == number of samples which is true only for 8bit
+	my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32; 
 
 	if (0) {
 		my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );
