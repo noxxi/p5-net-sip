@@ -77,6 +77,7 @@ sub new {
 	$self->{ctx} = ref($ctx) ? $ctx : {
 		to => $ctx,
 		from => $self->{from},
+		contact => $self->{contact},
 		auth => $self->{auth},
 		route => $self->{route},
 	};

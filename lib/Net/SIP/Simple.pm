@@ -21,6 +21,7 @@ use fields (
 	'registrar',          # optional registrar (addr:port)
 	'auth',               # Auth data, see Net::SIP::Endpoint
 	'from',               # SIP address of caller
+	'contact',            # optional local contact address
 	'domain',             # default domain for SIP addresses
 	'last_error',         # last error
 	'options',            # hash with field,values for response to OPTIONS request
@@ -59,6 +60,7 @@ use Net::SIP::Debug;
 #     registrar      - use registrar for registration
 #     auth           - auth data: see Request->authorize for format
 #     from           - myself, used for calls and registration
+#     contact        - optional local contact address
 #     options        - hash with fields,values for reply to OPTIONS request
 #     loop           - predefined Net::SIP::Dispatcher::Eventloop, used if
 #                      shared between UAs
@@ -81,6 +83,7 @@ sub new {
 	my $registrar = delete $args{registrar};
 
 	my $from = delete $args{from};
+	my $contact = delete $args{contact};
 	my $domain = delete $args{domain};
 	if ($from) {
 		$domain = $1 if !defined($domain)
@@ -170,6 +173,7 @@ sub new {
 	%$self = (
 		auth => $auth,
 		from => $from,
+		contact => $contact,
 		domain => $domain,
 		endpoint => $endpoint,
 		registrar => $registrar,
@@ -295,7 +299,7 @@ sub register {
 
 	my $from = delete $args{from} || $self->{from}
 		|| croak( "unknown from" );
-	my $contact = $from;
+	my $contact = delete $args{contact} || $self->{contact} || $from;
 	my $local = $leg->{addr}.':'.$leg->{port};
 	$contact.= '@'.$local unless $contact =~s{\@([\w\-\.]+)}{\@$local};
 

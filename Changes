@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.40_1
+   - give 'contact' header to Net::SIP::Simple which is then used for
+     invite and register
+
 0.40
   - Net::SIP::Simple::RTP - when sending data from file set the timestamp
     based on sequence number and packet size ( == samples in packet for 8bit)

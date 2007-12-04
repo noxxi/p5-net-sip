@@ -30,6 +30,7 @@ Options:
   -O|--outfile filename        write received RTP data to file
   -T|--time interval           hang up after interval seconds
   -L|--leg ip[:port]           use given local ip[:port] for outgoing leg
+  -C|--contact sipaddr         use given contact address for contact in register and invite
   --username name              username for authorization
   --password pass              password for authorization
   --route host[:port]          add SIP route, can be specified multiple times
@@ -48,7 +49,7 @@ EOS
 # Get options
 ###################################################
 
-my ($proxy,$outfile,$registrar,$username,$password,$hangup,$local_leg);
+my ($proxy,$outfile,$registrar,$username,$password,$hangup,$local_leg,$contact);
 my (@routes,$debug);
 GetOptions(
 	'd|debug:i' => \$debug,
@@ -58,6 +59,7 @@ GetOptions(
 	'O|outfile=s' => \$outfile,
 	'T|time=i' => \$hangup,
 	'L|leg=s' => \$local_leg,
+	'C|contact=s' => \$contact,
 	'username=s' =>\$username,
 	'password=s' =>\$password,
 	'route=s' => \@routes,
@@ -131,6 +133,7 @@ my $ua = Net::SIP::Simple->new(
 	outgoing_proxy => $proxy,
 	route => \@routes,
 	legs => \@legs,
+	$contact ? ( contact => $contact ):(),
 	$username ? ( auth => [ $username,$password ] ):(),
 );
 
