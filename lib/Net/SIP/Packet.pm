@@ -494,6 +494,8 @@ sub as_parts {
 	return @{$self}{qw(code text header body)} if $self->{code};
 }
 
+my $word_rx = qr{[\w\-\.!%\*+`'~()<>:"/?{}\x1c\x1b\x1d]+};
+my $callid_rx = qr{^$word_rx(?:\@$word_rx)?$};
 sub _string2parts {
 	my $string = shift;
 	my %result = ( as_string => $string );
@@ -531,10 +533,15 @@ sub _string2parts {
 		my $nk = _normalize_hdrkey($k);
 
 		my @v;
-		if ( $nk eq 'www-authenticate'
+		if ( $nk eq 'call-id' ) {
+			# word [ '@' word ]
+			$v =~ $callid_rx or die 'invalid callid, should be word [@ word]';
+			@v = $v;
+		} elsif ($nk eq 'www-authenticate'
 			|| $nk eq 'proxy-authenticate'
 			|| $nk eq 'authorization'
-			|| $nk eq 'proxy-authorization' ) {
+			|| $nk eq 'proxy-authorization'
+			|| $nk eq 'cseq' ) {
 			# don't split on ','
 			@v = $v;
 		} else {

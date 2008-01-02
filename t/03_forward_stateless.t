@@ -78,7 +78,7 @@ sub fw {
 	});
 	$disp->receive( $request,$incoming_leg,'127.0.0.1:282' );
 	$loop->loop(1,\$delivered_via );
-	ok( $delivered_via, $expected_outgoing_leg );
+	ok( $delivered_via == $expected_outgoing_leg, 'expected leg' );
 }
 
 

@@ -1,8 +1,10 @@
 Revision history for Net::SIP
 
-0.40_1
+0.40_3
    - give 'contact' header to Net::SIP::Simple which is then used for
      invite and register
+   - syntax check for call-id in Net::SIP::Packet when parsing SIP string
+   - fix wrong call of ok() in t/03_forward_stateless
 
 0.40
   - Net::SIP::Simple::RTP - when sending data from file set the timestamp
