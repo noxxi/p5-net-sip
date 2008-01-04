@@ -30,6 +30,7 @@ sub uri         { return (shift->as_parts())[1] }
 
 sub set_uri {
 	my Net::SIP::Request $self = shift;
+	$self->_update_string;
 	$self->{text} = shift;
 }
 

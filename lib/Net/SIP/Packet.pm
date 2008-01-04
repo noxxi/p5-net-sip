@@ -494,93 +494,133 @@ sub as_parts {
 	return @{$self}{qw(code text header body)} if $self->{code};
 }
 
-my $word_rx = qr{[\w\-\.!%\*+`'~()<>:"/?{}\x1c\x1b\x1d]+};
-my $callid_rx = qr{^$word_rx(?:\@$word_rx)?$};
-sub _string2parts {
-	my $string = shift;
-	my %result = ( as_string => $string );
+{
+	my $word_rx = qr{[\w\-\.!%\*+`'~()<>:"/?{}\x1c\x1b\x1d]+};
+	my $callid_rx = qr{^$word_rx(?:\@$word_rx)?$};
+	my %key2parser = (
 
-	# otherwise parse request
-	my ($header,$body) = split( m{\r?\n\r?\n}, $string,2 );
-	my @header = split( m{\r?\n}, $header );
+		# FIXME: More of these should be more strict to filter out invalid values
+		# for now they are only given here to distinguish them from the keys, which
+		# can be given multiple times either on different lines or on the same delimited
+		# by comma
 
-	if ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
-		# Response, e.g. SIP/2.0 407 Authorization required
-		$result{code} = $1;
-		$result{text} = $2;
-	} elsif ( $header[0] =~m{^(\w+)\s+(\S.*?)\s+SIP/2\.0\s*$} ) {
-		# Request, e.g. INVITE <sip:bla@fasel> SIP/2.0
-		$result{code} = $1;
-		$result{text} = $2;
-	} else {
-		die "bad request: starts with '$header[0]'";
-	}
-	shift(@header);
+		'www-authenticate' => \&_hdrkey_parse_keep,
+		'authorization' => \&_hdrkey_parse_keep,
+		'proxy-authenticate' => \&_hdrkey_parse_keep,
+		'proxy-authorization' => \&_hdrkey_parse_keep,
+		'date' => \&_hdrkey_parse_keep,
+		'content-disposition' => \&_hdrkey_parse_keep,
+		'content-type' => \&_hdrkey_parse_keep,
+		'mime-version' => \&_hdrkey_parse_keep,
+		'organization' => \&_hdrkey_parse_keep,
+		'priority' => \&_hdrkey_parse_keep,
+		'reply-to' => \&_hdrkey_parse_keep,
+		'retry-after' => \&_hdrkey_parse_keep,
+		'server' => \&_hdrkey_parse_keep,
+		'to' => \&_hdrkey_parse_keep,
+		'user-agent' => \&_hdrkey_parse_keep,
 
-	$result{body} = $body;
+		'content-length' => \&_hdrkey_parse_num,
+		'expires' => \&_hdrkey_parse_num,
+		'max-forwards' => \&_hdrkey_parse_num,
+		'min-expires' => \&_hdrkey_parse_num,
 
-	my @hdr;
-	my @lines;
-	while (@header) {
-		my ($k,$v) = $header[0] =~m{^([^\s:]+)\s*:\s*(.*)}
-			or die "bad header line $header[0]";
-		my $line = shift(@header);
-		while ( @header && $header[0] =~m{^\s+(.*)} ) {
-			# continuation line
-			$v .= "\n$1";
-			$line .= shift(@header);
-		}
-		my $nk = _normalize_hdrkey($k);
+		'call-id' => sub { 
+			$_[0] =~ $callid_rx or die "invalid callid, should be 'word [@ word]'";
+			return $_[0];
+		},
+		'cseq' => sub { 
+			$_[0] =~ m{^\d+\s+\w+\s*$} or die "invalid cseq, should be 'number method'";
+			return $_[0];
+		},
+	);
 
-		my @v;
-		if ( $nk eq 'call-id' ) {
-			# word [ '@' word ]
-			$v =~ $callid_rx or die 'invalid callid, should be word [@ word]';
-			@v = $v;
-		} elsif ($nk eq 'www-authenticate'
-			|| $nk eq 'proxy-authenticate'
-			|| $nk eq 'authorization'
-			|| $nk eq 'proxy-authorization'
-			|| $nk eq 'cseq' ) {
-			# don't split on ','
-			@v = $v;
-		} else {
-			# split on komma (but not if quoted)
-			push @v,'';
-			my $quoted = 0;
-			while (1) {
-				if ( $v =~m{\G(.*?)([\\",])}gc ) {
-					if ( $2 eq "\\" ) {
-						$v[-1].=$1.$2.substr( $v,pos($v),1 );
-						pos($v)++;
-					} elsif ( $2 eq '"' ) {
-						$v[-1].=$1.$2;
-						$quoted = !$quoted;
-					} elsif ( $2 eq ',' ) {
-						# next item if not quoted
-						( $v[-1].=$1 ) =~s{\s+$}{}; # strip trailing space
-						push @v,'' if !$quoted;
-						$v =~m{\G\s+}gc; # skip space after ','
-					}
-				} else {
-					# add rest to last from @v
-					$v[-1].= substr($v,pos($v)||0 );
-					last;
+	sub _hdrkey_parse_keep { return $_[0] };
+	sub _hdrkey_parse_num {
+		my ($v,$k) = @_;
+		$v =~m{^(\d+)\s*$} || die "invalid $k, should be number";
+		return $1;
+	};
+
+	sub _hdrkey_parse_comma_seperated {
+		my ($v,$k) = @_;
+		my @v = ( '' );
+		my $quoted = 0;
+		# split on komma (but not if quoted)
+		while (1) {
+			if ( $v =~m{\G(.*?)([\\",])}gc ) {
+				if ( $2 eq "\\" ) {
+					$v[-1].=$1.$2.substr( $v,pos($v),1 );
+					pos($v)++;
+				} elsif ( $2 eq '"' ) {
+					$v[-1].=$1.$2;
+					$quoted = !$quoted;
+				} elsif ( $2 eq ',' ) {
+					# next item if not quoted
+					( $v[-1].=$1 ) =~s{\s+$}{}; # strip trailing space
+					push @v,'' if !$quoted;
+					$v =~m{\G\s+}gc; # skip space after ','
 				}
+			} else {
+				# add rest to last from @v
+				$v[-1].= substr($v,pos($v)||0 );
+				last;
 			}
 		}
-		if ( @v>1 ) {
-			for( my $i=0;$i<@v;$i++ ) {
-				push @hdr, Net::SIP::HeaderPair->new( $k,$v[$i],scalar(@lines),$i );
-			}
-		} else {
-			push @hdr, Net::SIP::HeaderPair->new( $k,$v[0],scalar(@lines) );
-		}
-		push @lines, [ $line, int(@v) ];
+		return @v;
 	}
-	$result{header} = \@hdr;
-	$result{lines}  = \@lines;
-	return \%result;
+
+	sub _string2parts {
+		my $string = shift;
+		my %result = ( as_string => $string );
+
+		# otherwise parse request
+		my ($header,$body) = split( m{\r?\n\r?\n}, $string,2 );
+		my @header = split( m{\r?\n}, $header );
+
+		if ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
+			# Response, e.g. SIP/2.0 407 Authorization required
+			$result{code} = $1;
+			$result{text} = $2;
+		} elsif ( $header[0] =~m{^(\w+)\s+(\S.*?)\s+SIP/2\.0\s*$} ) {
+			# Request, e.g. INVITE <sip:bla@fasel> SIP/2.0
+			$result{code} = $1;
+			$result{text} = $2;
+		} else {
+			die "bad request: starts with '$header[0]'";
+		}
+		shift(@header);
+
+		$result{body} = $body;
+
+		my @hdr;
+		my @lines;
+		while (@header) {
+			my ($k,$v) = $header[0] =~m{^([^\s:]+)\s*:\s*(.*)}
+				or die "bad header line $header[0]";
+			my $line = shift(@header);
+			while ( @header && $header[0] =~m{^\s+(.*)} ) {
+				# continuation line
+				$v .= "\n$1";
+				$line .= shift(@header);
+			}
+			my $nk = _normalize_hdrkey($k);
+
+			my $parse = $key2parser{$nk};
+			my @v = $parse ? $parse->($v,$nk) : _hdrkey_parse_comma_seperated($v,$nk);
+			if ( @v>1 ) {
+				for( my $i=0;$i<@v;$i++ ) {
+					push @hdr, Net::SIP::HeaderPair->new( $k,$v[$i],scalar(@lines),$i );
+				}
+			} else {
+				push @hdr, Net::SIP::HeaderPair->new( $k,$v[0],scalar(@lines) );
+			}
+			push @lines, [ $line, int(@v) ];
+		}
+		$result{header} = \@hdr;
+		$result{lines}  = \@lines;
+		return \%result;
+	}
 }
 
 ###########################################################################
