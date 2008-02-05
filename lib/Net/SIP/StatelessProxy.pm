@@ -110,6 +110,10 @@ sub receive {
 		dst_addr => [],
 	);
 
+	# we don't send requests ourself, so all responses should be 
+	# forwarded. For requests we have to distinguish between requests
+	# for ourself (like OPTION) and requests, which should be forwarded
+
 	if ( $packet->is_response ) {
 		__forward_response( $self, \%entry );
 	} else {

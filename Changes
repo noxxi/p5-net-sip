@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.41_1
+   - if a contact header was given in Net::SIP::Simple which had a
+     port specification the port would be duplicated, e.g. 
+     user@ip:port:port
+
 0.41
    - give 'contact' header to Net::SIP::Simple which is then used for
      invite and register
