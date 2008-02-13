@@ -263,7 +263,8 @@ sub deliver {
 	my Net::SIP::Leg $self = shift;
 	my ($packet,$addr,$callback) = @_;
 
-	if ( $packet->is_request ) {
+	my $isrq = $packet->is_request;
+	if ( $isrq ) {
 		# add via,
 		# clone packet, because I don't want to change the original
 		# one because it might be retried later
@@ -274,6 +275,19 @@ sub deliver {
 		my $via = $self->{via};
 		$via .= md5_hex( $packet->tid );
 		$packet->insert_header( via => $via );
+	}
+
+	# 2xx responses and INVITE requests need contact header
+	if (( $packet->method eq 'INVITE' and $isrq or !$isrq and $packet->code =~m{^2} ) 
+		and ! $packet->get_header( 'contact' )) {
+		# needs contact header, create from this leg and user part of from/to
+		my ($user) = sip_hdrval2parts( $isrq 
+			? ( from => scalar($packet->get_header('from')) )
+			: ( to   => scalar($packet->get_header('to')) )
+		);
+		my $contact = ( $user =~m{([^:<>\@]+)\@} ? $1 : $user ). 
+			"\@$self->{addr}:$self->{port}";
+		$packet->insert_header( contact => $contact );
 	}
 
 	my ($proto,$host,$port) =

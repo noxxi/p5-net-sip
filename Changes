@@ -1,6 +1,10 @@
 Revision history for Net::SIP
 
-0.41_1
+0.41_2
+   - make sure that the right contact header is set. for outgoing
+     invites and 2xx responses to invite combine the user part from the 
+     sender ('from' for requests, 'to' for responses) with addr and port 
+     from the outgoing leg - unless the contact was explicitly set.
    - if a contact header was given in Net::SIP::Simple which had a
      port specification the port would be duplicated, e.g. 
      user@ip:port:port

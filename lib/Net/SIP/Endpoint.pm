@@ -149,7 +149,6 @@ sub new_request {
 	die "cannot redefine call-id" if delete $args{ 'call-id' };
 	my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
 
-
 	if ( ! UNIVERSAL::isa( $ctx,'Net::SIP::Endpoint::Context' )) {
 		$ctx = Net::SIP::Endpoint::Context->new($ctx);
 		$self->{ctx}{ $ctx->callid } = $ctx; # make sure we manage the context
@@ -293,12 +292,10 @@ sub receive_request {
 		}
 
 		# create a new context;
-		my $contact = $request->get_header( 'contact' );
 		$ctx = Net::SIP::Endpoint::Context->new(
 			incoming => 1,
 			from => scalar( $request->get_header( 'from' )),
 			to   => scalar( $request->get_header( 'to' )),
-			$contact ? ( contact => $contact ) : (),
 			callid => scalar( $request->get_header( 'call-id' )),
 			via  => [ $request->get_header( 'via' ) ],
 		);
@@ -331,13 +328,6 @@ sub new_response {
 	my ($ctx,$response,$leg,$addr) = @_;
 
 	$self->{ctx}{ $ctx->callid } = $ctx if $ctx; # keep context
-	if ( $ctx && ! $response->get_header( 'contact' ) && $response->method eq 'INVITE' ) {
-		my $code = $response->code;
-		if ( $code>=200 && $code<300 ) {
-			# 2xx response requires contact header
-			$response->set_header( contact => $ctx->contact );
-		}
-	}
 	$self->{dispatcher}->deliver( $response,
 		leg      => $leg,
 		dst_addr => $addr,

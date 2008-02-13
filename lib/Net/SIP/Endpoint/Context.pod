@@ -43,7 +43,7 @@ And the following optional keys:
 
 =item contact
 
-Contact info for B<from>.
+Contact info for context. 
 
 =item incoming
 
@@ -87,12 +87,6 @@ Defaults to 0, e.g. the first request will get the sequence number 1.
 =item callid
 
 Returns callid of current call.
-
-=item contact
-
-Returns contact of current call.
-For outgoing calls this is the C<contact> given in the constructor or
-if not given C<from>. For incoming calls this is C<to>.
 
 =item peer
 

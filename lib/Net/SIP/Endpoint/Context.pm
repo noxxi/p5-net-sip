@@ -99,24 +99,6 @@ sub callid {
 }
 
 ############################################################################
-# gets contact, either from contact info on context (only for outgoing)
-# or from 'from'/'to'
-# Args: $self
-# Returns: $contact
-############################################################################
-sub contact {
-	my Net::SIP::Endpoint::Context $self = shift;
-	if ( $self->{incoming} ) {
-		my ($data) = sip_hdrval2parts( to => $self->{to} );
-		return $data;
-	} else {
-		return $self->{contact} if $self->{contact};
-		my ($data) = sip_hdrval2parts( from => $self->{from} );
-		return $data;
-	}
-}
-
-############################################################################
 # get peer
 # Args: $self
 # Returns: $peer
@@ -142,7 +124,6 @@ sub peer {
 sub new_request {
 	my Net::SIP::Endpoint::Context $self = shift;
 	my ($method,$body,%args) = @_;
-
 
 	my $request;
 	if ( ref($method)) {
@@ -170,7 +151,7 @@ sub new_request {
 		}
 
 		# contact is mandatory for INVITE
-		$contact = $from if $method eq 'INVITE' and ! defined $contact;
+		# will be added within Leg
 
 		$request = Net::SIP::Request->new(
 			$method,     # Method
@@ -178,7 +159,7 @@ sub new_request {
 			{
 				from => $from,
 				to => $to,
-				contact => $contact,
+				$contact ? ( contact => $contact ):(),
 				route => $self->{route},
 				cseq => "$cseq $method",
 				'call-id' => $self->{callid},
