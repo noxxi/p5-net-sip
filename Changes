@@ -1,6 +1,6 @@
 Revision history for Net::SIP
 
-0.41_2
+0.41_3
    - make sure that the right contact header is set. for outgoing
      invites and 2xx responses to invite combine the user part from the 
      sender ('from' for requests, 'to' for responses) with addr and port 

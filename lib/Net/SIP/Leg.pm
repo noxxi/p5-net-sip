@@ -285,8 +285,9 @@ sub deliver {
 			? ( from => scalar($packet->get_header('from')) )
 			: ( to   => scalar($packet->get_header('to')) )
 		);
-		my $contact = ( $user =~m{([^:<>\@]+)\@} ? $1 : $user ). 
+		my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ). 
 			"\@$self->{addr}:$self->{port}";
+		$contact = 'sip:'.$contact if $contact  !~m{^\w+:};
 		$packet->insert_header( contact => $contact );
 	}
 
