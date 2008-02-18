@@ -333,7 +333,14 @@ sub handle_response {
 		if ( $method eq 'INVITE' ) {
 			# is response to INVITE, create ACK
 			# and propagate to upper layer
-			my $ack = $tr->{request}->create_ack( $response );
+			my $req = $tr->{request};
+			if ( my $contact = $response->get_header( 'contact' )) {
+				# 12.1.2 - set URI for dialog to contact given in response which
+				# establishes the dialog
+				$contact = $1 if $contact =~m{<(\w+:[^>\s]+)>};
+				$req->set_uri( $contact );
+			}
+			my $ack = $req->create_ack( $response );
 			invoke_callback($cb,@arg,0,$code,$response,$leg,$from,$ack);
 			$endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
 
@@ -375,7 +382,8 @@ sub handle_response {
 		# 21.3.3 302 moved temporarily
 		# redo request and insert request again
 		my $contact = $self->{to} = $response->get_header( 'contact' );
-		( my $r = $tr->{request} )->set_header( to => $contact );
+		$contact = $1 if $contact =~m{<(\w+:[^>\s]+)>};
+		( my $r = $tr->{request} )->set_uri( $contact );
 		$r->set_cseq( ++$self->{cseq} );
 		$endpoint->new_request( $r,$self );
 

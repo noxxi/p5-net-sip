@@ -1,6 +1,9 @@
 Revision history for Net::SIP
 
-0.41_3
+0.42
+   - on 2xx responses set the URI of the dialog to the contact given
+     in the response. For 302 retry the request with the URI set to
+     the contact given in the 302 response.
    - make sure that the right contact header is set. for outgoing
      invites and 2xx responses to invite combine the user part from the 
      sender ('from' for requests, 'to' for responses) with addr and port 
