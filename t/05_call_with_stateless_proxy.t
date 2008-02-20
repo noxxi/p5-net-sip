@@ -96,8 +96,8 @@ foreach my $spec ( qw( no-nat inline-nat remote-nat )) {
 	# top via must be from lproxy[1], next via from UAC
 	# this is to show that the request went through the proxy
 	fd_grep_ok( 'call created',10,$uas );
-	fd_grep_ok( "via: SIP/2.0/UDP $lproxy[1]{addr};",1,$uas );
-	fd_grep_ok( "via: SIP/2.0/UDP $luac->{addr};",1,$uas );
+	fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $lproxy[1]{addr};}i,1,$uas );
+	fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $luac->{addr};}i,1,$uas );
 
 	# done
 	fd_grep_ok( 'RTP done',10,$uac );

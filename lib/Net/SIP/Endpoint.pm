@@ -296,6 +296,7 @@ sub receive_request {
 			incoming => 1,
 			from => scalar( $request->get_header( 'from' )),
 			to   => scalar( $request->get_header( 'to' )),
+			contact => scalar( $request->get_header( 'contact' )),
 			callid => scalar( $request->get_header( 'call-id' )),
 			via  => [ $request->get_header( 'via' ) ],
 		);

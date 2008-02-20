@@ -430,7 +430,7 @@ sub as_string {
 
 		my $v = $header->[$hi]{value};
 		$v =~s{\r?\n\s*}{\r\n }g; # \r?\n\s* -> \r\n + space for continuation lines
-		$result[$hi] = $header->[$hi]{key}.": ".$v;
+		$result[$hi] = ucfirst($header->[$hi]{key}).": ".$v;
 	}
 
 	# (re)build packet

@@ -277,19 +277,32 @@ sub deliver {
 		$packet->insert_header( via => $via );
 	}
 
-	# 2xx responses and INVITE requests need contact header
-	if (( $packet->method eq 'INVITE' and $isrq or !$isrq and $packet->code =~m{^2} ) 
-		and ! $packet->get_header( 'contact' )) {
-		# needs contact header, create from this leg and user part of from/to
-		my ($user) = sip_hdrval2parts( $isrq 
-			? ( from => scalar($packet->get_header('from')) )
-			: ( to   => scalar($packet->get_header('to')) )
-		);
-		my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ). 
-			"\@$self->{addr}:$self->{port}";
-		$contact = 'sip:'.$contact if $contact  !~m{^\w+:};
-		$packet->insert_header( contact => $contact );
+	# 2xx responses and INVITE requests must have a contact header
+	# They should have an Allow header too und Supported would be good to
+	if ( $isrq and $packet->method eq 'INVITE' or !$isrq and $packet->code =~m{^2} ) {
+		if ( ! $packet->get_header( 'contact' )) {
+			# needs contact header, create from this leg and user part of from/to
+			my ($user) = sip_hdrval2parts( $isrq 
+				? ( from => scalar($packet->get_header('from')) )
+				: ( to   => scalar($packet->get_header('to')) )
+			);
+			my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ). 
+				"\@$self->{addr}:$self->{port}";
+			$contact = 'sip:'.$contact if $contact  !~m{^\w+:};
+			$packet->insert_header( contact => $contact );
+		}
+		# allow and supported can be multiple so enforce array context
+		unless ( my @a =  $packet->get_header( 'allow' )) {
+			# add the default set
+			$packet->insert_header( allow => 'INVITE, ACK, OPTIONS, CANCEL, BYE' );
+		}
+		unless ( my @a = $packet->get_header( 'supported' )) {
+			# set as empty
+			$packet->insert_header( supported => '' );
+		}
 	}
+
+
 
 	my ($proto,$host,$port) =
 		$addr =~m{^(?:(\w+):)?([\w\-\.]+)(?::(\d+))?$};
