@@ -1,6 +1,9 @@
 Revision history for Net::SIP
 
-0.42_2
+0.43
+   - enforce codec 0 PCMU/8000 in outgoing SDP generated based on
+     incoming SDP, don't just accept all codecs the other party offers
+     because Net::SIP::Simple can only PCMU/8000
    - make header names per default ucfirst (Via not via)
    - add default allow and supported headers to INVITE requests and
      2xx responses if none where given

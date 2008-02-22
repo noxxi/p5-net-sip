@@ -432,6 +432,10 @@ sub _setup_local_rtp_socks {
 					$self->error( "only RTP/AVP supported" );
 					return;
 				}
+				if ( $m->{media} eq 'audio' ) {
+					# enforce PCMU/8000 for now
+					$m = { %$m, fmt => '0' }
+				}
 				push @media, {
 					media => $m->{media},
 					proto => $m->{proto},
