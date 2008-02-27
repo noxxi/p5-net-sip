@@ -640,7 +640,7 @@ sub as_parts {
 sub sdp_body {
 	my Net::SIP::Packet $self = shift;
 	my $ct = $self->get_header( 'content-type' );
-	return if $ct && $ct ne 'application/sdp';
+	return if $ct && lc($ct) ne 'application/sdp';
 	my $body = ($self->as_parts)[3] || return;
 	return Net::SIP::SDP->new( $body );
 }

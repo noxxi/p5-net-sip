@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.44_1
+   - Net::SIP::Packet::sdp_body - content type is case insensitive,
+     accept application/SDP etc
+
 0.44
    - Net::SIP::Packet::get_header: if called in scalar to get the only
      one value and we have multiple values try if they are all the same
