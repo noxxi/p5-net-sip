@@ -13,8 +13,8 @@ use Net::SIP ':all';
 my ($ssock,$saddr) = create_socket();
 my $tfn = fileno( newfd() );
 if ( fileno($ssock) != $tfn-1 ) {
-	warn "Platform does not give fds in order fn,fn+1,fn+2...\n";
-	print "1..0\n";
+	print "1..0 # Platform does not give fds in order fn,fn+1,fn+2...\n";
+	exit;
 } else {
 	print "1..7\n";
 }

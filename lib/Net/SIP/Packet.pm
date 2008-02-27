@@ -215,7 +215,14 @@ sub get_header {
 			push @v,$h->{value} if $h->{key} eq $key;
 		}
 		return @v if wantarray;
-		croak( "multiple values for $key" ) if @v>1;
+		if (@v>1) {
+			# looks like we have multiple headers but expect only
+			# one. Because we've seen bad client which issue multiple
+			# content-length header we try if all in @v are the same
+			my %v = map { $_ => 1 } @v;
+			return $v[0] if keys(%v) == 1; # ok, only one
+			croak( "multiple values for $key" );
+		}
 		return $v[0];
 	} else {
 		my %result;

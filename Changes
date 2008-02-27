@@ -1,5 +1,14 @@
 Revision history for Net::SIP
 
+0.44
+   - Net::SIP::Packet::get_header: if called in scalar to get the only
+     one value and we have multiple values try if they are all the same
+     and in this case return the uniq value instead of croaking
+     Works around bug in proxy which issued two content-length headers
+     with the same length as reported in
+     http://rt.cpan.org/Ticket/Display.html?id=33592
+   - fix test skip in t/*fdleak.t 
+
 0.43
    - enforce codec 0 PCMU/8000 in outgoing SDP generated based on
      incoming SDP, don't just accept all codecs the other party offers
