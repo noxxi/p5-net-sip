@@ -34,12 +34,15 @@ Creates new event loop, returns created object
 
 =over 4
 
-=item addFD ( HANDLE, CALLBACK )
+=item addFD ( HANDLE, CALLBACK, ?NAME )
 
 Adds file handle HANDLE to the event loop, so that CALLBACK gets triggered
 if HANDLE is readable. CALLBACK is a callback accepted by B<invoke_callback>
 in L<Net::SIP::Util>. The callback will be invoked with HANDLE as an additional
 argument.
+
+NAME can be used to aid debugging, it will be shown in the debug messages
+once the FD gets ready.
 
 If there was already a callback for HANDLE it gets replaced by the new one.
 

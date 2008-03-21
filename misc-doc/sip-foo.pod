@@ -1,0 +1,241 @@
+=head1 VoIP mit Net::SIP
+
+=head2 Was ist SIP
+
+SIP ist der IETF Standard für VoIP, d.h. Telefonie etc über Internet. Daneben
+gibt es noch den H.323 Standard von der ITU und das proprietäre Skype. SIP ist
+in Deutschland inzwischen stark verbreitet, meist von den Kunden direkt mittels
+Routern wie Fritz!BoxFON oder transparent für den Kunden in sogenannten NGN (New
+Generation Networks).
+
+SIP beschreibt ausschließlich die Verbindung. Der Transport der Nutzdaten (Sprache,
+Video...) erfolgt i.A. über RTP. Über SIP tauschen die Gegenstellen SDP Pakete 
+aus, um die Endpunkte für den Transport der Nutzdaten festzulegen.
+
+SIP selber ist ein umfangreiches Protokoll. Die aktuelle Version ist definiert
+in RFC3261, zur Telefonie sind aber noch mindestens RFC2327 und RFC3264 zu
+verstehen, welche die Herstellung von Datenverbindungen mittels SDP beschreiben.
+Weiterhin gibt es viele Erweiterungen, Auslegungen etc die in vielen weiteren RFCs 
+beschrieben sind.
+
+=head2 Was ist Net::SIP
+
+L<Net::SIP> ist eine Sammlung von Modulen, um in Perl mit SIP arbeiten zu
+können. Es läuft auf perl5.8 und perl5.9. Einzige Abhängigkeit außer den
+CORE Modulen ist Net::DNS.
+
+L<Net::SIP> ist entstanden im Zusammenhang mit der Implementation eines VoIP/SIP
+Gateways für das GeNUGate Hochsicherheitsfirewall Produkt (siehe
+L<http://www.genua.de>).
+
+=head2 Was kann Net::SIP
+
+L<Net::SIP> implementiert ausschließlich SIP, sowie die für SIP notwendigen Teile 
+von SDP. Es gibt eine minimale Implementation um RTP Daten zu
+übermitteln. Es implementiert keine Schnittstelle zu Sprach- oder Videodaten,
+d.h. mit L<Net::SIP> alleine ist es nicht möglich ein SIP Telefon zu erstellen.
+
+Man kann jedoch L<Net::SIP> nutzen um z.B.:
+
+=over 4
+
+=item * 
+
+Jemanden anrufen und vorgefertige RTP Daten verschicken. Sinnvoll für
+automatische Ansagen (für die es hoffentlich auch Nutzung außer Werbung
+gibt).
+
+=item *
+
+Anrufe entgegennehmen und mit vorgefertigten Ansagen beantworten (z.B bei
+Anruf Podcast), dabei evtl. Sprachdaten der Gegenstelle speichern (Anrufbeantworter).
+
+=item *
+
+Verbindungen mit externen RTP Quellen vermitteln (z.B. bei Anruf wird Verbindung
+zu Internetradio hergestellt). Hier ist u.U. jedoch ein Programm nötig, welches
+die Codes angleicht.
+
+=item *
+
+Verbindungen zwischen 2 SIP Parteien aufbauen (3pcc, d.h. 3rd Party Call
+Control).
+
+=item *
+
+Nachrichten verschicken (SMS), sofern das SIP Endgerät über entsprechende
+Möglichkeiten verfügt.
+
+=item *
+
+VoIP/SIP über Firewalls hinweg vermitteln durch Umschreiben der SIP/SDP Pakete und
+Transport der RTP Daten.
+
+=item *
+
+Aufbau einer einfachen SIP Zentrale mit Registrar und Proxy, an die die SIP
+Telefone angeschlossen werden. Mit Perl kann man dann komfortabel (zumindest das
+was Perl Programmierer als komfortabel empfinden) Policies z.B. basierend auf der 
+Nummer der Gegenstelle implementieren, d.h. Anrufe blockieren, an mehrere Telefone
+weiterleiten, auf Anrufbeantworter lenken, mit einer bestimmten Ansage versehen
+etc. Auch Warteschleifenmusik sollte gehen.
+
+Man kann mit den Mitteln von L<Net::SIP> jedoch keine Umwandlung von Codecs,
+Mixen von Sprachdaten (für Konferenzanrufe) o.ä. vornehmen, wie es z.B Asterisk
+kann. Auch die Reaktion auf Usereingaben über die Tastatur (DTMF) bleibt
+Asterisk vorbehalten. Es ist jedoch möglich, Anrufe nach in Perl implementierten
+Kriterien an den Asterisk SIP Proxy weiterzuleiten.
+
+=back 
+
+Momentan hat L<Net::SIP> Unterstützung für SIP über UDP und IPv4. Unterstützung
+für SIP über TCP ist praktisch nicht getestet, SIPS (verschlüsselt) ist nicht
+unterstützt. Nicht unterstützt ist auch IPv6.
+In der Praxis sollten diese Limitierungen z.Z. kein Problem darstellen, da SIP fast
+ausschließlich über UDP/IPv4 benutzt wird.
+
+=head2 Struktur von L<Net::SIP>
+
+Auf der untersten Ebene sind die Klassen zur Verarbeitung der SIP Pakete, d.h.
+L<Net::SIP::Packet> und die Spezialisierungen L<Net::SIP::Request> und
+L<Net::SIP::Response>. 
+
+Darauf aufbauend implementiert L<Net::SIP::Endpoint> eine
+SIP Endstelle, während L<Net::SIP::Registrar> einen einfachen Registrar und
+L<Net::SIP::StatelessProxy> einen Proxy konfiguriert. Mittels
+L<Net::SIP::ReceiveChain> können Programme konstruiert werden, die sich je nach
+SIP Request als Endstelle, Registrar oder Proxy verhalten, bei Bedarf auch mit
+Authorisierung durch L<Net::SIP::Authorize>.
+
+Der Empfang und das Verschicken von Daten sowie evtl. nötige Wiederholungen beim
+Verschicken sind in L<Net::SIP::Dispatcher> und L<Net::SIP::Leg> implementiert.
+
+Bis zu dieser Stelle ist der Code so aufgebaut, das er voll asynchron ausgeführt
+werden kann, was u.a. für den SIP-Firewall bei GeNUA nötig war, da dieser
+aus Performancegründen in einem Eventloop (d.h. keine Threads und kein Forking) 
+implementiert ist. Allerdings ist eine eventbasierte Arbeitsweise für einfache
+Aufgaben zu umständlich.
+
+Daher gibt es als oberste Ebene L<Net::SIP::Simple>, welches ein einfaches
+Interface für Standardaufgaben (anrufen, Anruf annehmen, Registrar bauen...)
+bereitstellt und auch über eine einfache Implementation zum Versenden und
+Empfangen von RTP Daten verfügt. Damit lassen sich prima Tests schreiben (was
+der primäre Zweck war), es ist jedoch auch leistungsfähig genug für komplexere
+Applikationen.
+
+=head2 Beispiele
+
+
+Die *.raw Dateien in den Beispielen sind mit dem PCMU/8000 Codec 
+codierte Dateien, das ist das einzige Format was die simple RTP Implementation
+zur Zeit empfangen und verschicken kann.
+Wandeln kann man solche Dateien mit B<sox>, z.B.
+
+  sox input.ogg -t raw -b -U -c 1 -r 8000 output.raw
+  sox -t raw -b -U -c 1 -r 8000  input.raw output.ogg
+
+=head3 Ein Proxy mit Registrarfunktion
+
+Dieses Beispiel ist ein Proxy, bei dem man sich auch registrieren kann. Wenn ein
+neuer Anruf reinkommt, wird zuerst geschaut, ob die Zieladdresse lokal
+registriert ist und dann zu dieser vermittelt, ansonsten der Anruf nach außen
+weitervermittelt:
+
+  use strict;
+  use Net::SIP;
+  my $ua = Net::SIP::Simple->new( leg => '192.168.178.2:5060' );
+  $ua->create_chain([
+      $ua->create_registrar,
+      $ua->create_stateless_proxy,
+  ]);
+  $ua->loop;
+
+=head3 Genau einen Anruf entgegennehmen
+
+Dieses Programm registriert sich an dem obigen Registrar/Proxy als 'sip:00@me.local'.
+Dann wartet es auf einen Anruf, spielt diesem die Message aus welcome.raw vor
+und speichert gleichzeitig die Sprachdaten vom Anrufer in data.raw. Außerdem läßt
+es nur bestimmte Anrufer zu (z.B. 'sip:31@me.local').
+Nachdem eine Nachricht empfangen wurde beendet es sich.
+
+  use strict;
+  use Net::SIP;
+  my $ua = Net::SIP::Simple->new(
+      from => 'sip:00@me.local',
+      leg => '192.168.178.3:5060',
+      registrar => '192.168.178.2:5060',
+  );
+  $ua->register;
+  my ($done,$call_created);
+  $ua->listen(
+      cb_create => \$call_created,
+      filter => sub {
+          $call_created && return; # habe schon einen Anruf laufen
+          return shift =~m/31\@/; # check gegen Absender
+      },
+      init_media => $ua->rtp( 'send_recv', 'welcome.raw','data.raw' ),
+	  recv_bye => \$done,
+  );
+  $ua->loop(\$done);
+
+=head3 Anrufen
+
+Dieses Programm benutzt als Proxy den obigen Registrar/Proxy und ruft
+'00@me.local', also den simplen Anrufbeantworter aus dem letzten Beispiel, an.
+Dort hinterläßt es die Message aus message.raw und beendet dann die
+Verbindung.
+
+  use strict;
+  use Net::SIP;
+  my $ua = Net::SIP::Simple->new(
+      from => 'sip:31@fasel.com',
+      outgoing_proxy => '192.168.178.2',
+  );
+  my $done;
+  my $call = $ua->invite( 'sip:00@me.local',
+      init_media => $ua->rtp( 'send_recv','message.raw' ),
+      cb_rtp_done => \$done,
+  );
+  $call->loop( \$done );
+  $call->bye;
+  
+
+=head2 Wie kann ich helfen
+
+Die beste Hilfe ist momentan L<Net::SIP> zu nutzen und dadurch Schwachstellen der
+Implementierung bzw. Dokumentation oder Probleme bei der Zusammenarbeit mit bestimmten SIP
+Gegenstellen aufzudecken.
+
+Ansonsten freue ich mich über sinnvolle Beispiele und auch über Links zu
+Projekten, die L<Net::SIP> nutzen. Beides kann ich dann zum Projekt hinzufügen,
+um damit die Dokumentation und Motivation insb. für Neueinsteiger zu erhöhen.
+Und außerdem würde ich sehen, was ich auf keinen Fall ändern darf, um
+Euren Code nicht zu brechen.
+
+=head2 Weitere Informationen
+
+Ich habe versucht die Dokumentation zum Module ausführlich zu machen (wobei man
+wohl nie genug Dokumentation haben kann). Weiterhin sind in der Distribution
+Beispiele und funktionierende Applikationen für Anrufen, Anrufe entgegennehmen,
+3rd Party Call Control, Anrufbeantworter und ein Proxy, der SIP über einen
+Firewall transportiert. Diese Beispiele werden bei der Installation des Modules
+nicht mit installiert, sind aber z.B. sichtbar auf 
+L<http://search.cpan.org/src/SULLR/Net-SIP-0.32/>
+
+Weiterhin stehe ich gerne für Nachfragen, Problem- und Bugreports zu Verfügung
+und beantworte entsprechende Mails normalerweise innerhalb von wenigen Tagen.
+
+=head2 Über den Autor
+
+Steffen Ullrich <Steffen_Ullrich@genua.de> hat 18 Jahre Programmiererfahrung,
+davon die letzten 11 Jahre fast ausschließlich mit Perl. Ich arbeite zur Zeit bei
+der Firma GeNUA mbh (L<http://www.genua.de>) was neben einer angenehmen,
+familienfreundlichen Arbeitsatmosphäre auch ein Paradies für Perl-Entwickler
+ist.
+
+Ich bin Autor und Maintainer von L<Net::SIP> und L<Devel::TrackObjects> sowie 
+aktueller Maintainer von L<IO::Socket::SSL>.
+
+
+
+

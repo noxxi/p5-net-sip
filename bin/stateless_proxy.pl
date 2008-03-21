@@ -81,7 +81,7 @@ GetOptions(
 	'P|proxy=s'   => \$proxy,
 ) || usage( "bad option" );
 
-$check_leg->(); final call
+$check_leg->(); #final call
 Net::SIP::Debug->level( $debug || 1 ) if defined $debug;
 %legs or usage( 'no addr to listen' );
 
@@ -117,11 +117,15 @@ my $disp = myDispatcher->new(
 
 my %registrar;
 foreach my $opt ( values %legs ) {
-	$opt->{registrar} || next;
+	$opt->{registrar} or do {
+		DEBUG( 50,"no registrar on leg $opt->{leg} ".$opt->{leg}->dump );
+		next;
+	};
 	$registrar{ $opt->{leg} } = Net::SIP::Registrar->new(
 		dispatcher => $disp,
 		domains    => $opt->{domains},
 	);
+	DEBUG( 50,"create registrar on leg $opt->{leg} ".$opt->{leg}->dump." for domains @{$opt->{domains}}" );
 }
 
 my $registrar = %registrar
@@ -188,8 +192,16 @@ sub receive {
 sub query {
 	my myRegistrar $self = shift;
 	my ($uri,$allowed_legs) = @_;
-	$allowed_legs ||= [ $self->{dispatcher}->get_legs ];
-	return map { $self->{$_}->query( $uri ) } @$allowed_legs;
+	my @result;
+	for( @$allowed_legs ) {
+		if ( ! $self->{$_} ) {
+			DEBUG( 50,"leg $_ ".$_->dump." is allowed, but not mine" );
+		} else {
+			push @result, $self->{$_}->query($uri);
+		}
+	}
+	DEBUG( 50,"result of query $uri -> @result" );
+	return @result;
 }
 
 ###################################################
@@ -236,16 +248,19 @@ sub resolve_uri {
 		return;
 	};
 
+	DEBUG( 50,"try to resolve $proto:$user\@$domain" );
 	if ( $d2l && %$d2l ) {
+		DEBUG( 50,"d2l on $self: ".join(' ',keys %$d2l));
 		# find leg
 		my $leg;
 		while (1) {
 			last if ( $leg = $d2l->{$domain} );
-			$domain =~s{[^\.]+}{};
+			$domain =~s{[^\.]+}{} or last;
 			last if ( $leg = $d2l->{'*'.$domain} );
-			$domain =~s{^\.}{};
+			$domain =~s{^\.}{} or last;
 		}
 		if ( $leg ) {
+			DEBUG( 50,"find leg $leg ".$leg->dump." for $domain" );
 			$allowed_legs = [ $self->get_legs ] unless
 				$allowed_legs && @$allowed_legs;
 			if ( ! first { $leg == $_ } @$allowed_legs ) {
@@ -255,7 +270,11 @@ sub resolve_uri {
 			} else {
 				$allowed_legs = [ $leg ]
 			}
+		} else {
+			DEBUG(50,"could not find leg for delivery" );
 		}
+	} else {
+		DEBUG( 50,"no d2l on $self");
 	}
 
 	if ( my $reg = $self->{registrar} ) {

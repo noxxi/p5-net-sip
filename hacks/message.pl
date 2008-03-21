@@ -47,8 +47,6 @@ if ( $pid == 0 ) {
 } else {
 
 	# CLIENT: send message request, wait for 200 reply and exit
-	# Bug: currently no check will be done if the call-id etc of the
-	# response matches the request
 
 	close($sleg);
 	my $sock = create_socket_to( $saddr );

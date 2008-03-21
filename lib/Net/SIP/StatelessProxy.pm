@@ -236,6 +236,8 @@ sub __forward_request {
 			DEBUG( 50,"setting leg from our route header" );
 			$entry->{outgoing_leg} = \@legs;
 			shift(@route);
+		} else {
+			DEBUG( 50,"no legs which can deliver to $addr:$port (route)" );
 		}
 		if ( @route ) {
 			# still routing infos. Use next route as dst_addr
@@ -244,10 +246,13 @@ sub __forward_request {
 			@{ $entry->{dst_addr} } = ( "$addr:$port" );
 			DEBUG( 50, "setting dst_addr from route to $addr:$port" );
 		}
+	} else {
+		DEBUG( 50,'no route header' );
 	}
 
 	if ( ! @{ $entry->{dst_addr}} ) {
 		my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
+		DEBUG( 50,"need to resolve ".$packet->uri." proto=".( $proto ||'') );
 		return $disp->resolve_uri(
 			$packet->uri,
 			$entry->{dst_addr},

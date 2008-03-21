@@ -33,18 +33,19 @@ sub new {
 
 ###########################################################################
 # adds callback for the event, that FD is readable
-# Args: ($self,$fd,$callback)
+# Args: ($self,$fd,$callback,?$name)
 #  $fd: file descriptor
 #  $callback: callback to be called, when fd is readable, will be called
 #    with fd as argument
+#  $name: optional name for callback, used for debugging
 # Returns: NONE
 ###########################################################################
 sub addFD {
 	my Net::SIP::Dispatcher::Eventloop $self = shift;
-	my ($fd,$callback) = @_;
+	my ($fd,$callback,$name) = @_;
 	defined( my $fn = fileno($fd)) || return;
 	#DEBUG( 100, "$self added fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
-	$self->{fd}[$fn] = [ $fd,$callback ];
+	$self->{fd}[$fn] = [ $fd,$callback,$name ];
 }
 
 ###########################################################################
@@ -170,7 +171,7 @@ sub loop {
 			for( my $fn=0;$fn<@$fds;$fn++ ) {
 				vec($rout,$fn,1) or next;
 				my $fd_data = $fds->[$fn] or next;
-				DEBUG( 1,"fn=$fn" );
+				DEBUG( 50,"call cb on fn=$fn ".( $fd_data->[2] || '') );
 				invoke_callback( $fd_data->[1],$fd_data->[0] );
 			}
 		} else {

@@ -1,8 +1,12 @@
 Revision history for Net::SIP
 
-0.44_1
+0.44_2
    - Net::SIP::Packet::sdp_body - content type is case insensitive,
      accept application/SDP etc
+   - more debug statements
+   - Dispatcher::EventLoop::addFD
+     3rd arg name of callback to aid debugging
+   - fix bin/stateless_proxy.pl
 
 0.44
    - Net::SIP::Packet::get_header: if called in scalar to get the only

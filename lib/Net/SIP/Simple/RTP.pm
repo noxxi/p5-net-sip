@@ -66,7 +66,8 @@ sub media_recv_echo {
 			};
 
 			$call->{loop}->addFD( $sock,
-				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{},\$didit ] );
+				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{},\$didit ],
+				'rtp_echo_back' );
 			my $reset_to_blocking = CAN_NONBLOCKING && $s_sock->blocking(0);
 			push @{ $call->{ rtp_cleanup }}, [ sub {
 				my ($call,$sock,$rb) = @_;
@@ -143,7 +144,7 @@ sub media_send_recv {
 					CAN_NONBLOCKING or return;
 				}
 			};
-			$call->{loop}->addFD( $sock, [ $receive,$writeto,{},\$didit ] );
+			$call->{loop}->addFD( $sock, [ $receive,$writeto,{},\$didit ],'rtp_receive' );
 			my $reset_to_blocking = CAN_NONBLOCKING && $sock->blocking(0);
 
 			# sending need to be done with a timer

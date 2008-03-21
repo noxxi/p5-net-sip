@@ -171,6 +171,11 @@ or a hash reference which will be used to construct one. It contains
 information about C<from> and C<to> etc. See
 constructor in L<Net::SIP::Endpoint::Context> for details.
 
+If it is an existing CTX it has to be one which is already managed
+by this endpoint (e.g. one returned by this method), the endpoint 
+will only manage CTX which it created itself so that a context
+cannot be shared between multiple endpoints.
+
 CALLBACK is a callback usable by B<invoke_callback> in L<Net::SIP::Util>.
 If defined it will be set up as the new default callback for the
 context.

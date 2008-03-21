@@ -80,12 +80,12 @@ sub new {
 		);
 	}
 
-	DEBUG( 100,"CREATE context $self" );
+	DEBUG( 100,"CREATE context $self callid=$self->{callid}" );
 	return $self
 }
 
 sub DESTROY {
-	DEBUG( 100,"DESTROY context $_[0]" );
+	DEBUG( 100,"DESTROY context $_[0] callid=$_[0]->{callid}" );
 }
 
 ############################################################################
