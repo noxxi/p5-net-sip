@@ -430,11 +430,12 @@ my $RX_IP4 = do {
 	my $part = qr{2(?:[0-4]\d|5[0-5]|\d?)|[01]\d{0,2}|[3-9]\d?};
 	qr{^$part\.$part\.$part\.$part$}
 };
-my $RX_IP6 = do {
-	my $hex4 = qr{[\da-fA-F]{4}};
-	my $hexseq = qr{ $hex4 (?: : $hex4 )* }x;
-	qr{^(?: $hexseq (?: :: (?:$hexseq)? )? | :: $hexseq )$ }x;
-};
+
+# very rough, just enough to distinguish IPv6 from hostnames
+my $RX_IP6 = qr{^[a-fA-F\d:]+:[a-fA-F\d:.]*$};
+my $CHECK_IP6 = eval "use Socket6"
+	? sub { Socket6::inet_pton( &AF_INET6, shift ) } 
+	: sub { 1 }; # FIXME: better syntax check here?
 
 sub _split_c {
 	my ($ntyp,$atyp,$addr) = split( ' ',shift,3 );
@@ -442,7 +443,8 @@ sub _split_c {
 	if ( $atyp eq 'IP4' ) {
 		die "bad IP4 address: '$addr'" if $addr !~m{$RX_IP4};
 	} elsif ( $atyp eq 'IP6' ) {
-		die "bad IP6 address: '$addr'" if $addr !~m{$RX_IP6};
+		die "bad IP6 address: '$addr'" if $addr !~m{$RX_IP6}
+			or !$CHECK_IP6->($addr);
 	} else {
 		die "addrtype $atyp not supported"
 	}

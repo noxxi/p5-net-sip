@@ -85,7 +85,7 @@ sub new {
 }
 
 sub DESTROY {
-	DEBUG( 100,"DESTROY context $_[0] callid=$_[0]->{callid}" );
+	DEBUG( 100,"DESTROY context $_[0] callid=$_[0]->{callid}" ) if $_[0];
 }
 
 ############################################################################
