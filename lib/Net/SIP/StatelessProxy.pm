@@ -37,7 +37,8 @@ sub new {
 
 	my $disp = $self->{dispatcher} =
 		delete $args{dispatcher} || croak 'no dispatcher given';
-	$self->{rewrite_contact} ||= [ \&_default_rewrite_contact, $self ];
+	$self->{rewrite_contact} = delete $args{rewrite_contact}
+		|| [ \&_default_rewrite_contact, $self ];
 	$self->{nathelper} = delete $args{nathelper};
 
 	return $self;
@@ -59,16 +60,17 @@ sub _default_rewrite_contact {
 		$contact .= "MARKER";
 		my $lc = length($contact);
 		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
-		$new = unpack( 'H*',( $contact ^ $secret ));
+		# add 'r' in front of hex so it does not look like phone number
+		$new = 'r'.unpack( 'H*',( $contact ^ $secret )); 
 		DEBUG( 100,"rewrite $contact -> $new" );
-	} elsif ( $contact =~m{^[0-9a-f]+$} ) {
+	} elsif ( $contact =~m{^r([0-9a-f]+)$}i ) {
 		# needs to be written back
-		$new = pack( 'H*',$contact );
+		$new = pack( 'H*',$1 );
 		my $lc = length($new);
 		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 		$new = $new ^ $secret;
-		DEBUG( 100,"rewrite back $contact -> $new" );
 		$new =~s{MARKER$}{} || return;
+		DEBUG( 100,"rewrite back $contact -> $new" );
 	} else {
 		# invalid format
 		DEBUG( 100,"no rewriting of $contact" );
@@ -122,14 +124,14 @@ sub receive {
 
 		my ($to) = sip_hdrval2parts( uri => $packet->uri );
 		$to = $1 if $to =~m{<(\w+:\S+)>};
-		my ($pre,$name) = $to =~m{^(.*?)(\w+)\@};
+		my ($pre,$name) = $to =~m{^(sips?:)(\S+)?\@};
 		if ( $name && ( my $back = invoke_callback( $rewrite_contact,$name ) )) {
 			$to = $pre.$back;
-			DEBUG( 10,"rewrote URI from '%s' to '%s'", $packet->uri, $to );
+			DEBUG( 10,"rewrote URI from '%s' back to '%s'", $packet->uri, $to );
 			$packet->set_uri( $to )
 		}
 
-		__forward_request( $self, \%entry );
+		$self->__forward_request_getleg( \%entry );
 	}
 }
 
@@ -218,22 +220,25 @@ sub __forward_response_1 {
 # Forwards request
 # try to find outgoing_leg from Route header
 # if there are more Route headers it picks the destination address from next
-# if it cannot get a destination address tries to resolve URI and then
-# calls __forward_request_1
 ###########################################################################
-sub __forward_request {
+sub __forward_request_getleg {
 	my Net::SIP::StatelessProxy $self = shift;
 	my $entry = shift;
+	return $self->__forward_request_getdaddr($entry)
+		if @{$entry->{outgoing_leg}};
+
 	my $packet = $entry->{packet};
 	my $disp = $self->{dispatcher};
 
 	# if the top route header points to a local leg we use this as outgoing leg
 	if ( my @route = $packet->get_header( 'route' ) ) {
+		$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
 		my ($data) = sip_hdrval2parts( route => $route[0] );
 		my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+		$port ||= 5060; # FIXME sips
 		my @legs = $disp->get_legs( addr => $addr, port => $port );
 		if ( @legs ) {
-			DEBUG( 50,"setting leg from our route header" );
+			DEBUG( 50,"setting leg from our route header: $data -> ".$legs[0]->dump );
 			$entry->{outgoing_leg} = \@legs;
 			shift(@route);
 		} else {
@@ -241,28 +246,44 @@ sub __forward_request {
 		}
 		if ( @route ) {
 			# still routing infos. Use next route as dst_addr
+			$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
 			my ($data) = sip_hdrval2parts( route => $route[0] );
 			my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+			$port ||= 5060; # FIXME sips
 			@{ $entry->{dst_addr} } = ( "$addr:$port" );
-			DEBUG( 50, "setting dst_addr from route to $addr:$port" );
+			DEBUG( 50, "setting dst_addr from route $data to $addr:$port" );
 		}
 	} else {
 		DEBUG( 50,'no route header' );
 	}
 
-	if ( ! @{ $entry->{dst_addr}} ) {
-		my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
-		DEBUG( 50,"need to resolve ".$packet->uri." proto=".( $proto ||'') );
-		return $disp->resolve_uri(
-			$packet->uri,
-			$entry->{dst_addr},
-			$entry->{outgoing_leg},
-			[ \&__forward_request_1,$self,$entry ],
-			$proto,
-		);
-	}
+	$self->__forward_request_getdaddr($entry);
+}
 
-	__forward_request_1( $self,$entry );
+###########################################################################
+# Forwards request
+# try to find dst addr
+# if it does not have destination address tries to resolve URI and then
+# calls __forward_request_1
+###########################################################################
+sub __forward_request_getdaddr {
+	my Net::SIP::StatelessProxy $self = shift;
+	my $entry = shift;
+
+	return __forward_request_1( $self,$entry )
+		if @{ $entry->{dst_addr}};;
+
+	my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
+	my $packet = $entry->{packet};
+	my $disp = $self->{dispatcher};
+	DEBUG( 50,"need to resolve ".$packet->uri." proto=".( $proto ||'') );
+	return $disp->resolve_uri(
+		$packet->uri,
+		$entry->{dst_addr},
+		$entry->{outgoing_leg},
+		[ \&__forward_request_1,$self,$entry ],
+		$proto,
+	);
 }
 
 ###########################################################################
@@ -368,8 +389,9 @@ sub __forward_packet_final {
 	$dst_addr = $dst_addr->[0];
 
 	my $packet = $entry->{packet};
-	# rewrite contact header
-	if ( my @contact = $packet->get_header( 'contact' ) ) {
+	# rewrite contact header if outgoing leg is different to incoming leg
+	if ( $outgoing_leg != $incoming_leg and 
+		(my @contact = $packet->get_header( 'contact' ))) {
 
 		my $rewrite_contact = $self->{rewrite_contact};
 		foreach my $c (@contact) {
@@ -404,7 +426,7 @@ sub __forward_packet_final {
 	# prepare outgoing packet
 	if ( my $err = $outgoing_leg->forward_outgoing( $packet,$incoming_leg )) {
 		my ($code,$text) = @$err;
-		DEBUG( 10,"ERROR while forwarding: $code, $text" );
+		DEBUG( 10,"ERROR while forwarding: ".( defined($code) ? "$code, $text" : $text ));
 		return;
 	}
 

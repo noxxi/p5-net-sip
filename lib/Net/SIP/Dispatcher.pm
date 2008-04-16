@@ -478,6 +478,9 @@ sub __deliver {
 
 	# loop until leg und dst_addr are known, when we call leg->deliver
 	my $leg = $qentry->{leg}[0];
+	if ( $leg && @{ $qentry->{leg}}>1 ) {
+		DEBUG( 50,"picking first of multiple legs: ".join( " ", map { $_->dump } @{ $qentry->{leg}} ));
+	}
 	my $dst_addr = $qentry->{dst_addr}[0];
 
 	if ( ! $dst_addr || ! $leg) {
@@ -526,7 +529,7 @@ sub __deliver {
 
 	# adds via on cloned packet, calls cb if definite success (tcp)
 	# or error
-	DEBUG( 50,"deliver through leg $leg \@$dst_addr" );
+	DEBUG( 50,"deliver through leg ".$leg->dump." \@$dst_addr" );
 	weaken( my $rself = \$self );
 	$cb = [ $cb,$self,$qentry ];
 	weaken( $cb->[1] );

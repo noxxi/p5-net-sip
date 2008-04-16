@@ -280,7 +280,7 @@ sub deliver {
 	# 2xx responses and INVITE requests must have a contact header
 	# They should have an Allow header too und Supported would be good to
 	if ( $isrq and $packet->method eq 'INVITE' or !$isrq and $packet->code =~m{^2} ) {
-		if ( ! $packet->get_header( 'contact' )) {
+		if ( ! ( my @c = $packet->get_header( 'contact' ))) {
 			# needs contact header, create from this leg and user part of from/to
 			my ($user) = sip_hdrval2parts( $isrq 
 				? ( from => scalar($packet->get_header('from')) )

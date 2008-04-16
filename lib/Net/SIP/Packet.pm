@@ -221,7 +221,7 @@ sub get_header {
 			# content-length header we try if all in @v are the same
 			my %v = map { $_ => 1 } @v;
 			return $v[0] if keys(%v) == 1; # ok, only one
-			croak( "multiple values for $key" );
+			croak( "multiple values for $key in packet:\n".$self->as_string );
 		}
 		return $v[0];
 	} else {

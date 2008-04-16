@@ -1,13 +1,31 @@
 Revision history for Net::SIP
 
-0.44_3
+0.44_4
    - Net::SIP::Packet::sdp_body - content type is case insensitive,
      accept application/SDP etc
    - more debug statements
    - Dispatcher::EventLoop::addFD
      3rd arg name of callback to aid debugging
-   - fix bin/stateless_proxy.pl
    - Net::SIP::SDP - better check for IP6 address
+   - Leg: allow multiple contact header in request/response
+   - StatelessProxy: 
+     - rewrite contact header only if incoming_leg!=outgoing_leg,
+     - let it actuall define external rewrite function
+     - prefix user in default rewrite contact with 'r' so that it does
+       not look like phone number and doesn't irritate rewriting
+     - fix rewriting, so that user part does not need to be \w+
+     - split __forward_request into __forward_request_getleg and 
+       __forward_request_getaddr for better subclassing
+     - reduce <..> into .. in route before processing it
+   - Registrar: 
+     - update all contact information at once, don't combine information 
+       from different register requests
+     - access to internal store, to save/restore it from disk with
+       bin/stateless_proxy.pl
+   - fix and extend bin/stateless_proxy.pl
+     - add rewriting, e.g. 0XXX gets forward as XXX to host 
+     - restore/save registry data on start/exit
+     - rework lots of code
 
 0.44
    - Net::SIP::Packet::get_header: if called in scalar to get the only

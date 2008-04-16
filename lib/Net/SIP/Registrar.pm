@@ -45,6 +45,13 @@ sub new {
 	return $self;
 }
 
+# hack to have access to the store, to dump or restore it
+sub _store { 
+	my $self = shift;
+	$self->{store} = shift if @_;
+	return $self->{store};
+}
+
 ###########################################################################
 # handle packet, called from Net::SIP::Dispatcher on incoming requests
 # Args: ($self,$packet,$leg,$addr)
@@ -64,11 +71,14 @@ sub receive {
 	$packet->is_request || return;
 	if ( $packet->method ne 'REGISTER' ) {
 		# if we know the target rewrite the destination URI
-		my $uri = $packet->uri;
-		DEBUG( 1,"method ".$packet->method." uri=<$uri>" );
-		my @found = $self->query( $uri );
-		@found or return;
-		DEBUG( 1,"rewrite URI $uri in ".$packet->method." to $found[0]" );
+		my $addr = (sip_uri2parts($packet->uri))[3];
+		DEBUG( 1,"method ".$packet->method." addr=<$addr>" );
+		my @found = $self->query( $addr );
+		@found or do {
+			DEBUG( 1, "$addr not locally registered" );
+			return;
+		};
+		DEBUG( 1,"rewrite URI $addr in ".$packet->method." to $found[0]" );
 		$packet->set_uri( $found[0] );
 		return; # propagate to next in chain
 	}
@@ -101,9 +111,8 @@ sub receive {
 
 	# to which contacs it will be registered
 	my @contact = $packet->get_header( 'contact' );
-	my $store = $self->{store};
-	my $curr = $store->{ $from } ||= {};
 
+	my %curr;
 	foreach my $c (@contact) {
 		# update contact info
 		my ($c_addr,$param) = sip_hdrval2parts( contact => $c );
@@ -123,16 +132,18 @@ sub receive {
 			}
 			$expire += $now if $expire;
 		}
-		$curr->{$c_addr} = $expire;
+		$curr{$c_addr} = $expire;
 	}
+
+	$self->{store}{ $from } = \%curr;
 
 	# expire now!
 	$self->expire();
-	DEBUG_DUMP( 100,$store );
+	DEBUG_DUMP( 100,$self->{store} );
 
 	# send back a list of current contacts
 	my $response = $packet->create_response( '200','OK' );
-	while ( my ($where,$expire) = each %$curr ) {
+	while ( my ($where,$expire) = each %curr ) {
 		$expire -= $now;
 		$response->add_header( contact => "<$where>;expires=$expire" );
 	}
