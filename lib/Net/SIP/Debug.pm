@@ -27,7 +27,7 @@ my $debug_sub;               # alternative sub to STDERR output
 sub import {
 	my $class = shift;
 	my (@export,@level);
-	foreach (@_) {
+	for (@_) {
 		if ( ref eq 'CODE' ) {
 			# set debug sub
 			$debug_sub = $_;
@@ -37,14 +37,9 @@ sub import {
 			push @export,$_
 		}
 	}
-	if (@level) {
-		$class->level(@level)
-	} elsif (@export) {
-		$class->export_to_level(1,@export)
-	} elsif (!@_) {
-		# export defaults only
-		$class->export_to_level(1)
-	}
+	$class->level(@level) if @level;
+	$class->export_to_level(1,@export) if @export;
+	$class->export_to_level(1) if ! @export && ! @level;
 }
 
 ##############################################################

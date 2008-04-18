@@ -1,6 +1,6 @@
 Revision history for Net::SIP
 
-0.44_4
+0.45
    - Net::SIP::Packet::sdp_body - content type is case insensitive,
      accept application/SDP etc
    - more debug statements
@@ -26,6 +26,10 @@ Revision history for Net::SIP
      - add rewriting, e.g. 0XXX gets forward as XXX to host 
      - restore/save registry data on start/exit
      - rework lots of code
+   - Net::SIP::Debug: import can set debug function, level and export 
+     function within the same call
+   - bugfix Net::SIP::Endpoint::Context::handle_response, see
+     http://rt.cpan.org/Ticket/Display.html?id=35121
 
 0.44
    - Net::SIP::Packet::get_header: if called in scalar to get the only

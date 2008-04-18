@@ -249,7 +249,7 @@ sub handle_response {
 		if ( $t->{tid} eq $tid ) {
 			$tr = $t;
 		} else {
-			push @ntrans,$tr
+			push @ntrans,$t
 		}
 	}
 	$tr || do {
