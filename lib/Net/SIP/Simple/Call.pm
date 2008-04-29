@@ -276,6 +276,46 @@ sub reinvite {
 
 
 ###########################################################################
+# cancel call
+# Args: ($self,%args)
+#   %args:
+#     cb_final: callback when CANCEL was delivered. If not given send_cancel
+#        callback on Call object will be used
+# Returns: true if call could be canceled
+# Comment: cb_final gets triggered if the reply for the CANCEL is received
+# or waiting for the reply timed out
+###########################################################################
+sub cancel {
+	my Net::SIP::Simple::Call $self = shift;
+	my %args = @_;
+
+	my $cb = delete $args{cb_final};
+	%args = ( %{ $self->{param} }, %args );
+	$cb ||= $args{send_cancel};
+
+	my $cb = [
+		sub {
+			my Net::SIP::Simple::Call $self = shift || return;
+			my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
+			# we don't care about the cause of this callback
+			# it might be a successful or failed reply packet or no reply
+			# packet at all (timeout) - the call is considered closed
+			# in any case except for 1xx responses
+			if ( $code && $code =~m{^1\d\d} ) {
+				DEBUG( 10,"got prelimary response for CANCEL" );
+				return;
+			}
+			invoke_callback( $cb,$args );
+			$self->cleanup;
+		},
+		$self,$cb,\%args
+	];
+	weaken( $cb->[1] );
+
+	return $self->{endpoint}->cancel_invite( $self->{ctx}, undef, $cb );
+}
+
+###########################################################################
 # end call
 # Args: ($self,%args)
 #   %args:

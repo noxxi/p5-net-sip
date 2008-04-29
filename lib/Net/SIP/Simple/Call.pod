@@ -216,6 +216,16 @@ L<Net::SIP::Simple::Call> object to create the first SDP session. Changes on the
 SDP session will be done by calling this method on the L<Net::SIP::Simple::Call>
 object C<$self>.
 
+=item cancel ( %ARGS )
+
+Closes a pending call by sending a CANCEL request.
+Returns true if call was pending and could be canceled.
+
+If %ARGS contains B<cb_final> it will be used as a callback and invoked once it gets
+the response for the CANCEL (which might be a response packet or a timeout).
+The rest of %ARGS will be merged with the connection parameter and given as an argument
+to the B<cb_final> callback (as hash reference).
+
 =item bye ( %ARGS )
 
 Closes a call by sending a BYE request.

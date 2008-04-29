@@ -1,10 +1,10 @@
 Revision history for Net::SIP
 
-0.45_1
+0.45_2
    - support for canceling a call after some time of ringing based on
      input from http://rt.cpan.org/Ticket/Display.html?id=34576
      see Net::SIP::Simple::Call documentation for sub reinvite, parameters
-     ring_time, cb_noanswer
+     ring_time, cb_noanswer. See also method cancel in this package
      feature gets used in samples/invite_and_send.pl too
    - fix for t/*_fdleak for platforms, which use 2 fd for tempfiles (see 
      http://rt.cpan.org/Ticket/Display.html?id=35485). Now it allocates a
