@@ -190,6 +190,15 @@ It returns the L<Net::SIP::Endpoint::Context> object for this
 request which can be then used for further requests in the same
 call.
 
+=item cancel_invite ( CTX, REQUEST, CALLBACK )
+
+Cancel the given request within the given context (e.g send CANCEL request).
+If no REQUEST is given it will cancel the most recent INVITE. Returns the
+number of requests canceled, e.g. 0 or 1.
+
+CALLBACK will be used as the callback for the CANCEL request it sends using
+B<new_request>.
+
 =item close_context ( CTX )
 
 Delete L<Net::SIP::Endpoint::Context> object CTX from the list

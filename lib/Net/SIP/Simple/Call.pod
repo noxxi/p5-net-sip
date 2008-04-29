@@ -203,7 +203,11 @@ response for the INVITE was received and B<init_media> if this response was
 successful.
 
 If no B<cb_final> callback was given it will wait in the event loop until a final
-response was received.
+response was received. Only in this case it will also use the param
+B<ring_time> which specifies the time it will wait for a final response. If
+no final response came in within this time it will send a CANCEL request for
+this call to close it. In this case a callback specified with B<cb_noanswer>
+will be called after the CANCEL was delivered (or delivery failed).
 
 Returns the connection context as L<Net::SIP::Endpoint::Context> object.
 

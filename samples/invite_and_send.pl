@@ -33,6 +33,7 @@ Options:
   -R|--registrar host[:port]   register at given address
   -S|--send filename           send content of file, can be given multiple times
   -L|--leg ip[:port]           use given local ip[:port] for outgoing leg
+  -T|--timeout T               timeout and cancel invite after T seconds, default 30
   --username name              username for authorization
   --password pass              password for authorization
 
@@ -50,6 +51,7 @@ EOS
 # Get options
 ###################################################
 
+my $ring_time = 30;
 my ($proxy,@files,$registrar,$username,$password,$local_leg);
 my ($debug,$hangup);
 GetOptions(
@@ -59,6 +61,7 @@ GetOptions(
 	'R|registrar=s' => \$registrar,
 	'S|send=s' => \@files,
 	'L|leg=s' => \$local_leg,
+	'T|timeout=s' => \$ring_time,
 	'username=s' =>\$username,
 	'password=s' =>\$password,
 ) || usage( "bad option" );
@@ -142,17 +145,22 @@ if ( $registrar && $registrar ne '-' ) {
 
 # invite peer, send first file
 my $peer_hangup; # did peer hang up?
+my $no_answer; # or didn't it even answer?
 my $rtp_done; # was sending file completed?
 my $call = $ua->invite( $to,
 	# echo back, use -1 instead of 0 for not echoing back
 	init_media => $ua->rtp( 'send_recv', $files[0] ),
 	cb_rtp_done => \$rtp_done,
 	recv_bye => \$peer_hangup,
+	cb_noanswer => \$no_answer,
+	ring_time => $ring_time,
 ) || die "invite failed: ".$ua->error;
 die "invite failed(call): ".$call->error if $call->error;
 
-DEBUG( "sending first file $files[0]" );
-$ua->loop( \$rtp_done,\$peer_hangup );
+DEBUG( "Call established (maybe), sending first file $files[0]" );
+$ua->loop( \$rtp_done,\$peer_hangup,\$no_answer );
+
+die "Ooops, no answer." if $no_answer;
 
 # mainloop until other party hangs up or we are done
 # send one file after the other using re-invites

@@ -111,6 +111,17 @@ changes.
 
 It returns the created request object.
 
+=item find_outstanding_requests ( %FILTER )
+
+Returns list of outstanding requests (e.g INVITE w/o reply) for this
+context. Returns a list of outstanding request (L<Net::SIP::Request>
+objects) with the most recent requests first. 
+
+FILTER might be used to restrict the search. With key B<request> a
+L<Net::SIP::Request> object is expected and it will restrict the search to
+this object (e.g. it will return the object if it is outstanding). With key
+B<method> a method can be specified and only requests with this method will
+be returned.
 
 =item set_callback ( CALLBACK )
 

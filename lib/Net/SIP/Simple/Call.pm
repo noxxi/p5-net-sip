@@ -224,6 +224,7 @@ sub reinvite {
 		invoke_callback( $param->{init_media},$self,$param );
 	};
 
+
 	my $stopvar = 0;
 	$param->{cb_final} ||= \$stopvar;
 	$cb = [ $cb,$self ];
@@ -232,9 +233,42 @@ sub reinvite {
 		$ctx, $cb, $sdp,
 		$param->{sip_header} ? %{ $param->{sip_header} } : ()
 	);
+
 	if ( $param->{cb_final} == \$stopvar ) {
-		# wait until final response
-		$self->loop( \$stopvar );
+
+		# This callback will be called on timeout or response to cancel which
+		# got send after ring_time was over
+		my $noanswercb;
+		if ( $param->{ring_time} ) { 
+			$noanswercb = sub {
+				my Net::SIP::Simple::Call $self = shift || return;
+				my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
+				
+				$stopvar = 'NOANSWER' ;
+				my $param = $self->{param};
+				invoke_callback( $param->{cb_noanswer}, 'NOANSWER',$self,
+					errno => $errno,code => $code,packet => $packet );
+
+				if ( $code =~ m{^2\d\d} ) {
+					DEBUG(10,"got response of %s|%s to CANCEL",$code,$packet->msg );
+					invoke_callback( $param->{cb_final},'NOANSWER',$self,code => $code );
+				}
+			};
+			$noanswercb = [ $noanswercb,$self ];
+			weaken( $noanswercb->[1] );
+
+			# wait until final response
+			$self->loop( $param->{ring_time}, \$stopvar );
+
+			unless ($stopvar) { # timed out 
+				$self->{endpoint}->cancel_invite( $self->{ctx},undef, $noanswercb );
+				$self->loop( \$stopvar );
+			}
+		} else {
+			# wait until final response
+			$self->loop( \$stopvar );
+		}
+
 		$param->{cb_final} = undef;
 	}
 	return $self->{ctx};

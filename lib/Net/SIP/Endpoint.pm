@@ -174,6 +174,26 @@ sub new_request {
 }
 
 ############################################################################
+# Cancel last pending INVITE request
+# Args: ($self,$ctx,$request,$cb)
+#   $ctx: context for call
+#   $request: request to cancel, will only cancel it, if request is
+#     outstanding in context, will cancel latest INVITE if not given
+#   $cb: callback for generated CANCEL request
+# Returns: number of requests canceled (e.g 0 if no outstanding INVITE)
+############################################################################
+sub cancel_invite {
+	my Net::SIP::Endpoint $self = shift;
+	my Net::SIP::Endpoint::Context $ctx = shift;
+	my ($request,$callback) = @_;
+	my ($pkt) = $ctx->find_outstanding_requests(
+		$request ? ( request => $request ) : ( method => 'INVITE' )
+	) or return;
+	$self->new_request( $pkt->create_cancel, $ctx, $callback );
+	return 1;
+}
+
+############################################################################
 # internal callback used for delivery
 # will be called from dispatcher if the request was definitly successfully
 # delivered (tcp only) or an error occurred
@@ -319,7 +339,7 @@ sub receive_request {
 # deliver a response packet
 # Args: ($self,$ctx,$response,$leg,$addr)
 #   $ctx     : Net::SIP::Endpoint::Context which generated response
-#   $response: Net::SIP::Respone packet
+#   $response: Net::SIP::Response packet
 #   $leg     : leg to send out response, eg where the request came in
 #   $addr    : where to send respone (ip:port), eg where the request came from
 # Returns: NONE

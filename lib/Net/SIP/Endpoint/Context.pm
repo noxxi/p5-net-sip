@@ -85,7 +85,10 @@ sub new {
 }
 
 sub DESTROY {
-	DEBUG( 100,"DESTROY context $_[0] callid=$_[0]->{callid}" ) if $_[0];
+	# wrap around eval. 
+	# destroying of fields in perl5.8 cleanup can cause strange errors, where
+	# it complains, that it cannot coerce array into hash
+	eval { DEBUG( 100,"DESTROY context $_[0] callid=$_[0]->{callid}" ) };
 }
 
 ############################################################################
@@ -109,6 +112,30 @@ sub peer {
 	my $peer = $self->{incoming} ? $self->{from} : $self->{to};
 	my ($data) = sip_hdrval2parts( from => $peer ); # strip parameters like tag etc
 	return $data;
+}
+
+############################################################################
+# return list of outstanding requests matching filter, if no filter is given
+# returns all requests
+# Args: ($self,%filter)
+#  %filter
+#     method => name: filter for requests with given method
+#     request => packet: filter for packet, e.g. finds if packet is outstanding
+# Returns: @requests
+#   returns all matching requests (Net::SIP::Request objects), newest
+#   requests first
+############################################################################
+sub find_outstanding_requests {
+	my Net::SIP::Endpoint::Context $self = shift;
+	my %filter = @_;
+	my @trans = @{$self->{_transactions}} or return;
+	if ( my $pkt = $filter{request} ) {
+		@trans = grep { $pkt == $_->{request} } @trans or return;
+	}
+	if ( my $method = $filter{method} ) {
+		@trans = grep { $method eq $_->{request}->method } @trans or return;
+	}
+	return map { $_->{request} } @trans;
 }
 
 ############################################################################
@@ -182,7 +209,6 @@ sub new_request {
 	return $request;
 }
 
-
 ############################################################################
 # set callback for context
 # Args: ($self,$cb)
@@ -246,7 +272,7 @@ sub handle_response {
 	my $trans = $self->{_transactions};
 	my (@ntrans,$tr);
 	foreach my $t (@$trans) {
-		if ( $t->{tid} eq $tid ) {
+		if ( !$tr and $t->{tid} eq $tid ) {
 			$tr = $t;
 		} else {
 			push @ntrans,$t
@@ -276,7 +302,7 @@ sub handle_response {
 
 	my $method = $tr->{request}->method;
 	$response->cseq =~m{^\d+\s+(\w+)};
-	if ($method ne $1 ) {
+	if ( $method ne $1 ) {
 		DEBUG( 10,"got response to method $1 but current method is $method. DROP" );
 		return;
 	}

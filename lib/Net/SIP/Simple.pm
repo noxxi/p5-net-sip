@@ -382,7 +382,9 @@ sub invite {
 #      if regex only from matching regex gets accepted
 #      if sub and sub returns 1 call gets accepted, if sub returns 0 it gets rejected
 #    cb_create: optional callback called on creation of newly created
-#      Net::SIP::Simple::Call
+#      Net::SIP::Simple::Call. If returns false the call will be closed.
+#      If returns a callback (e.g some ref) it will be used instead of 
+#      Net::SIP::Simple::Call to handle the data
 #    cb_established: callback called after receiving ACK
 #    cb_cleanup: called on destroy of call object
 #    for all other args see Net::SIP::Simple::Call....
@@ -422,10 +424,13 @@ sub listen {
 
 		# notify caller about new call
 		if ( my $cbc = $args->{cb_create} ) {
-			if ( ! invoke_callback( $cbc, $call, $request,$leg,$from ) ) {
+			my $cbx =invoke_callback( $cbc, $call, $request,$leg,$from );
+			if ( ! $cbx ) {
 				DEBUG( 1, "call from '$ctx->{from}' rejected in cb_create" );
 				$self->{endpoint}->close_context( $ctx );
 				return;
+			} elsif ( ref($cbx) ) {
+				$cb = $cbx
 			}
 		}
 		if ( my $ccb = $args->{cb_cleanup} ) {

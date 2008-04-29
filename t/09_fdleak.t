@@ -74,11 +74,9 @@ sub uac {
 
 
 
-my $id;
-use File::Temp 'tempfile';
 sub newfd {
-	$id++;
-	my $tfd = tempfile( "t_$id-XXXXXXXXXX" );
-	return $tfd;
+	# dup STDOUT to create new fd
+	open( my $fd,'>&STDOUT' );
+	return $fd;
 }
 
