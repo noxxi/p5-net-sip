@@ -84,11 +84,12 @@ sub new {
 	return $self
 }
 
-sub DESTROY {
-	# wrap around eval. 
-	# destroying of fields in perl5.8 cleanup can cause strange errors, where
-	# it complains, that it cannot coerce array into hash
-	eval { DEBUG( 100,"DESTROY context $_[0] callid=$_[0]->{callid}" ) };
+# destroying of fields in perl5.8 cleanup can cause strange errors, where
+# it complains, that it cannot coerce array into hash. So use this function
+# on your own risks and rename it to DETSTROY if you want to have debugging
+# info
+sub _DESTROY {
+	DEBUG( 100,"DESTROY context $_[0] callid=$_[0]->{callid}" );
 }
 
 ############################################################################
@@ -269,10 +270,11 @@ sub handle_response {
 	# if response does not terminates transaction one need to add
 	# it again
 	my $tid = $response->tid;
+	my $method = $response->method;
 	my $trans = $self->{_transactions};
 	my (@ntrans,$tr);
 	foreach my $t (@$trans) {
-		if ( !$tr and $t->{tid} eq $tid ) {
+		if ( !$tr and $t->{tid} eq $tid and $method eq $t->{request}->method) {
 			$tr = $t;
 		} else {
 			push @ntrans,$t
@@ -294,18 +296,6 @@ sub handle_response {
 		DEBUG( 10,"response came in through the wrong leg" );
 		return;
 	};
-
-
-	# check if it's a response to the current method in the
-	# transaction (ACK,CANCEL,INVITE share the same transaction,
-	# but are different methods)
-
-	my $method = $tr->{request}->method;
-	$response->cseq =~m{^\d+\s+(\w+)};
-	if ( $method ne $1 ) {
-		DEBUG( 10,"got response to method $1 but current method is $method. DROP" );
-		return;
-	}
 
 	my $cb = $tr->{callback};
 	my @arg = ($endpoint,$self);

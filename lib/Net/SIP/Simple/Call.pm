@@ -293,7 +293,7 @@ sub cancel {
 	%args = ( %{ $self->{param} }, %args );
 	$cb ||= $args{send_cancel};
 
-	my $cb = [
+	my $cancel_cb = [
 		sub {
 			my Net::SIP::Simple::Call $self = shift || return;
 			my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
@@ -310,9 +310,9 @@ sub cancel {
 		},
 		$self,$cb,\%args
 	];
-	weaken( $cb->[1] );
+	weaken( $cancel_cb->[1] );
 
-	return $self->{endpoint}->cancel_invite( $self->{ctx}, undef, $cb );
+	return $self->{endpoint}->cancel_invite( $self->{ctx}, undef, $cancel_cb );
 }
 
 ###########################################################################

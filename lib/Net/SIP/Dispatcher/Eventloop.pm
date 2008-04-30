@@ -14,6 +14,7 @@ use Socket;
 use List::Util qw(first);
 use Net::SIP::Util 'invoke_callback';
 use Net::SIP::Debug;
+use Errno 'EINTR';
 
 ###########################################################################
 # creates new event loop
@@ -164,7 +165,10 @@ sub loop {
 			my $rin = '';
 			map { vec( $rin,fileno($_->[0]),1 ) = 1 } @to_read;
 			DEBUG( 100, "handles=".join( " ",map { fileno($_->[0]) } @to_read ));
-			die $! if select( my $rout = $rin,undef,undef,$to ) < 0;
+			select( my $rout = $rin,undef,undef,$to ) < 0 and do {
+				next if $! == EINTR;
+				die $!
+			};
 			# returned from select
 			$looptime = $self->{now} = gettimeofday();
 			DEBUG( 100, "can_read=".join( " ",map { $_ } grep { $fds->[$_] && vec($rout,$_,1) } (0..$#$fds)));
