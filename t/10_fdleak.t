@@ -51,6 +51,10 @@ sub uas {
 
 sub uac {
 	( my $caddr = $saddr ) =~s{:\d+}{:0}; # same ip, port will be picked
+	# for some strange reason on glib2.7 or whatever the cause is this not
+	# only allocates a new fd, but a pipe too. So just ignore the first fd
+	# and use the next
+	my $tfd_ignore = newfd();
 	my $tfd = newfd();
 	my $fnbase = fileno($tfd) +1;
 	my $show_diff = sub {
