@@ -46,10 +46,18 @@ The realm for the authentication request. Defaults to 'p5-net-sip'.
 Optional value for C<opaque> parameter for the authentication request.
 If none is given no C<opaque> parameter will be used.
 
+=item user2a1
+
+Either hash reference with C<user,a1_hex> mapping or callback, which gives
+C<a1_hex> if called with C<user,realm>.
+For the meaning of C<a1_hex> see RFC 2617.
+
 =item user2pass
 
 Either hash reference with C<user,password> mapping or callback,
 which gives C<password> if called with C<user>.
+This parameter will only be used if C<user2a1> does not result in 
+a defined C<a1_hex> for C<user>.
 
 =item i_am_proxy
 

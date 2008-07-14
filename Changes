@@ -1,6 +1,7 @@
 Revision history for Net::SIP
 
-0.45_3
+
+0.46
    - support for canceling a call after some time of ringing based on
      input from http://rt.cpan.org/Ticket/Display.html?id=34576
      see Net::SIP::Simple::Call documentation for sub reinvite, parameters
@@ -13,6 +14,9 @@ Revision history for Net::SIP
      because of EINTR
    - fixes in handling response in Net::SIP::Endpoint::Context for the case,
      that multiple requests shared the same tid (e.g. INVITE,CANCEL)
+   - support for user2a1 instead of user2pass in Net::SIP::Authorize based
+     on input from Alex Revetski <revetski[AT]gmail[DOT]com>
+     http://rt.cpan.org/Ticket/Display.html?id=34648
 
 0.45
    - Net::SIP::Packet::sdp_body - content type is case insensitive,

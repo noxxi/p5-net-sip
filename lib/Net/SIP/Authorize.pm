@@ -13,7 +13,7 @@ use Carp 'croak';
 use Net::SIP::Debug;
 use Net::SIP::Util ':all';
 use Digest::MD5 'md5_hex';
-use fields qw( realm opaque user2pass i_am_proxy dispatcher );
+use fields qw( realm opaque user2pass user2a1 i_am_proxy dispatcher );
 
 ###########################################################################
 # creates new Authorize object
@@ -31,7 +31,11 @@ sub new {
 	my $self = fields::new( $class );
 	$self->{realm} = $args{realm} || 'p5-net-sip';
 	$self->{opaque} = $args{opaque};
-	$self->{user2pass} = $args{user2pass} || croak 'no user2pass known';
+	
+	$args{user2pass} || $args{user2a1} || croak 'no user2pass or user2a1 known';
+	
+	$self->{user2pass} = $args{user2pass};
+	$self->{user2a1} = $args{user2a1}; 
 	$self->{i_am_proxy} = $args{i_am_proxy};
 	$self->{dispatcher} = $args{dispatcher} || croak 'no dispatcher';
 	return $self;
@@ -62,14 +66,14 @@ sub receive {
 		;
 	my @auth = $packet->get_header( $rq_key );
 	my $user2pass = $self->{user2pass};
+	my $user2a1 = $self->{user2a1};
 	my $realm = $self->{realm};
 	my $opaque = $self->{opaque};
 
 	# there might be multiple auth, pick the right realm
-	my (@keep_auth,$authorized);
+	my (@keep_auth,$authorized);	
+	
 	foreach my $auth ( @auth ) {
-
-
 		# RFC 2617
 		my ($data,$param) = sip_hdrval2parts( $rq_key => $auth );
 		if ( $param->{realm} ne $realm ) {
@@ -96,17 +100,32 @@ sub receive {
 			next;
 		};
 
-		# we support with and w/o qop
-		my $pass = ref($user2pass) eq 'HASH' ? $user2pass->{$user} 
-			: invoke_callback( $user2pass,$user );
-		my $a1 = join( ':',$user,$realm,$pass );
+		# we support with and w/o qop	
+		# get a1_hex from either user2a1 or user2pass
 		my $a2 = join( ':',$packet->method,$uri );
+		my $a1_hex;
+		if ( ref($user2a1)) {
+			if ( ref($user2a1) eq 'HASH' ) {
+				$a1_hex = $user2a1->{$user}
+			} else {
+				$a1_hex = invoke_callback( $user2a1,$user,$realm );
+			}
+		} 
+		if ( ! defined($a1_hex) && ref($user2pass)) {
+			my $pass;
+			if ( ref($user2pass) eq 'HASH' ) {
+				$pass = $user2pass->{$user}
+			} else {
+				$pass = invoke_callback( $user2pass,$user );
+			}
+			$a1_hex = md5_hex(join( ':',$user,$realm,$pass ));
+		} 
 
 		my $want_response;
 		if ( $qop ) {
 			# 3.2.2.1
 			$want_response = md5_hex( join( ':',
-				md5_hex($a1),
+				$a1_hex,
 				$nonce,
 				1,
 				$cnonce,
@@ -114,9 +133,9 @@ sub receive {
 				md5_hex($a2)
 			));
 		} else {
-			 # 3.2.2.1 compability with RFC2069
+			 # 3.2.2.1 compability with RFC2069			 
 			 $want_response = md5_hex( join( ':',
-			 	md5_hex($a1),
+			 	$a1_hex,
 				$nonce,
 				md5_hex($a2)
 			));

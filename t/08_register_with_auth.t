@@ -11,6 +11,7 @@ use Test::More tests => 7;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
+use Digest::MD5 'md5_hex';
 
 my ($csock,$caddr) = create_socket();
 my ($ssock,$saddr) = create_socket();
@@ -96,7 +97,8 @@ sub registrar {
 	my $ua = Simple->new( leg => $lsock );
 	my $auth = Authorize->new(
 		dispatcher => $ua->{dispatcher},
-		user2pass => sub { $_[0] eq 'wolf' ? 'lobo' : 'secret' },
+		user2a1   => { '007' => md5_hex('007:REALM.example.com:secret') },
+		user2pass => sub { $_[0] eq 'wolf' ? 'lobo' : 'no-useful-password' },
 		realm => 'REALM.example.com',
 		opaque => 'HumptyDumpty',
 		i_am_proxy => 0,
