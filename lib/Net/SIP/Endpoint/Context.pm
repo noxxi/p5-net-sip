@@ -350,15 +350,19 @@ sub handle_response {
 			# is response to INVITE, create ACK
 			# and propagate to upper layer
 			my $req = $tr->{request};
-			if ( my $contact = $response->get_header( 'contact' )) {
-				# 12.1.2 - set URI for dialog to contact given in response which
-				# establishes the dialog
-				$contact = $1 if $contact =~m{<(\w+:[^>\s]+)>};
-				$req->set_uri( $contact );
-			}
+
+			# create ACK, the ACK needs to be send with the original URI,
+			# even if the contact header (see below) changes the dialogs URI
 			my $ack = $req->create_ack( $response );
 			invoke_callback($cb,@arg,0,$code,$response,$leg,$from,$ack);
 			$endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
+
+			# 12.1.2 - set URI for dialog to contact given in response which
+			# establishes the dialog
+			if ( my $contact = $response->get_header( 'contact' )) {
+				$contact = $1 if $contact =~m{<(\w+:[^>\s]+)>};
+				$req->set_uri( $contact );
+			}
 
 			# use to-tag from this request to update 'to'
 			# FIXME: this should probably be better done by the upper layer
