@@ -417,7 +417,7 @@ sub __forward_request_getdaddr {
 	my $legs = $entry->{outgoing_leg};
 
 	# if leg was given by route try to check for Registrar there
-	if ( $entry->{has_route} && ( my $reg = $self->{leg2registrar}{$legs->[0]} )) {
+	if ( @$legs && $entry->{has_route} && ( my $reg = $self->{leg2registrar}{$legs->[0]} )) {
 		#### try if the registrar has the address on the leg
 		#### if, then set the outgoing leg and rewrite the packet to
 		#### reflect the new URI

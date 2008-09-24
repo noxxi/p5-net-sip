@@ -1,6 +1,17 @@
 Revision history for Net::SIP
 
 
+0.48
+   - new function Net::SIP::Util::sip_uri_eq to check if two URIs mean the 
+     same
+   - fix bugs reported by gilad[AT]summit-tech[DOT]ca:
+     - when comparing Route header in incoming/outgoing request with myself
+       use sip_uri_eq instead of simple eq, because the URIs might be
+       the same, but one might specify a default port while the other not
+     - when adding record-route header in forward_outgoing check that the 
+       top record-route header isn't myself (in case incoming and outgoing
+       leg are the same)
+
 0.47
    - if contact header changes the URI of the dialog send the ACK with
      the original URI of the INVITE and change the dialogs URI afterwards

@@ -161,6 +161,13 @@ part. In array context it returns an array with the following values:
 
 =back
 
+=item sip_uri_eq ( URI1, URI2 )
+
+Returns true if both URIs point to the same SIP address.
+This compares user part case sensitive, domain part case insensitive (does
+no DNS resolution) protocol and ports in domain (assumes default ports
+for protocol if no port is given).
+
 =back
 
 

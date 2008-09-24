@@ -11,7 +11,7 @@ package Net::SIP::Leg;
 use Digest::MD5 'md5_hex';
 use Socket;
 use Net::SIP::Debug;
-use Net::SIP::Util qw( sip_hdrval2parts invoke_callback );
+use Net::SIP::Util qw( sip_hdrval2parts invoke_callback sip_uri_eq );
 use Net::SIP::Packet;
 use Net::SIP::Request;
 use Net::SIP::Response;
@@ -169,7 +169,7 @@ sub forward_incoming {
 				my $route = $route[0];
 				$route = $1 if $route =~m{^<(.*)>};
 				($route) = sip_hdrval2parts( route => $route );
-				if ( $route eq $self->{contact} ) {
+				if ( sip_uri_eq( $route,$self->{contact}) ) {
 					# top route was me
 					$remove_route = 0;
 				}
@@ -226,15 +226,22 @@ sub forward_outgoing {
 		# This is necessary, because these information are used in in new requests
 		# from UAC to UAS, but also from UAS to UAC and UAS should talk to this leg
 		# and not to the leg, where the request came in.
-		$packet->insert_header( 'record-route', '<'.$self->{contact}.';lr>' )
-			if $packet->method ne 'REGISTER';
+		# don't add if the upper record-route is already me, this is the case
+		# when incoming and outgoing leg are the same
+		if ( $packet->method ne 'REGISTER' ) {
+			my $rr;
+			unless ( (($rr) = $packet->get_header( 'record-route' ))
+				and sip_uri_eq( $rr,$self->{contact} )) {
+				$packet->insert_header( 'record-route', '<'.$self->{contact}.';lr>' )
+			}
+		}
 
 		# strip myself from route header, because I'm done
 		if ( my @route = $packet->get_header( 'route' ) ) {
 			my $route = $route[0];
 			$route = $1 if $route =~m{^<(.*)>};
 			($route) = sip_hdrval2parts( route => $route );
-			if ( $route eq $self->{contact} ) {
+			if ( sip_uri_eq( $route,$self->{contact} )) {
 				# top route was me, remove it
 				my $remove_route = 0;
 				$packet->scan_header( route => [ sub {

@@ -22,6 +22,7 @@ our @EXPORT_OK = qw(
 	create_socket_to
 	create_rtp_sockets
 	invoke_callback
+	sip_uri_eq
 );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
@@ -162,6 +163,26 @@ sub sip_uri2parts {
 	} else {
 		return;
 	}
+}
+
+###########################################################################
+# returns true if two URIs are the same
+# Args: $uri1,$uri2
+# Returns: true if both URI point to same address
+###########################################################################
+sub sip_uri_eq {
+	my ($uri1,$uri2) = @_;
+	return 1 if $uri1 eq $uri2; # shortcut for common case
+	my ($d1,$u1,$p1) = sip_uri2parts($uri1);
+	my ($d2,$u2,$p2) = sip_uri2parts($uri2);
+	my $port1 = $d1 =~s{:(\d+)$|\[(\d+)\]$}{} ? $1||$2 
+		: $p1 eq 'sips' ? 5061 : 5060;
+	my $port2 = $d2 =~s{:(\d+)$|\[(\d+)\]$}{} ? $1||$2 
+		: $p2 eq 'sips' ? 5061 : 5060;
+	return lc($d1) eq lc($d2) 
+		&& $port1 == $port2
+		&& ( defined($u1) ? defined($u2) && $u1 eq $u2 : ! defined($u2))
+		&& $p1 eq $p2;
 }
 
 ###########################################################################
