@@ -1,6 +1,12 @@
 Revision history for Net::SIP
 
 
+0.48_1
+   - fix bugs reported by gilad[AT]summit-tech[DOT]ca:
+     - force Allow and Supported header only on INVITE req and 2xx response
+       to INVITE, on 2xx responses to OPTIONS and on 405 responses
+     - force Contact header only on INVITE req and it's 2xx response
+
 0.48
    - new function Net::SIP::Util::sip_uri_eq to check if two URIs mean the 
      same

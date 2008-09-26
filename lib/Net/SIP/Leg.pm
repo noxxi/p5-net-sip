@@ -284,37 +284,45 @@ sub deliver {
 		$packet->insert_header( via => $via );
 	}
 
-	# 2xx responses and INVITE requests must have a contact header
-	# They should have an Allow header too und Supported would be good to
-	if ( $isrq and $packet->method eq 'INVITE' or !$isrq and $packet->code =~m{^2} ) {
-		if ( ! ( my @c = $packet->get_header( 'contact' ))) {
-			# needs contact header, create from this leg and user part of from/to
-			my ($user) = sip_hdrval2parts( $isrq 
-				? ( from => scalar($packet->get_header('from')) )
-				: ( to   => scalar($packet->get_header('to')) )
-			);
-			my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ). 
-				"\@$self->{addr}:$self->{port}";
-			$contact = 'sip:'.$contact if $contact  !~m{^\w+:};
-			$packet->insert_header( contact => $contact );
-		}
-		# allow and supported can be multiple so enforce array context
-		unless ( my @a =  $packet->get_header( 'allow' )) {
-			# add the default set
-			$packet->insert_header( allow => 'INVITE, ACK, OPTIONS, CANCEL, BYE' );
-		}
-		unless ( my @a = $packet->get_header( 'supported' )) {
-			# set as empty
-			$packet->insert_header( supported => '' );
-		}
-	}
+	# 2xx responses to INVITE requests and the request itself must have a 
+	# Contact, Allow and Supported header, 2xx Responses to OPTIONS need
+	# Allow and Supported, 405 Responses should have Allow and Supported
 
+	my ($need_contact,$need_allow,$need_supported);
+	my $method = $packet->method;
+	my $code = ! $isrq && $packet->code;
+	if ( $method eq 'INVITE' and ( $isrq or $code =~m{^2} )) {
+		$need_contact = $need_allow = $need_supported =1;
+	} elsif ( !$isrq and (
+		$code == 405 or
+		( $method eq 'OPTIONS'  and $code =~m{^2} ))) {
+		$need_allow = $need_supported =1;
+	}
+	if ( $need_contact && ! ( my @a = $packet->get_header( 'contact' ))) {
+		# needs contact header, create from this leg and user part of from/to
+		my ($user) = sip_hdrval2parts( $isrq 
+			? ( from => scalar($packet->get_header('from')) )
+			: ( to   => scalar($packet->get_header('to')) )
+		);
+		my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ). 
+			"\@$self->{addr}:$self->{port}";
+		$contact = 'sip:'.$contact if $contact  !~m{^\w+:};
+		$packet->insert_header( contact => $contact );
+	}
+	if ( $need_allow && ! ( my @a = $packet->get_header( 'allow' ))) {
+		# insert default methods
+		$packet->insert_header( allow => 'INVITE, ACK, OPTIONS, CANCEL, BYE' );
+	}
+	if ( $need_supported && ! ( my @a = $packet->get_header( 'supported' ))) {
+		# set as empty
+		$packet->insert_header( supported => '' );
+	}
 
 
 	my ($proto,$host,$port) =
 		$addr =~m{^(?:(\w+):)?([\w\-\.]+)(?::(\d+))?$};
 	#DEBUG( "%s -> %s %s %s",$addr,$proto||'',$host, $port||'' );
-	$port ||= 5060; # only right for sip, not sips!
+	$port ||= $proto eq 'sips' ? 5061: 5060;
 
 
 	$self->sendto( $packet->as_string, $host,$port,$callback )
