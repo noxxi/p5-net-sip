@@ -13,6 +13,7 @@ use warnings;
 package Net::SIP::SDP;
 use Hash::Util qw(lock_keys);
 use Net::SIP::Debug;
+use Socket;
 
 
 ###########################################################################
@@ -433,8 +434,8 @@ my $RX_IP4 = do {
 
 # very rough, just enough to distinguish IPv6 from hostnames
 my $RX_IP6 = qr{^[a-fA-F\d:]+:[a-fA-F\d:.]*$};
-my $CHECK_IP6 = eval "use Socket6"
-	? sub { Socket6::inet_pton( &AF_INET6, shift ) } 
+my $CHECK_IP6 = eval { require Socket6 }
+	? sub { Socket6::inet_pton( AF_INET6, shift ) } 
 	: sub { 1 }; # FIXME: better syntax check here?
 
 sub _split_c {
