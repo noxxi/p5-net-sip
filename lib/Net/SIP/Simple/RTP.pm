@@ -241,7 +241,8 @@ sub _receive_rtp {
 	my $payload = $padding ? substr( $buf,0,length($buf)-$padding ): $buf;
 
 	DEBUG( 100,"payload=$seq/%d xh=%d padding=%d cc=%d", length($payload),$xh,$padding,$cc );
-	if ( $targs->{rseq} && $seq<= $targs->{rseq} ) {
+	if ( $targs->{rseq} && $seq<= $targs->{rseq} 
+		&& $targs->{rseq} - $seq < 60000 ) {
 		DEBUG( 10,"seq=$seq last=$targs->{rseq} - dropped" );
 		return;
 	}

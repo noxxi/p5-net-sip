@@ -1,6 +1,11 @@
 Revision history for Net::SIP
 
 
+0.49_1 2008-10-23
+- fixed code in Net::SIP::Simple::RTP where it dropped packets
+  (and subsequently terminated the connection due to inactivity)
+  when the 16bit RTP sequence counter overflowed
+
 0.49  2008-09-30
 - fixed Socket6::inet_pton based check for valid IP6 address in 
   Net::SIP::SDP
