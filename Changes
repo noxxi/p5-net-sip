@@ -1,6 +1,9 @@
 Revision history for Net::SIP
 
 
+0.49_3 2008-10-29
+- Net::SIP::StatelessProxy - observe maddr of URI when forwarding
+
 0.49_2 2008-10-29
 - Net::SIP::Dispatcher - observe maddr and transport parameter of URI
   when finding peer

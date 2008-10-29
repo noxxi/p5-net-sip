@@ -155,6 +155,7 @@ sub __forward_response {
 	my ($first,$param) = sip_hdrval2parts( via => $via );
 	my ($addr,$port) = $first =~m{([\w\-\.]+)(?::(\d+))?\s*$};
 	$port ||= 5060; # FIXME default for sip, not sips!
+	$addr = $param->{maddr} if $param->{maddr};
 	@{ $entry->{dst_addr}} = ( "$addr:$port" );
 	DEBUG( 50,"get dst_addr from via header: $first -> $addr:$port" );
 
@@ -170,7 +171,7 @@ sub __forward_response {
 }
 
 ###########################################################################
-# Called from _forward_response directly or inderectly after resolving
+# Called from _forward_response directly or indirectly after resolving
 # hostname of destination.
 # If received parameter was in Via header it will try to find the leg
 # based on it.
@@ -233,10 +234,14 @@ sub __forward_request_getleg {
 	# if the top route header points to a local leg we use this as outgoing leg
 	if ( my @route = $packet->get_header( 'route' ) ) {
 		$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
-		my ($data) = sip_hdrval2parts( route => $route[0] );
+		my ($data,$param) = sip_hdrval2parts( route => $route[0] );
 		my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
 		$port ||= 5060; # FIXME sips
 		my @legs = $disp->get_legs( addr => $addr, port => $port );
+		if ( ! @legs ) {
+			$addr = $param->{maddr} if $param->{maddr};
+			@legs = $disp->get_legs( addr => $addr, port => $port );
+		}
 		if ( @legs ) {
 			DEBUG( 50,"setting leg from our route header: $data -> ".$legs[0]->dump );
 			$entry->{outgoing_leg} = \@legs;
@@ -247,11 +252,16 @@ sub __forward_request_getleg {
 		if ( @route ) {
 			# still routing infos. Use next route as dst_addr
 			$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
-			my ($data) = sip_hdrval2parts( route => $route[0] );
+			my ($data,$param) = sip_hdrval2parts( route => $route[0] );
 			my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
 			$port ||= 5060; # FIXME sips
+			if ( my $m = $param->{maddr} ) {
+				$addr = $m;
+				DEBUG( 50, "setting dst_addr from route $data;maddr=$m to $addr:$port" );
+			} else {
+				DEBUG( 50, "setting dst_addr from route $data to $addr:$port" );
+			}
 			@{ $entry->{dst_addr} } = ( "$addr:$port" );
-			DEBUG( 50, "setting dst_addr from route $data to $addr:$port" );
 		}
 	} else {
 		DEBUG( 50,'no route header' );
