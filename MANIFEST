@@ -65,6 +65,7 @@ t/08_register_with_auth.t
 t/09_fdleak.t
 t/10_fdleak.t
 t/11_invite_timeout.t 
+t/12_maddr.t
 t/testlib.pl
 samples/README
 samples/invite_and_recv.pl

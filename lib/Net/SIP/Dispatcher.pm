@@ -653,6 +653,12 @@ sub resolve_uri {
 		@$dst_addr = ( $ip_addr );
 	}
 
+	# is param maddr set?
+	if ( my $ip = $param->{maddr} ) {
+		@$dst_addr = ( $ip ) 	
+			if $ip =~m{^[\d\.]+$} && eval { inet_aton($ip) };
+	}
+
 	# entries in form [ prio,proto,ip,port ]
 	my @resp;
 	foreach my $addr ( @$dst_addr ) {
@@ -665,6 +671,11 @@ sub resolve_uri {
 			my $port = $3 ? $3 : $default_port;
 			push @resp, map { [ -1,$_,$host,$port ] } @$proto;
 		}
+	}
+
+	# should we use a fixed transport?
+	if ( my $proto = $param->{transport} ) {
+		@resp = grep { lc($_->[1]) eq lc($proto) } @resp;
 	}
 
 	my @param = ( $dst_addr,$legs,$allowed_legs,$default_port,$callback );

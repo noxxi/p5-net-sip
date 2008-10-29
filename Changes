@@ -1,6 +1,10 @@
 Revision history for Net::SIP
 
 
+0.49_2 2008-10-29
+- Net::SIP::Dispatcher - observe maddr and transport parameter of URI
+  when finding peer
+
 0.49_1 2008-10-23
 - fixed code in Net::SIP::Simple::RTP where it dropped packets
   (and subsequently terminated the connection due to inactivity)
