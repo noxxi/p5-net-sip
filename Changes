@@ -1,13 +1,13 @@
 Revision history for Net::SIP
 
 
+0.50 2008-10-31
+- release 0.49_3 as 0.50
 0.49_3 2008-10-29
 - Net::SIP::StatelessProxy - observe maddr of URI when forwarding
-
 0.49_2 2008-10-29
 - Net::SIP::Dispatcher - observe maddr and transport parameter of URI
   when finding peer
-
 0.49_1 2008-10-23
 - fixed code in Net::SIP::Simple::RTP where it dropped packets
   (and subsequently terminated the connection due to inactivity)
@@ -16,7 +16,6 @@ Revision history for Net::SIP
 0.49  2008-09-30
 - fixed Socket6::inet_pton based check for valid IP6 address in 
   Net::SIP::SDP
-
 0.48_1
 - fix bugs reported by gilad[AT]summit-tech[DOT]ca:
   - force Allow and Supported header only on INVITE req and 2xx response
