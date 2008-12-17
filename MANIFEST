@@ -67,6 +67,7 @@ t/10_fdleak.t
 t/11_invite_timeout.t 
 t/12_maddr.t
 t/13_maddr_proxy.t
+t/14_bugfix_0.51.t
 t/testlib.pl
 samples/README
 samples/invite_and_recv.pl

@@ -368,7 +368,7 @@ sub handle_response {
 			# FIXME: this should probably be better done by the upper layer
 			# which decides, which call to accept (in case of call-forking with
 			# multiple 2xx responses)
-			$self->{to} = $response->get_header( 'to' );
+			$self->{to} = $response->get_header( 'to' ) if ! $self->{incoming};
 
 		} else {
 			# response to ACK, REGISTER...

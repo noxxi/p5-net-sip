@@ -1,6 +1,10 @@
 Revision history for Net::SIP
 
 
+0.51 2008-12-16
+- get to+tag from 2xx response on invite only when call is outgoing,
+  e.g. not on re-INVITE from UAS where UAC send initial INVITE
+
 0.50 2008-10-31
 - release 0.49_3 as 0.50
 0.49_3 2008-10-29
