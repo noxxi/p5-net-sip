@@ -9,7 +9,7 @@ use strict;
 use warnings;
 
 package Net::SIP::StatelessProxy;
-use fields qw( dispatcher rewrite_contact nathelper );
+use fields qw( dispatcher rewrite_contact nathelper force_rewrite );
 
 use Net::SIP::Util ':all';
 use Digest::MD5 'md5_hex';
@@ -29,6 +29,8 @@ use Net::SIP::Debug;
 #        should return undef. If not given a reasonable default will be
 #        used.
 #     nathelper: Net::SIP::NAT::Helper used for rewrite SDP bodies.. (optional)
+#     force_rewrite: if true rewrite contact even if incoming and outgoing
+#         legs are the same
 # Returns: $self
 ###########################################################################
 sub new {
@@ -40,6 +42,7 @@ sub new {
 	$self->{rewrite_contact} = delete $args{rewrite_contact}
 		|| [ \&_default_rewrite_contact, $self ];
 	$self->{nathelper} = delete $args{nathelper};
+	$self->{force_rewrite} = delete $args{force_rewrite};
 
 	return $self;
 }
@@ -400,7 +403,7 @@ sub __forward_packet_final {
 
 	my $packet = $entry->{packet};
 	# rewrite contact header if outgoing leg is different to incoming leg
-	if ( $outgoing_leg != $incoming_leg and 
+	if ( ( $outgoing_leg != $incoming_leg or $self->{force_rewrite} ) and 
 		(my @contact = $packet->get_header( 'contact' ))) {
 
 		my $rewrite_contact = $self->{rewrite_contact};

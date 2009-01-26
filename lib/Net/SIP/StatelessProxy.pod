@@ -26,7 +26,7 @@ e.g. it will add B<Via> and B<Record-Route> header while
 forwarding requests.
 
 Additionally it will rewrite the B<Contact> header while forwarding
-packets, e.g. if the B<Contact> header points to some client
+packets (see below), e.g. if the B<Contact> header points to some client
 it will rewrite it, so that it points to the proxy and if it
 already points to the proxy it will rewrite it back so that it again
 points to the client.
@@ -61,6 +61,12 @@ used to do NAT, e.g. if the incoming and outgoing legs are different
 it will rewrite the SDP bodies to use local sockets and the nathelper
 will transfer the RTP data between the local and the original
 sockets.
+
+=item force_rewrite
+
+Usually the contact header will only be rewritten, if the incoming and
+outgoing leg are different. With this option one can force the rewrite,
+even if they are the same.
 
 =back
 

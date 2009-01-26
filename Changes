@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.53 2009-01-26
+- add Option force_rewrite to Net::SIP::StatelessProxy so that it rewrites
+  the contact even if incoming and outgoing legs are the same
 
 0.52 2008-12-17
 - removed changes from 0.47 - if 2xx response to INVITE contains

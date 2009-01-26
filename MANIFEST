@@ -81,4 +81,3 @@ bin/nathelper.pl
 bin/stateless_proxy.pl
 bin/answer_machine.pl
 bin/README
-META.yml                                 Module meta-data (added by MakeMaker)
