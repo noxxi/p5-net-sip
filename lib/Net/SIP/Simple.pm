@@ -32,6 +32,7 @@ use Carp qw(croak);
 use Net::SIP::Dispatcher;
 use Net::SIP::Dispatcher::Eventloop;
 use Net::SIP::Endpoint;
+use Net::SIP::Redirect;
 use Net::SIP::Registrar;
 use Net::SIP::StatelessProxy;
 use Net::SIP::Authorize;

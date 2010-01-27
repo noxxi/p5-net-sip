@@ -5,7 +5,7 @@ Net::SIP::Registrar - Endpoint for registering SIP clients
 
 =head1 SYNOPSIS
 
-  my $reg = Net::SIP::Registry->new(
+  my $reg = Net::SIP::Registrar->new(
 	dispatcher => $dispatcher,
 	min_expires => 10,
 	max_expires => 60,

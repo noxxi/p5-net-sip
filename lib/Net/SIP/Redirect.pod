@@ -1,0 +1,62 @@
+
+=head1 NAME
+
+Net::SIP::Redirect - Send redirect to INVITEs based on lookup at a registrar
+
+=head1 SYNOPSIS
+
+  my $reg = Net::SIP::Registrar->new(...);
+  my $redir = Net::SIP::Redirect(
+	dispatcher => $dispatcher,
+	registrar => $reg,
+  );
+
+=head1 DESCRIPTION
+
+This package implements a simple redirection of INVITEs using the information
+provided by a registrar. 
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( %ARGS )
+
+This creates a new redirect object, %ARGS can have the following keys:
+
+=over 8
+
+=item dispatcher
+
+L<Net::SIP::Dispatcher> object manging the registar. Mandatory.
+
+=item registrar
+
+Registrar object. This is an object like a L<Net::SIP::Registrar>, which 
+has a C<query(address)> method which returns a list of contacts.
+
+=back
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item receive ( PACKET,LEG,FROM )
+
+PACKET is the incoming packet,
+LEG is the L<Net::SIP::Leg> where the packet arrived and FROM
+is the C<< "ip:port" >> of the sender. Responses will be send
+back to the sender through the same leg.
+
+Called from the managing L<Net::SIP::Dispatcher> object if a new
+packet arrives. Will return C<()> and ignore the packet if it's
+not an INVITE or ACK request.
+
+For INVITEs it will query the registrar and return either 
+C<< 302 Moved Temporarily >> with the list of contacts or
+C<< 404 Not found >> if the address is not registered.
+
+
+=back

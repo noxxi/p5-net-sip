@@ -1,5 +1,14 @@
 Revision history for Net::SIP
 
+0.55 2010-01-27
+- Net::SIP::Redirect provides functionlity to redirect INVITES using
+  information from registrar. Sample program
+  samples/register_and_redirect.pl
+- fixes for Net::SIP::Authorize if no pass is known for user (or user
+  is not known).
+- fixes for Net::SIP::Authorize for ACK an CANCEL (no challenge 
+  possible, credentials should be compared against INVITE method)
+
 0.54 2009-09-04
 - bugfix in Net::SIP::Packet::new_from_parts when the header was already
   given as list of Net::SIP::HeaderPair objects

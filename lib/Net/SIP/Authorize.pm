@@ -58,6 +58,7 @@ sub receive {
 		DEBUG( 100,"pass thru response" );
 		return;
 	}
+	my $method = $packet->method;
 
 	# check authorization on request
 	my ($rq_key,$rs_key,$acode) = $self->{i_am_proxy}
@@ -100,9 +101,14 @@ sub receive {
 			next;
 		};
 
+		# ACK|CANCEL just reuse the authorization from INVITE, so they should
+		# be checked against method INVITE
+		my $a2 = join( ':',
+			( $method eq 'ACK' || $method eq 'CANCEL' ) ? 'INVITE' : $method,
+			$uri );
+
 		# we support with and w/o qop	
 		# get a1_hex from either user2a1 or user2pass
-		my $a2 = join( ':',$packet->method,$uri );
 		my $a1_hex;
 		if ( ref($user2a1)) {
 			if ( ref($user2a1) eq 'HASH' ) {
@@ -118,6 +124,8 @@ sub receive {
 			} else {
 				$pass = invoke_callback( $user2pass,$user );
 			}
+			# if wrong credentials ask again for authorization
+			last if ! defined $pass; 
 			$a1_hex = md5_hex(join( ':',$user,$realm,$pass ));
 		} 
 
@@ -153,6 +161,17 @@ sub receive {
 		# set header again
 		$packet->set_header( $rq_key => \@keep_auth );
 		return;
+	}
+
+	# CANCEL or ACK cannot be prompted for authorization, so
+	# they should provide the right data already
+	return $acode if $method eq 'CANCEL'; # unauthorized CANCEL
+	if ( $method eq 'ACK' ) {
+		# in case the ACK just acks that UAC received response
+		# we accept it w/o authorization
+		# but if it contains a (SDP) body we better need authorization
+		return $acode if ($packet->as_parts)[3];
+		return; # no body
 	}
 
 	# not authorized yet, ask to authenticate
