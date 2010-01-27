@@ -94,13 +94,14 @@ sub new_from_parts {
 	my @hnew;
 	my $normalized = 0;
 	for( my $i=0;$i<@$header;$i++ ) {
-		my ($key,$value,$orig_key) = @{ $header->[$i] };
-		defined($value) || next;
-		if ( $orig_key ) {
-			# assume it's already normalized
-			push @hnew, $header->[$i];
+		my $h = $header->[$i];
+		if ( UNIVERSAL::isa($h,'Net::SIP::HeaderPair')) {
+			# already normalized
 			$normalized = 1;
+			push @hnew,$h;
 		} else {
+			my ($key,$value) = @$h;
+			defined($value) || next;
 			croak( "mix between normalized and not normalized data in header" ) if $normalized;
 			push @hnew, Net::SIP::HeaderPair->new( $key,$value ) ;
 		}
@@ -133,7 +134,7 @@ sub new_from_string {
 	my ($class,$string) = @_;
 	my $data = _string2parts( $string );
 	if ( $class eq 'Net::SIP::Packet' ) {
-		$class = $data->{code} =~m{^\d} 
+		$class = $data->{code} =~m{^\d}
 			? 'Net::SIP::Response'
 			:'Net::SIP::Request';
 	}
@@ -532,11 +533,11 @@ sub as_parts {
 		'max-forwards' => \&_hdrkey_parse_num,
 		'min-expires' => \&_hdrkey_parse_num,
 
-		'call-id' => sub { 
+		'call-id' => sub {
 			$_[0] =~ $callid_rx or die "invalid callid, should be 'word [@ word]'";
 			return $_[0];
 		},
-		'cseq' => sub { 
+		'cseq' => sub {
 			$_[0] =~ m{^\d+\s+\w+\s*$} or die "invalid cseq, should be 'number method'";
 			return $_[0];
 		},

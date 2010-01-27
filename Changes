@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.54 2009-09-04
+- bugfix in Net::SIP::Packet::new_from_parts when the header was already
+  given as list of Net::SIP::HeaderPair objects
+
 0.53 2009-01-26
 - add Option force_rewrite to Net::SIP::StatelessProxy so that it rewrites
   the contact even if incoming and outgoing legs are the same
