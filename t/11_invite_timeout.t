@@ -9,7 +9,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 7;
+use Test::More tests => 8;
 
 use Net::SIP;
 use Net::SIP::Util ':all';
@@ -68,13 +68,20 @@ sub uac {
 	ok( $uac, 'UAC created' );
 
 	ok( <$pipe>, "UAS ready\n" ); # wait until UAS is ready
-	my $canceled = 0;
+	my $call_ok = 0;
+	my $end_code;
 	my $call = $uac->invite( 
 		'you.uas@example.com',
-		cb_noanswer => \$canceled,
-		ring_time => 3,
+		cb_final => sub {
+			my ($status,$self,%info) = @_;
+			$end_code = $info{code};
+		},
 	);
-	ok( $canceled,"request was canceled" );
+	$uac->loop(3,\$call_ok);
+	ok($call_ok == 0,'invite did not complete');
+	$call->cancel;
+	$uac->loop(3,\$end_code);
+	ok( $end_code==487,'got 487 (request canceled)');
 }
 
 ###############################################
@@ -117,6 +124,6 @@ sub uas {
 
 	# Loop at most 10 seconds
 	$uas->loop( 10,\$got_cancel );
-	$uas->loop( 1 );
+	$uas->loop( 3 );
 	print $pipe "UAS done\n";
 }

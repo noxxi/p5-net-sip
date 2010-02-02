@@ -299,7 +299,7 @@ sub receive_request {
 
 	my $method = $request->method;
 	if ( ! $ctx ) {
-		if ( $method eq 'BYE' || $method eq 'ACK' || $method eq 'CANCEL' ) {
+		if ( $method eq 'BYE' || $method eq 'CANCEL' ) {
 			# no context for this call, reply with 481 call does not exist
 			# (RFC3261 15.1.2)
 			$self->new_response(
@@ -308,6 +308,10 @@ sub receive_request {
 				$leg,  # send back thru same leg
 				$from, # and back to the sender
 			);
+			return;
+		} elsif ( $method eq 'ACK' ) {
+			# call not exists (maybe closed because of CANCEL)
+			DEBUG(99,'ignoring ACK for non-existing call');
 			return;
 		}
 

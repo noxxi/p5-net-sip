@@ -266,7 +266,7 @@ sub get_rtp_sockets {
 			return;
 		}
 	}
-		
+
 	if ( my $max = $self->{max_sockets} ) {
 		if ( $self->{socket_count} + $need_sockets > $max ) {
 			DEBUG( 1,"allocation of RTP sockets denied because max_sockets limit reached" );
@@ -646,7 +646,7 @@ sub sessions {
 	my @rv;
 	foreach my $by_cseq ( values %$by_from ) {
 		foreach my $data ( values %$by_cseq ) {
-			push @rv, map { invoke_callback($callback,$data) } 
+			push @rv, map { invoke_callback($callback,$data) }
 				values %{ $data->{sessions} };
 		}
 	}
@@ -946,7 +946,7 @@ sub didit {
 ############################################################################
 sub get_media {
 	my Net::SIP::NATHelper::SocketGroup $self = shift;
-	my @media = map { [ 
+	my @media = map { [
 		$_->[0],           # addr
 		$_->[1],           # base port
 		int(@{$_->[2]})    # range, e.g number of sockets

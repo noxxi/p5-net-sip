@@ -187,7 +187,11 @@ sub reinvite {
 		my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
 
 		if ( $errno ) {
-			$self->error( "Failed with error $errno".( $code ? " code=$code" :"" ) );
+			if ( $code == 487 ) {
+				# request was canceled, probably be me -> ignore
+			} else {
+				$self->error( "Failed with error $errno".( $code ? " code=$code" :"" ) );
+			}
 			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,code => $code,packet => $packet );
 			return;
 		}
@@ -239,11 +243,11 @@ sub reinvite {
 		# This callback will be called on timeout or response to cancel which
 		# got send after ring_time was over
 		my $noanswercb;
-		if ( $param->{ring_time} ) { 
+		if ( $param->{ring_time} ) {
 			$noanswercb = sub {
 				my Net::SIP::Simple::Call $self = shift || return;
 				my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
-				
+
 				$stopvar = 'NOANSWER' ;
 				my $param = $self->{param};
 				invoke_callback( $param->{cb_noanswer}, 'NOANSWER',$self,
@@ -260,7 +264,7 @@ sub reinvite {
 			# wait until final response
 			$self->loop( $param->{ring_time}, \$stopvar );
 
-			unless ($stopvar) { # timed out 
+			unless ($stopvar) { # timed out
 				$self->{endpoint}->cancel_invite( $self->{ctx},undef, $noanswercb );
 				$self->loop( \$stopvar );
 			}
@@ -306,7 +310,6 @@ sub cancel {
 				return;
 			}
 			invoke_callback( $cb,$args );
-			$self->cleanup;
 		},
 		$self,$cb,\%args
 	];
@@ -523,7 +526,7 @@ sub _setup_local_rtp_socks {
 				proto => 'RTP/AVP',
 				media => 'audio',
 				fmt   => $rp->[0] || 0, # PCMU/8000
-				$rp->[3] ? ( 
+				$rp->[3] ? (
 					a => [ "rtpmap:$rp->[0] $rp->[3]" , "ptime:".$rp->[2]*1000 ]
 				) :(),
 			}

@@ -110,6 +110,3 @@ was no need to touch it.
 =item idside2hash
 
 =back
-
-
-

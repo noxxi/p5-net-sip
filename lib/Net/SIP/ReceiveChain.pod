@@ -12,7 +12,7 @@ Net::SIP::ReceiveChain - handle incoming packet by multiple receivers
   my $auth = Net::SIP::Authorize->new ....
   my $reg_chain = Net::SIP::ReceiveChain->new(
 	[ $auth,$registrar ],
-        methods => [ 'REGISTER' ],
+	methods => [ 'REGISTER' ],
   );
 
   my $proxy = Net::SIP::StatelessProxy->new...
@@ -23,7 +23,7 @@ Net::SIP::ReceiveChain - handle incoming packet by multiple receivers
 =head1 DESCRIPTION
 
 This package is used to handle incoming packets by multiple receivers,
-e.g. make sure that requests for L<Net::SIP::Registrar> will be 
+e.g. make sure that requests for L<Net::SIP::Registrar> will be
 authorized by L<Net::SIP::Authorize>.
 
 Objects in the chain might be L<Net::SIP::Registrar>, L<Net::SIP::StatelessProxy>,
@@ -46,13 +46,13 @@ objects implementing the C<receive> method.
 =item filter
 
 A callback which gets called during C<receive> with all arguments of
-the method. If it returns TRUE the packet will be handled by the 
+the method. If it returns TRUE the packet will be handled by the
 chain, otherwise not.
 
 =item methods
 
 If B<filter> is not given but B<methods> is it will set B<filter>
-to a callback which accepts only the methods specified in the 
+to a callback which accepts only the methods specified in the
 array reference given to B<methods>.
 
 =back
@@ -71,7 +71,7 @@ is the C<< "ip:port" >> of the sender. Responses will be send
 back to the sender through the same leg.
 
 Called from the managing L<Net::SIP::Dispatcher> object if a new
-packet arrives. 
+packet arrives.
 
 Returns TRUE if the packet was fully handled by one of the objects
 in the chain, else FALSE:

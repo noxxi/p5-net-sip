@@ -43,7 +43,7 @@ And the following optional keys:
 
 =item contact
 
-Contact info for context. 
+Contact info for context.
 
 =item incoming
 
@@ -115,7 +115,7 @@ It returns the created request object.
 
 Returns list of outstanding requests (e.g INVITE w/o reply) for this
 context. Returns a list of outstanding request (L<Net::SIP::Request>
-objects) with the most recent requests first. 
+objects) with the most recent requests first.
 
 FILTER might be used to restrict the search. With key B<request> a
 L<Net::SIP::Request> object is expected and it will restrict the search to

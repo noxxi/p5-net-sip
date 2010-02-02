@@ -95,7 +95,7 @@ and INVITE requests. If not given B<from> will be used.
 
 =item options
 
-This is a hash reference containing headers (header-key,value) for replies to an 
+This is a hash reference containing headers (header-key,value) for replies to an
 OPTIONS request. If not or only partly given defaults will be used for the headers
 B<Allow>, B<Accept>, B<Accept-Encoding>, B<Accept-Language> and B<Supported>.
 
@@ -215,8 +215,8 @@ If the callback returns TRUE the call gets accepted, otherwise not.
 =item cb_create
 
 Callback which will be called on accepting the call. Will be called
-with C<< CALL,REQUEST,LEG,FROM >> where CALL is the newly created 
-L<Net::SIP::Simple::Call> object, REQUEST the creating L<Net::SIP::Request> 
+with C<< CALL,REQUEST,LEG,FROM >> where CALL is the newly created
+L<Net::SIP::Simple::Call> object, REQUEST the creating L<Net::SIP::Request>
 packet, LEG the incoming leg and FROM the C<< "ip:port" >> of the sender.
 
 Must return TRUE or the call gets not answered.
@@ -260,4 +260,3 @@ Like with B<listen> you need to B<loop> after calling this
 method, the method itself will not wait.
 
 =back
-

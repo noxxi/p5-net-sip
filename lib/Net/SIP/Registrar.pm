@@ -46,7 +46,7 @@ sub new {
 }
 
 # hack to have access to the store, to dump or restore it
-sub _store { 
+sub _store {
 	my $self = shift;
 	$self->{store} = shift if @_;
 	return $self->{store};

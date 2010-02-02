@@ -284,7 +284,7 @@ sub deliver {
 		$packet->insert_header( via => $via );
 	}
 
-	# 2xx responses to INVITE requests and the request itself must have a 
+	# 2xx responses to INVITE requests and the request itself must have a
 	# Contact, Allow and Supported header, 2xx Responses to OPTIONS need
 	# Allow and Supported, 405 Responses should have Allow and Supported
 
@@ -300,11 +300,11 @@ sub deliver {
 	}
 	if ( $need_contact && ! ( my @a = $packet->get_header( 'contact' ))) {
 		# needs contact header, create from this leg and user part of from/to
-		my ($user) = sip_hdrval2parts( $isrq 
+		my ($user) = sip_hdrval2parts( $isrq
 			? ( from => scalar($packet->get_header('from')) )
 			: ( to   => scalar($packet->get_header('to')) )
 		);
-		my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ). 
+		my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ).
 			"\@$self->{addr}:$self->{port}";
 		$contact = 'sip:'.$contact if $contact  !~m{^\w+:};
 		$packet->insert_header( contact => $contact );

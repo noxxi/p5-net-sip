@@ -304,13 +304,16 @@ sub handle_response {
 	# Don't care about the response for a CANCEL  or a BYE
 	# because this connection close is issued by this side
 	# and no matter what the peer wants the call be will closed
-	# But invoke callback to notify upper layer that the BYE was received
+	# But invoke callback to notify upper layer
 	if ( $method eq 'CANCEL' or $method eq 'BYE' ) {
 		if ( $code >=100 and $code<=199 ) {
 			push @ntrans,$tr
 		} else {
 			invoke_callback($cb,@arg,0,$code,$response,$leg,$from);
-			$endpoint->close_context( $self );
+			# close context only for BYE,
+			# for CANCEL we will close the context on receiving the
+			# response and sending the ACK
+			$endpoint->close_context( $self ) if $method eq 'BYE';
 		}
 		return;
 	}
@@ -507,6 +510,16 @@ sub handle_request {
 		# invoke callback before closing context, so that we have more
 		# information about the current call
 		invoke_callback($cb,@arg,0,0,$request,$leg,$from);
+
+		if ( $method eq 'CANCEL' ) {
+			# must create 487 Request canceled
+			my $response = $request->create_response( '487','Request canceled' );
+			$response->set_header(
+				cseq => $response->cseq =~m{(\d+)} && "$1 INVITE" );
+			DEBUG(10,"send response: ".$response->dump(1));
+			$endpoint->new_response($self,$response,$leg,$from);
+		}
+
 		$endpoint->close_context($self);
 		return;
 	}

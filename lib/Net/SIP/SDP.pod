@@ -142,4 +142,3 @@ entries in the object ( see B<get_media> ). If this is not the case it will
 C<die()>.
 
 =back
-

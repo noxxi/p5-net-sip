@@ -169,5 +169,3 @@ no DNS resolution) protocol and ports in domain (assumes default ports
 for protocol if no port is given).
 
 =back
-
-

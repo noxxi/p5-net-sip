@@ -188,4 +188,3 @@ content-type is 'application/sdp' or empty.
 =item clone
 
 =back
-

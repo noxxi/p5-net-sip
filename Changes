@@ -1,5 +1,18 @@
 Revision history for Net::SIP
 
+0.56 2010-02-02
+- fix CANCEL handling: instead of closing the context immediatly:
+  - server should return 487 to client before closing the context
+  - server should ignore ACKs for unknown contexts instead of 
+    replying with 481
+  - client should not close context after CANCEL but wait for 
+    response too invite (probably 487) so that it can ACK it
+  - extend t/11_invite_timeout.t to test for the behavior
+  - thanks to <vitspec[AT]gmail[DOT]com> for pointing out the problems.
+
+0.55_1 2010-02-02
+- add samples/register_and_redirect.pl
+
 0.55 2010-01-27
 - Net::SIP::Redirect provides functionlity to redirect INVITES using
   information from registrar. Sample program

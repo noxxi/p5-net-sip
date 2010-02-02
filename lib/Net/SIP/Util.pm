@@ -175,11 +175,11 @@ sub sip_uri_eq {
 	return 1 if $uri1 eq $uri2; # shortcut for common case
 	my ($d1,$u1,$p1) = sip_uri2parts($uri1);
 	my ($d2,$u2,$p2) = sip_uri2parts($uri2);
-	my $port1 = $d1 =~s{:(\d+)$|\[(\d+)\]$}{} ? $1||$2 
+	my $port1 = $d1 =~s{:(\d+)$|\[(\d+)\]$}{} ? $1||$2
 		: $p1 eq 'sips' ? 5061 : 5060;
-	my $port2 = $d2 =~s{:(\d+)$|\[(\d+)\]$}{} ? $1||$2 
+	my $port2 = $d2 =~s{:(\d+)$|\[(\d+)\]$}{} ? $1||$2
 		: $p2 eq 'sips' ? 5061 : 5060;
-	return lc($d1) eq lc($d2) 
+	return lc($d1) eq lc($d2)
 		&& $port1 == $port2
 		&& ( defined($u1) ? defined($u2) && $u1 eq $u2 : ! defined($u2))
 		&& $p1 eq $p2;

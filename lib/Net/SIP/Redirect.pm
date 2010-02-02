@@ -1,6 +1,6 @@
 ###########################################################################
 # package Net::SIP::Redirect
-# uses Registrar to redirect incoming calls based on the information 
+# uses Registrar to redirect incoming calls based on the information
 # provided by the registrar
 ###########################################################################
 
@@ -35,7 +35,7 @@ sub receive {
 	} elsif ( $method ne 'INVITE' ) {
 		return; # don't process myself
 	}
-		
+
 	my $key = (sip_uri2parts($packet->uri))[3];
 	my $resp;
 	if ( my @contacts = $self->{registrar}->query($key)) {
@@ -44,7 +44,7 @@ sub receive {
 	} else {
 		$resp = $packet->create_response('404','Not found');
 	}
-	$self->{dispatcher}->deliver( $resp, 
+	$self->{dispatcher}->deliver( $resp,
 		leg => $leg, dst_addr => $addr );
 	return $resp->code;
 }

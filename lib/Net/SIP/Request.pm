@@ -191,7 +191,7 @@ sub authorize {
 					next;
 				}
 				my $realm = $h->{realm};
-				my $upw = 
+				my $upw =
 					$cb_upw      ? invoke_callback( $cb_upw, $realm ) :
 					$realm2upw   ? $realm2upw->{$realm} :
 					$default_upw ? $default_upw :
@@ -208,7 +208,7 @@ sub authorize {
 					uri => $self->uri,
 				);
 				$digest{opaque} = $h->{opaque} if defined $h->{opaque};
-						
+
 				# 3.2.2.1
 				if ( $h->{qop} ) {
 					my $nc = $digest{nc} = '00000001';

@@ -88,7 +88,7 @@ Tries to authorize request C<$self> based on the information in RESPONSE
 C<< [ user,pass ] >> if a global authorization info exists for all realms or
 C<< { realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... } >> if
 different credentials are provided for different realms or a callback
-C<< callback(realm)->[user,pass] >>. 
+C<< callback(realm)->[user,pass] >>.
 The realms, for which authorization is needed, are read from RESPONSE.
 
 The request C<$self> is modified in-place. If a modification occurred, e.g.
@@ -99,4 +99,3 @@ Supports only RFC2617 with md5 and empty qop or qop 'auth', not md5-sess
 or qop's like 'auth-int'.
 
 =back
-

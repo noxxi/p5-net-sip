@@ -36,4 +36,3 @@ Get text for code from response.
 Get method for orginal request by parsing the CSeq header.
 
 =back
-

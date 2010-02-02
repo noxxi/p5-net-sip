@@ -172,7 +172,7 @@ information about C<from> and C<to> etc. See
 constructor in L<Net::SIP::Endpoint::Context> for details.
 
 If it is an existing CTX it has to be one which is already managed
-by this endpoint (e.g. one returned by this method), the endpoint 
+by this endpoint (e.g. one returned by this method), the endpoint
 will only manage CTX which it created itself so that a context
 cannot be shared between multiple endpoints.
 
@@ -240,7 +240,7 @@ associated request came in.
 
 CTX is the context from the call, where the associated request came in.
 
-If the response is a 2xx response to a INVITE and no C<contact> header 
+If the response is a 2xx response to a INVITE and no C<contact> header
 is given as required from the RFC it will add one based on the CTX.
 
 =back

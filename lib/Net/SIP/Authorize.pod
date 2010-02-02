@@ -7,13 +7,13 @@ Net::SIP::Authorize - enforce authorization of packets
 
   my $auth = Net::SIP::Authorize->new(
 	dispatcher => $dispatcher,
-        realm      => 'net-sip.example.com',
-        user2pass  => \&give_pass_for_user,
-        i_am_proxy => 1,
+	realm      => 'net-sip.example.com',
+	user2pass  => \&give_pass_for_user,
+	i_am_proxy => 1,
   );
   my $proxy = Net::SIP::StatelessProxy->new...
   my $chain = Net::SIP::ReceiveChain->new(
-        # all requests for proxy need to be authorized
+	# all requests for proxy need to be authorized
 	[ $auth,$proxy ]
   );
 
@@ -56,13 +56,13 @@ For the meaning of C<a1_hex> see RFC 2617.
 
 Either hash reference with C<user,password> mapping or callback,
 which gives C<password> if called with C<user>.
-This parameter will only be used if C<user2a1> does not result in 
+This parameter will only be used if C<user2a1> does not result in
 a defined C<a1_hex> for C<user>.
 
 =item i_am_proxy
 
 Flag if the object behind works as a proxy (e.g. L<Net::SIP::StatelessProxy>)
-and sends C<Proxy-Authenticate> or if it is an endpoint 
+and sends C<Proxy-Authenticate> or if it is an endpoint
 (e.g. L<Net::SIP::Endpoint>, L<Net::SIP::Registrar>) which sends
 C<WWW-Authenticate>.
 
@@ -82,7 +82,7 @@ is the C<< "ip:port" >> of the sender. Responses will be send
 back to the sender through the same leg.
 
 Called from the managing L<Net::SIP::Dispatcher> object if a new
-packet arrives. 
+packet arrives.
 
 Returns TRUE if the packet was fully handled by this object which
 is the case, if the packet was not authorized so that a C<401>

@@ -160,11 +160,11 @@ sub new {
 			domain2proxy => $d2p,
 		);
 	}
-	push @$ua_cleanup, [ 
+	push @$ua_cleanup, [
 		sub {
 			my ($self,$legs) = @_;
 			$self->{dispatcher}->remove_leg(@$legs);
-		}, 
+		},
 		$self,$legs
 	] if @$legs;
 
@@ -384,7 +384,7 @@ sub invite {
 #      if sub and sub returns 1 call gets accepted, if sub returns 0 it gets rejected
 #    cb_create: optional callback called on creation of newly created
 #      Net::SIP::Simple::Call. If returns false the call will be closed.
-#      If returns a callback (e.g some ref) it will be used instead of 
+#      If returns a callback (e.g some ref) it will be used instead of
 #      Net::SIP::Simple::Call to handle the data
 #    cb_established: callback called after receiving ACK
 #    cb_cleanup: called on destroy of call object
@@ -467,7 +467,7 @@ sub create_registrar {
 }
 
 ###########################################################################
-# setup a stateless proxy 
+# setup a stateless proxy
 # Args: ($self,%args)
 #   %args: see Net::SIP::StatelessProxy
 # Returns: $proxy
@@ -485,7 +485,7 @@ sub create_stateless_proxy {
 ###########################################################################
 # setup chain of handlers, e.g. first authorize all requests, everything
 # else gets handled by stateless proxy etc
-# Args: ($self,$objects,%args) 
+# Args: ($self,$objects,%args)
 # Returns: $chain
 ###########################################################################
 sub create_chain {

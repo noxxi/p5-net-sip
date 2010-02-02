@@ -64,7 +64,7 @@ sub _default_rewrite_contact {
 		my $lc = length($contact);
 		$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 		# add 'r' in front of hex so it does not look like phone number
-		$new = 'r'.unpack( 'H*',( $contact ^ $secret )); 
+		$new = 'r'.unpack( 'H*',( $contact ^ $secret ));
 		DEBUG( 100,"rewrite $contact -> $new" );
 	} elsif ( $contact =~m{^r([0-9a-f]+)$}i ) {
 		# needs to be written back
@@ -403,7 +403,7 @@ sub __forward_packet_final {
 
 	my $packet = $entry->{packet};
 	# rewrite contact header if outgoing leg is different to incoming leg
-	if ( ( $outgoing_leg != $incoming_leg or $self->{force_rewrite} ) and 
+	if ( ( $outgoing_leg != $incoming_leg or $self->{force_rewrite} ) and
 		(my @contact = $packet->get_header( 'contact' ))) {
 
 		my $rewrite_contact = $self->{rewrite_contact};

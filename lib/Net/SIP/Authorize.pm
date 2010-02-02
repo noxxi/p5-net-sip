@@ -31,11 +31,11 @@ sub new {
 	my $self = fields::new( $class );
 	$self->{realm} = $args{realm} || 'p5-net-sip';
 	$self->{opaque} = $args{opaque};
-	
+
 	$args{user2pass} || $args{user2a1} || croak 'no user2pass or user2a1 known';
-	
+
 	$self->{user2pass} = $args{user2pass};
-	$self->{user2a1} = $args{user2a1}; 
+	$self->{user2a1} = $args{user2a1};
 	$self->{i_am_proxy} = $args{i_am_proxy};
 	$self->{dispatcher} = $args{dispatcher} || croak 'no dispatcher';
 	return $self;
@@ -47,7 +47,7 @@ sub new {
 #  $packet: Net::SIP::Request
 #  $leg: Net::SIP::Leg where request came in (and response gets send out)
 #  $addr: ip:port where request came from and response will be send
-# Returns: TRUE if it handled the packet 
+# Returns: TRUE if it handled the packet
 ###########################################################################
 sub receive {
 	my Net::SIP::Authorize $self = shift;
@@ -72,8 +72,8 @@ sub receive {
 	my $opaque = $self->{opaque};
 
 	# there might be multiple auth, pick the right realm
-	my (@keep_auth,$authorized);	
-	
+	my (@keep_auth,$authorized);
+
 	foreach my $auth ( @auth ) {
 		# RFC 2617
 		my ($data,$param) = sip_hdrval2parts( $rq_key => $auth );
@@ -92,7 +92,7 @@ sub receive {
 			}
 		}
 
-		my ($user,$nonce,$uri,$resp,$qop,$cnonce,$algo ) = 
+		my ($user,$nonce,$uri,$resp,$qop,$cnonce,$algo ) =
 			@{$param}{ qw/ username nonce uri response qop cnonce algorithm / };
 		if ( lc($data) ne 'digest'
 			|| ( $algo && lc($algo) ne 'md5' )
@@ -107,7 +107,7 @@ sub receive {
 			( $method eq 'ACK' || $method eq 'CANCEL' ) ? 'INVITE' : $method,
 			$uri );
 
-		# we support with and w/o qop	
+		# we support with and w/o qop
 		# get a1_hex from either user2a1 or user2pass
 		my $a1_hex;
 		if ( ref($user2a1)) {
@@ -116,7 +116,7 @@ sub receive {
 			} else {
 				$a1_hex = invoke_callback( $user2a1,$user,$realm );
 			}
-		} 
+		}
 		if ( ! defined($a1_hex) && ref($user2pass)) {
 			my $pass;
 			if ( ref($user2pass) eq 'HASH' ) {
@@ -125,9 +125,9 @@ sub receive {
 				$pass = invoke_callback( $user2pass,$user );
 			}
 			# if wrong credentials ask again for authorization
-			last if ! defined $pass; 
+			last if ! defined $pass;
 			$a1_hex = md5_hex(join( ':',$user,$realm,$pass ));
-		} 
+		}
 
 		my $want_response;
 		if ( $qop ) {
@@ -141,9 +141,9 @@ sub receive {
 				md5_hex($a2)
 			));
 		} else {
-			 # 3.2.2.1 compability with RFC2069			 
+			 # 3.2.2.1 compability with RFC2069
 			 $want_response = md5_hex( join( ':',
-			 	$a1_hex,
+				$a1_hex,
 				$nonce,
 				md5_hex($a2)
 			));
@@ -187,7 +187,7 @@ sub receive {
 	);
 
 	$self->{dispatcher}->deliver( $resp, leg => $leg, dst_addr => $addr );
-	
+
 	# return $acode (TRUE) to show that packet should
 	# not passed thru
 	return $acode;

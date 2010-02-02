@@ -50,7 +50,7 @@ sub new {
 #  $packet: Net::SIP::Packet
 #  $leg: Net::SIP::Leg where request came in (and response gets send out)
 #  $addr: ip:port where request came from and response will be send
-# Returns: TRUE if it handled the packet 
+# Returns: TRUE if it handled the packet
 ###########################################################################
 sub receive {
 	my Net::SIP::ReceiveChain $self = shift;

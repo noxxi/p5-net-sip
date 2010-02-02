@@ -158,7 +158,7 @@ sub new_from_string {
 	my ($class,$string) = @_;
 
 	# split into lines
-	Carp::confess('expected string or ARRAY ref' ) 
+	Carp::confess('expected string or ARRAY ref' )
 		if ref($string) && ref( $string ) ne 'ARRAY';
 	my @lines = ref($string)
 		? @$string
@@ -435,7 +435,7 @@ my $RX_IP4 = do {
 # very rough, just enough to distinguish IPv6 from hostnames
 my $RX_IP6 = qr{^[a-fA-F\d:]+:[a-fA-F\d:.]*$};
 my $CHECK_IP6 = eval { require Socket6 }
-	? sub { Socket6::inet_pton( AF_INET6, shift ) } 
+	? sub { Socket6::inet_pton( AF_INET6, shift ) }
 	: sub { 1 }; # FIXME: better syntax check here?
 
 sub _split_c {

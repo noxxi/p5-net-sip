@@ -136,10 +136,10 @@ sub media_send_recv {
 			$addr = $addr->[0] if ref($addr);
 
 			# recv once I get an event on RTP socket
-			my $receive = sub { 
+			my $receive = sub {
 				my ($writeto,$targs,$didit,$sock) = @_;
 				while (1) {
-					my $buf = _receive_rtp( $sock,$writeto,$targs,$didit ); 
+					my $buf = _receive_rtp( $sock,$writeto,$targs,$didit );
 					defined($buf) or return;
 					CAN_NONBLOCKING or return;
 				}
@@ -241,7 +241,7 @@ sub _receive_rtp {
 	my $payload = $padding ? substr( $buf,0,length($buf)-$padding ): $buf;
 
 	DEBUG( 100,"payload=$seq/%d xh=%d padding=%d cc=%d", length($payload),$xh,$padding,$cc );
-	if ( $targs->{rseq} && $seq<= $targs->{rseq} 
+	if ( $targs->{rseq} && $seq<= $targs->{rseq}
 		&& $targs->{rseq} - $seq < 60000 ) {
 		DEBUG( 10,"seq=$seq last=$targs->{rseq} - dropped" );
 		return;
@@ -326,7 +326,7 @@ sub _send_rtp {
 	my $seq = $targs->{wseq};
 	# 32 bit timestamp based on seq and packet size
 	# FIXME: it assumes here that packet size == number of samples which is true only for 8bit
-	my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32; 
+	my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;
 
 	if (0) {
 		my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );

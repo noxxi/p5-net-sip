@@ -160,7 +160,7 @@ ID of PACKET given by method B<tid> will be used.
 =item callid
 
 Call-ID for packet, used in B<cancel_delivery> to cancel all deliveries for
-a specific call. If not given the Call-Id of PACKET given by method B<callid> 
+a specific call. If not given the Call-Id of PACKET given by method B<callid>
 will be used.
 
 =item callback

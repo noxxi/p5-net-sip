@@ -138,7 +138,7 @@ sub set_receiver {
 		# remove receiver
 		$self->{receiver} = undef
 	}
-		
+
 }
 
 ###########################################################################
@@ -655,7 +655,7 @@ sub resolve_uri {
 
 	# is param maddr set?
 	if ( my $ip = $param->{maddr} ) {
-		@$dst_addr = ( $ip ) 	
+		@$dst_addr = ( $ip )
 			if $ip =~m{^[\d\.]+$} && eval { inet_aton($ip) };
 	}
 

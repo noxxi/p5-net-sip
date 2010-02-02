@@ -75,6 +75,7 @@ samples/README
 samples/invite_and_recv.pl
 samples/invite_and_send.pl
 samples/test_registrar_and_proxy.pl
+samples/register_and_redirect.pl
 samples/3pcc.pl
 samples/bench/README
 samples/bench/call.pl

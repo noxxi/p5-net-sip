@@ -76,7 +76,7 @@ sides.
 
 PARAM is an optional hash reference. If given it will be added as user
 information to the new session and given back in the information hash
-returned by L<close_session> etc. 
+returned by L<close_session> etc.
 
 The method returns two items: The first is information about the session
 like returned in L<close_session>, the second is a flag, which is true,
@@ -125,7 +125,7 @@ already closed session.
 
 =item expire ( [ %ARGS ] )
 
-This causes the sessions and sockets to expire. 
+This causes the sessions and sockets to expire.
 It will return a list with a hash for each expired session.
 See L<close_session> for details on the returned information.
 
@@ -169,7 +169,7 @@ return all session objects.
 
 To use this function you might need to know the interna of the session
 objects (see source code), but in most cases it is enough to know, that
-session objects have a method L<info_as_hash> which will return infos 
+session objects have a method L<info_as_hash> which will return infos
 about the session as hash like described in L<close_session>.
 
 =item get_rtp_sockets ( NEW_ADDR, @MEDIA )
