@@ -17,7 +17,8 @@ use fields (
 	'auth',    # [ user,pass ] or { realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... }
 			   # or callback(realm,user)->pass
 			   # if given, handle_response might automatically try to authorize requests
-	'contact', # optional contact
+	'contact', # optional local contact
+	'remote_contact', # remote contact from response
 	'callid',  # call-id value
 	'cseq',    # number in cseq header
 	'route',   # for 'route' header, comes usually from 'record-route' info in response
@@ -168,12 +169,10 @@ sub new_request {
 
 		$method = uc($method);
 		my $uri = delete $args{uri};
-		my ($to,$from,$contact,$remote_contact) = $self->{incoming}
-			? ( $self->{from}, $self->{to},undef,$self->{contact} )
-			: ( $self->{to}, $self->{from},$self->{contact},undef )
-			;
+		my ($to,$from) = $self->{incoming} ? ($self->{from},$self->{to}) 
+			: ($self->{to},$self->{from});
 		if ( !$uri ) {
-			($uri) = sip_hdrval2parts( to => $remote_contact||$to);
+			($uri) = sip_hdrval2parts( to => $self->{remote_contact}||$to);
 			# XXX handle quotes right, e.g "<bla>" <sip:bla@fasel.com>
 			$uri = $1 if $uri =~m{<(\S+)>$};
 		}
@@ -187,7 +186,7 @@ sub new_request {
 			{
 				from => $from,
 				to => $to,
-				$contact ? ( contact => $contact ):(),
+				$self->{contact} ? ( contact => $self->{contact} ):(),
 				route => $self->{route},
 				cseq => "$cseq $method",
 				'call-id' => $self->{callid},
@@ -358,6 +357,7 @@ sub handle_response {
 			# establishes the dialog
 			if ( my $contact = $response->get_header( 'contact' )) {
 				$contact = $1 if $contact =~m{<(\w+:[^>\s]+)>};
+				$self->{remote_contact} = $contact;
 				$req->set_uri( $contact );
 			}
 
@@ -406,6 +406,7 @@ sub handle_response {
 		# redo request and insert request again
 		my $contact = $self->{to} = $response->get_header( 'contact' );
 		$contact = $1 if $contact =~m{<(\w+:[^>\s]+)>};
+		$self->{remote_contact} = $contact;
 		( my $r = $tr->{request} )->set_uri( $contact );
 		$r->set_cseq( ++$self->{cseq} );
 		$endpoint->new_request( $r,$self );

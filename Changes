@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.56_1 2010-03-19
+- save remote_contact from successful responses in context and use
+  them as remote-URI in new requests. 
+  Thanks to <vitspec[AT]gmail[DOT]com> for pointing out the problem.
+
 0.56 2010-02-02
 - fix CANCEL handling: instead of closing the context immediatly:
   - server should return 487 to client before closing the context
