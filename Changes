@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.57_1 2010-04-13
+- dispatcher calls receive callback with eval so that it does not 
+  die on bad or unexpected packets. Thanks to <vitspec[AT]gmail[DOT]com>
+  for pointing out the problem
+
 0.57 2010-03-19
 - save remote_contact from successful responses in context and use
   them as remote-URI in new requests. 

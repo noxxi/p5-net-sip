@@ -175,21 +175,27 @@ sub add_leg {
 
 		if ( my $fd = $leg->fd ) {
 			my $cb = sub {
-				my ($self,$leg) = @_;
-				$self || return;
+				# don't crash Dispatcher on bad or unexpected packets
+				eval {
+					my ($self,$leg) = @_;
+					$self || return;
 
-				# leg->receive might return undef if the packet wasnt
-				# read successfully. for tcp connections the receive
-				# on a listening socket might cause a new leg to be added
-				# which then will receive the packet (maybe over multiple
-				# read attempts)
-				my ($packet,$from) = $leg->receive or do {
-					DEBUG( 50,"failed to receive on leg" );
-					return;
+					# leg->receive might return undef if the packet wasnt
+					# read successfully. for tcp connections the receive
+					# on a listening socket might cause a new leg to be added
+					# which then will receive the packet (maybe over multiple
+					# read attempts)
+					my ($packet,$from) = $leg->receive or do {
+						DEBUG( 50,"failed to receive on leg" );
+						return;
+					};
+
+					# handle received packet
+					$self->receive( $packet,$leg,$from );
 				};
-
-				# handle received packet
-				$self->receive( $packet,$leg,$from );
+				if ($@) {
+					DEBUG(1,"dispatcher croaked: $@");
+				}
 			};
 			$cb = [ $cb,$self,$leg ];
 			weaken( $cb->[1] );
