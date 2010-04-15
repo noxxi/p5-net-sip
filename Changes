@@ -1,5 +1,11 @@
 Revision history for Net::SIP
 
+0.57_4 2010-04-15
+- Net::SIP::Endpoint::Context - set context.to based on reply before
+  invoking callback. Thanks <vitspec[AT]gmail[DOT]com> for input.
+0.57_3 2010-04-15
+- Net::SIP::Leg::receive: ignore packets with len<13 because any valid
+  packet must be larger. Such packets are used for keep-alives
 0.57_2 2010-04-13
 - added Net::SIP::Simple::Call::get_param as pendant to set_param based
   on patch from <dave[AT]3c[DOT]co[DOT]uk>

@@ -404,6 +404,13 @@ sub receive {
 		return;
 	};
 
+	# packet must be at least 13 bytes big (first line incl version
+	# + final crlf crlf). Ignore anything smaller, probably keep-alives
+	if ( length($buf)<13 ) {
+		DEBUG(11,"ignored packet with len ".length($buf)." because to small (keep-alive?)");
+		return;
+	}
+
 	my $packet = eval { Net::SIP::Packet->new( $buf ) } or do {
 		DEBUG( 3,"cannot parse buf as SIP: $@\n$buf" );
 		return;

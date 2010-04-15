@@ -361,17 +361,18 @@ sub handle_response {
 				$req->set_uri( $contact );
 			}
 
+			# use to-tag from this request to update 'to'
+			# FIXME: this should probably be better done by the upper layer
+			# which decides, which call to accept (in case of call-forking with
+			# multiple 2xx responses)
+			$self->{to} = $response->get_header( 'to' ) if ! $self->{incoming};
+
 			# create ACK
 			# if 2xx response changed contact use it as the new URI
 			my $ack = $req->create_ack( $response );
 			invoke_callback($cb,@arg,0,$code,$response,$leg,$from,$ack);
 			$endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
 
-			# use to-tag from this request to update 'to'
-			# FIXME: this should probably be better done by the upper layer
-			# which decides, which call to accept (in case of call-forking with
-			# multiple 2xx responses)
-			$self->{to} = $response->get_header( 'to' ) if ! $self->{incoming};
 
 		} else {
 			# response to ACK, REGISTER...
