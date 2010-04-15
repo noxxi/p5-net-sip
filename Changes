@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.57_2 2010-04-13
+- added Net::SIP::Simple::Call::get_param as pendant to set_param based
+  on patch from <dave[AT]3c[DOT]co[DOT]uk>
 0.57_1 2010-04-13
 - dispatcher calls receive callback with eval so that it does not 
   die on bad or unexpected packets. Thanks to <vitspec[AT]gmail[DOT]com>

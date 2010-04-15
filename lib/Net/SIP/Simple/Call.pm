@@ -144,6 +144,17 @@ sub set_param {
 }
 
 ###########################################################################
+# get value for parameter(s)
+# Args: ($self,@keys)
+# Returns: @values|$value[0]
+###########################################################################
+sub get_param {
+	my Net::SIP::Simple::Call $self = shift;
+	my @v = @{$self->{param}}{@_};
+	return wantarray ? @v : $v[0];
+}
+
+###########################################################################
 # (Re-)Invite other party
 # Args: ($self;%param)
 #   %param: see description of field 'param', gets merged with param

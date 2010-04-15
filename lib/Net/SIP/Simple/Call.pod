@@ -259,4 +259,10 @@ Changes param like B<init_media>, B<sdp_on_ack> on the current call. See the
 constructor. This is useful if call consists of multiple invites with different
 features.
 
+=item get_param ( @KEYS )
+
+Returns values for parameter @KEYS, pendant to B<set_param>
+If there is only one key it will return the value as scalar, on multiple
+keys it returns an array with all values.
+
 =back
