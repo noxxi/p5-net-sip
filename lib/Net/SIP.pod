@@ -144,6 +144,15 @@ Exports the default exports from L<Net::SIP::Debug>.
 
 Everything from ':debug', ':util' and ':alias'.
 
+=item rtp=MINPORT-MAXPORT|rtp:MINPORT-MAXPORT
+
+Set the range of ports to be used for creating RTP sockets to MINPORT..MAXPORT.
+This affects L<Net::SIP::Util::create_rtp_sockets>.
+
+=item debug=LEVEL|debug:LEVEL
+
+Set Debugging level to LEVEL
+
 =item string
 
 Strings where the first character is upper case will be interpreted
@@ -161,6 +170,10 @@ L<Net::SIP::Util>.
 
   use Net::SIP ':alias';
   Packet->new( ... );             # Net::SIP::Packet->new( ... )
+
+
+  # restrict rtp sockets from command line
+  perl -MNet::SIP=rtp:4000-4010 program.pl
 
 
 =head1 COPYRIGHT

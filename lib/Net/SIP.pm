@@ -4,7 +4,7 @@ use warnings;
 require 5.008;
 
 package Net::SIP;
-our $VERSION = '0.57_4';
+our $VERSION = '0.58';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();
@@ -72,7 +72,10 @@ sub import {
 			Net::SIP::Debug->export_to_level(1,$class,':DEFAULT')
 		} elsif ( $tag eq ':alias' ) {
 			$class->export_to_level(1,$class,$tag);
-		} elsif ( $tag =~m{^debug=(.*)}i ) {
+		} elsif ( $tag =~m{rtp[=:](\d+)-(\d+)}i ) {
+			$Net::SIP::Util::RTP_MIN_PORT = $1;
+			$Net::SIP::Util::RTP_MAX_PORT = $2;
+		} elsif ( $tag =~m{^debug[=:](.*)}i ) {
 			Net::SIP::Debug->level($1);
 		} elsif ( first { $_ eq $tag } @EXPORT_OK ) {
 			# from the predefined list

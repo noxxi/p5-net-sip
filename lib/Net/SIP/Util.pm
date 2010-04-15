@@ -26,6 +26,9 @@ our @EXPORT_OK = qw(
 );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
+our $RTP_MIN_PORT = 2000;
+our $RTP_MAX_PORT = 12000;
+
 ###########################################################################
 # creates hash from header val, e.g.
 # 'Digest method="md5",qop="auth",...','www-authenticate' will result in
@@ -250,8 +253,9 @@ sub create_socket_to {
 # Args: ($laddr;$range,$min,$max,$tries)
 #   $laddr: local addr
 #   $range: how many sockets, 2 if not defined
-#   $min: minimal port number, default 2000
+#   $min: minimal port number, default $RTP_MIN_PORT
 #   $max: maximal port number, default 10000 more than $min
+#      or $RTP_MAX_PORT if $min not given
 #   $tries: how many tries, default 100
 # Returns: ($port,$rtp_sock,$rtcp_sock,@more_socks)
 #   $port:      port of RTP socket, port for RTCP is port+1
@@ -262,9 +266,13 @@ sub create_socket_to {
 sub create_rtp_sockets {
 	my ($laddr,$range,$min,$max,$tries) = @_;
 	$range ||= 2;
-	$min ||= 2000;
+	if ( ! $min ) {
+		$min = $RTP_MIN_PORT;
+		$max ||= $RTP_MAX_PORT;
+	} else {
+		$max ||= $min+10000;
+	}
 	$min += $min%2; # make even
-	$max ||= $min+10000;
 	$tries ||= 1000;
 
 	my $diff2 = int(($max-$min)/2) - $range +1;
