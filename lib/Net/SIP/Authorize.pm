@@ -101,12 +101,6 @@ sub receive {
 			next;
 		};
 
-		# ACK|CANCEL just reuse the authorization from INVITE, so they should
-		# be checked against method INVITE
-		my $a2 = join( ':',
-			( $method eq 'ACK' || $method eq 'CANCEL' ) ? 'INVITE' : $method,
-			$uri );
-
 		# we support with and w/o qop
 		# get a1_hex from either user2a1 or user2pass
 		my $a1_hex;
@@ -129,35 +123,47 @@ sub receive {
 			$a1_hex = md5_hex(join( ':',$user,$realm,$pass ));
 		}
 
-		my $want_response;
-		if ( $qop ) {
-			# 3.2.2.1
-			$want_response = md5_hex( join( ':',
-				$a1_hex,
-				$nonce,
-				1,
-				$cnonce,
-				$qop,
-				md5_hex($a2)
-			));
-		} else {
-			 # 3.2.2.1 compability with RFC2069
-			 $want_response = md5_hex( join( ':',
-				$a1_hex,
-				$nonce,
-				md5_hex($a2)
-			));
-		}
+		# ACK just reuse the authorization from INVITE, so they should
+		# be checked against method INVITE
+		# for CANCEL the RFC doesn't say anything, so we assume it uses
+		# CANCEL but try INVITE if this fails
+		my @a2 =
+			$method eq 'ACK' ? ("INVITE:$uri") :
+			$method eq 'CANCEL' ? ("CANCEL:$uri","INVITE:$uri") :
+			("$method:$uri");
 
-		if ( $resp eq $want_response ) {
-			$authorized = 1;
+		while (my $a2 = shift(@a2)) {
+			my $want_response;
+			if ( $qop ) {
+				# 3.2.2.1
+				$want_response = md5_hex( join( ':',
+					$a1_hex,
+					$nonce,
+					1,
+					$cnonce,
+					$qop,
+					md5_hex($a2)
+				));
+			} else {
+				 # 3.2.2.1 compability with RFC2069
+				 $want_response = md5_hex( join( ':',
+					$a1_hex,
+					$nonce,
+					md5_hex($a2)
+				));
+			}
+
+			if ( $resp eq $want_response ) {
+				$authorized = 1;
+				last;
+			}
 		}
 	}
 
 	# if authorized remove authorization data from this realm
 	# and pass packet thru
 	if ( $authorized ) {
-		DEBUG( 10, "Request authorized". $packet->dump );
+		DEBUG( 10, "Request authorized ". $packet->dump );
 		# set header again
 		$packet->set_header( $rq_key => \@keep_auth );
 		return;
@@ -165,14 +171,9 @@ sub receive {
 
 	# CANCEL or ACK cannot be prompted for authorization, so
 	# they should provide the right data already
-	return $acode if $method eq 'CANCEL'; # unauthorized CANCEL
-	if ( $method eq 'ACK' ) {
-		# in case the ACK just acks that UAC received response
-		# we accept it w/o authorization
-		# but if it contains a (SDP) body we better need authorization
-		return $acode if ($packet->as_parts)[3];
-		return; # no body
-	}
+	# unauthorized CANCEL or ACK are only valid as response to
+	# 401/407 from this Authorize, so they should not be propagated
+	return $acode if $method eq 'CANCEL' or $method eq 'ACK';
 
 	# not authorized yet, ask to authenticate
 	# keep it simple RFC2069 style

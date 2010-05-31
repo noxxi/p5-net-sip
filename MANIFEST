@@ -38,6 +38,8 @@ lib/Net/SIP/Registrar.pm
 lib/Net/SIP/Registrar.pod
 lib/Net/SIP/StatelessProxy.pm
 lib/Net/SIP/StatelessProxy.pod
+lib/Net/SIP/Blocker.pm
+lib/Net/SIP/Blocker.pod
 lib/Net/SIP/ReceiveChain.pm
 lib/Net/SIP/ReceiveChain.pod
 lib/Net/SIP/Authorize.pm

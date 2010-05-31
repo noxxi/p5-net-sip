@@ -1,0 +1,48 @@
+
+=head1 NAME
+
+Net::SIP::Blocker - blocks SIP requests based on method name
+
+=head1 SYNOPSIS
+
+  my $block = Net::SIP::Blocker->new(
+      block => { 'SUBSCRIBE' => 405, '...' => ... },
+      dispatcher => $disp,
+  );
+
+  my $chain = Net::SIP::ReceiveChain->new(
+      [ $block, ... ]
+  );
+
+=head1 DESCRIPTION
+
+Blocks incoming requests by method name and sends back custom
+error message.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new ( BLOCK,DISPATCHER )
+
+Returns a new blocking object to be used in the chain.
+
+BLOCK is a hash reference where the keys are the methods to be blocked and
+their values are the reason why the method was blocked. The reason
+is the three digit code, optionally followed by a text.
+
+DISPATCHER is a L<Net::SIP::Dispatcher> object.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item receive ( PACKET,LEG,FROM )
+
+PACKET is the incoming packet,
+LEG is the L<Net::SIP::Leg> where the packet arrived and FROM
+is the C<< "ip:port" >> of the sender.
+
+=back
