@@ -169,7 +169,7 @@ sub new_request {
 
 		$method = uc($method);
 		my $uri = delete $args{uri};
-		my ($to,$from) = $self->{incoming} ? ($self->{from},$self->{to}) 
+		my ($to,$from) = $self->{incoming} ? ($self->{from},$self->{to})
 			: ($self->{to},$self->{from});
 		if ( !$uri ) {
 			($uri) = sip_hdrval2parts( to => $self->{remote_contact}||$to);

@@ -103,6 +103,25 @@ Simple implementation of a stateless proxy. Stateful proxies should
 probably be implemented by putting multiple L<Net::SIP::Endpoint>s
 together.
 
+=item L<Net::SIP::Blocker>
+
+Can block requests by method name with custom error code.
+
+=item L<Net::SIP::ReceiveChain>
+
+Can contain various objects for processing objects. Useful
+in connection with L<Net::SIP::Authorize>.
+
+=item L<Net::SIP::Redirect>
+
+Works together with a registrar and redirects requests.
+
+=item L<Net::SIP::Authorize>
+
+If put into a L<Net::SIP::ReceiveChain> it requests and checks
+authorization and gives only authorized requests to the next
+member of the chain.
+
 =back
 
 =head2 Simplified Layer for common tasks

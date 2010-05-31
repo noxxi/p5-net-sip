@@ -13,8 +13,7 @@ use warnings;
 
 package Net::SIP::ReceiveChain;
 use fields qw( objects filter );
-use Carp 'croak';
-use Net::SIP::Debug;
+use Net::SIP::Util 'invoke_callback';
 
 ###########################################################################
 # creates new ReceiveChain object
@@ -58,7 +57,7 @@ sub receive {
 
 	if ( my $f = $self->{filter} ) {
 		# check if packet should be handled by filter
-		return if ! $f->($packet,$leg,$addr);
+		return if ! invoke_callback($f,$packet,$leg,$addr);
 	}
 	foreach my $object (@{ $self->{objects} }) {
 		my $handled = $object->receive($packet,$leg,$addr);

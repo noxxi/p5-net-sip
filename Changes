@@ -1,5 +1,24 @@
 Revision history for Net::SIP
 
+0.58_3 2010-05-31
+Based on patches from DetlefPilzecker[AT]web[DOT]de
+- Net::SIP::Request::create_response - msg is optional, if not given
+  a builtin msg for the code will be used. 
+- new functionality: Net::SIP::Blocker provides way to block requests
+  by method name with custom code
+0.58_2 2010-05-31
+- fix Net::SIP::Simple::register, so that it uses an explicitly 
+  given contact unchanged. Bug report by 
+  stefano[DOT]pisani[AT]omnianet[DOT]it
+0.58_1 2010-05-28
+various fixes based on feedback and patches from 
+DetlefPilzecker[AT]web[DOT]de
+- check authorization for CANCEL not only against INVITE:uri but also
+  against CANCEL:uri. The RFC is not specific in this area
+- Authorize: don't forward unauthorized ACKs
+- ReceiveChain: filter callback need not to be code ref, especially
+  if methods arg was used. Now called with invoke_callback instead
+
 0.58 2010-04-15
 - with 'perl -MNet::SIP=rtp:min-max' the ports to used for RTP can be
   restricted, useful if behind firewall with limited forwarding.

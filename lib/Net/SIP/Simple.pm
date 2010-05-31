@@ -300,9 +300,13 @@ sub register {
 
 	my $from = delete $args{from} || $self->{from}
 		|| croak( "unknown from" );
-	my $contact = delete $args{contact} || $self->{contact} || $from;
-	my $local = $leg->{addr}.':'.$leg->{port};
-	$contact.= '@'.$local unless $contact =~s{\@([\w\-\.:]+)}{\@$local};
+
+	my $contact = delete $args{contact} || $self->{contact};
+	if ( ! $contact) {
+		$contact = $from;
+		my $local = $leg->{addr}.':'.$leg->{port};
+		$contact.= '@'.$local unless $contact =~s{\@([\w\-\.:]+)}{\@$local};
+	}
 
 	my %rarg = (
 		from => $from,
