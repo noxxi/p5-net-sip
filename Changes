@@ -1,5 +1,14 @@
 Revision history for Net::SIP
 
+0.58_5 2010-05-31
+- fixes on Authorize.pm based on reports from 
+  DetlefPilzecker[AT]web[DOT]de:
+  - cancel_delivery in Authorize on ACK
+0.58_4 2010-05-31
+- fixes on Redirect.pm based on reports from 
+  DetlefPilzecker[AT]web[DOT]de:
+  - respond 200 to CANCEL
+  - redirect everything except REGISTER, not only INVITE
 0.58_3 2010-05-31
 Based on patches from DetlefPilzecker[AT]web[DOT]de
 - Net::SIP::Request::create_response - msg is optional, if not given

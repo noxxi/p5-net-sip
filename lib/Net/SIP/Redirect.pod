@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-Net::SIP::Redirect - Send redirect to INVITEs based on lookup at a registrar
+Net::SIP::Redirect - Send redirect to Requests based on lookup at a registrar
 
 =head1 SYNOPSIS
 
@@ -13,7 +13,7 @@ Net::SIP::Redirect - Send redirect to INVITEs based on lookup at a registrar
 
 =head1 DESCRIPTION
 
-This package implements a simple redirection of INVITEs using the information
+This package implements a simple redirection of Requests using the information
 provided by a registrar.
 
 =head1 CONSTRUCTOR
@@ -52,11 +52,12 @@ back to the sender through the same leg.
 
 Called from the managing L<Net::SIP::Dispatcher> object if a new
 packet arrives. Will return C<()> and ignore the packet if it's
-not an INVITE or ACK request.
+an REGISTER request.
 
-For INVITEs it will query the registrar and return either
+For Requests it will query the registrar and return either
 C<< 302 Moved Temporarily >> with the list of contacts or
 C<< 404 Not found >> if the address is not registered.
+
 
 
 =back

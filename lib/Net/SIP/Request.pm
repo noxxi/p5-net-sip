@@ -162,8 +162,9 @@ sub create_cancel {
 
 ###########################################################################
 # Create response to request
-# Args: ($self,$code,$args,$body)
-#   $code: numerical response code, text will be used from %ResponseCode
+# Args: ($self,$code,[$msg],[$args,$body])
+#   $code: numerical response code
+#   $msg: msg for code, if arg not given it will be used from %ResponseCode
 #   $args: additional args for SIP header
 #   $body: body as string
 # Returns: $response

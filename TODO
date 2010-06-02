@@ -1,3 +1,8 @@
+
+- Redirect only specific domains, ignore rest so that it can be
+  chained with proxy for the rest
+
+*******
 PrioA:
 * document dns_host2ip and dns_domain2srv in Net::SIP::Dispatcher
   and make it truly asnychronous

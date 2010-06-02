@@ -173,7 +173,13 @@ sub receive {
 	# they should provide the right data already
 	# unauthorized CANCEL or ACK are only valid as response to
 	# 401/407 from this Authorize, so they should not be propagated
-	return $acode if $method eq 'CANCEL' or $method eq 'ACK';
+	if ($method eq 'ACK') {
+		# cancel delivery of response to INVITE
+		$self->{dispatcher}->cancel_delivery( $packet->tid );
+		return $acode;
+	} elsif ($method eq 'CANCEL') {
+		return $acode;
+	}
 
 	# not authorized yet, ask to authenticate
 	# keep it simple RFC2069 style

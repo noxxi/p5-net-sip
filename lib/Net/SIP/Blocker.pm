@@ -31,9 +31,9 @@ sub new {
 		or croak("no mapping between method and code");
 	while (my ($method,$code) = each %$map) {
 		$method = uc($method);
-		$code =~m{^(\d\d\d)(?:\s+(.*))?$} or
+		$code =~m{^(\d\d\d)(?:\s+(.+))?$} or
 			croak("block code for $method must be DDD [text]");
-		$self->{block}{$method} = [ length($2) ? ($1,$2):($1) ];
+		$self->{block}{$method} = [ defined($2) ? ($1,$2):($1) ];
 	}
 
 	$self->{dispatcher} = delete $args{dispatcher}
