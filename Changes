@@ -1,6 +1,6 @@
 Revision history for Net::SIP
 
-0.58_5 2010-05-31
+0.58_6 2010-06-02
 - fixes on Authorize.pm based on reports from 
   DetlefPilzecker[AT]web[DOT]de:
   - cancel_delivery in Authorize on ACK

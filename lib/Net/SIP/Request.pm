@@ -173,8 +173,8 @@ sub create_cancel {
 sub create_response {
 	my Net::SIP::Request $self = shift;
 	my $code = shift;
-	my $msg = ref($_[0]) ? $ResponseCode{$code} : shift();
-	my ($args,$body) = @_;
+	my ($msg,$args,$body) = ( defined $_[0] && ref($_[0]) ) ? (undef,@_):@_;
+	$msg = $ResponseCode{$code} if ! defined $msg;
 	my %header = (
 		cseq      => scalar($self->get_header('cseq')),
 		'call-id' => scalar($self->get_header('call-id')),
