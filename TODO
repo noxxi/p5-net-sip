@@ -1,34 +1,12 @@
 
 - Redirect only specific domains, ignore rest so that it can be
   chained with proxy for the rest
-
-*******
-PrioA:
-* document dns_host2ip and dns_domain2srv in Net::SIP::Dispatcher
+- document dns_host2ip and dns_domain2srv in Net::SIP::Dispatcher
   and make it truly asnychronous
-* do not look up tcp in Dispatcher::resolve_uri  if we have no leg
+- do not look up tcp in Dispatcher::resolve_uri  if we have no leg
   which can do tcp
-
------
-
 - more tests
-  * invite + listen using proxy + registrar
-  * call-on-hold ( c=0.0.0.0 in SDP )
-  * use sdp_on_ack, asymetric_rtp in tests
-  * tests using re-invites (from UAC and from UAS)
-  * tests, where either the UAC or the UAS issues a BYE
-  * tests with bad relay in between, which forgets
-    packets, so that retransmits will be tested
-  * proxy with NAT where SDP data come in
-     * 18x + 2xx + INVITE
-     * 2xx + ACK
-  * tests for delivering packets using Net::SIP::Dispatcher:resolve_uri
-  * tests for forwarding packets in stateless proxy 
-    based on route, via, uri,...
-  * tests for samples/ and bin/
-
 - more documentation
   * samples for integration with other loops
-
 - implementation
   * full support for TCP
