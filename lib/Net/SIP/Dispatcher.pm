@@ -21,7 +21,6 @@ use fields (
 	'domain2proxy',   # optional mapping between SIP domains and proxies (otherwise use DNS)
 	# internals
 	'do_retransmits', # flag if retransmits will be done (false for stateless proxy)
-	'outgoing_leg',   # Leg for outgoing_proxy
 	'queue',          # \@list of outstanding Net::SIP::Dispatcher::Packet
 	'response_cache', # Cache of responses, used to reply to retransmits
 	'disp_expire',    # expire/retransmit timer
@@ -84,7 +83,6 @@ sub new {
 		legs => [],
 		queue  => [],
 		outgoing_proxy => undef,
-		outgoing_leg => undef,
 		response_cache => {},
 		do_retransmits => defined( $do_retransmits ) ? $do_retransmits : 1,
 		eventloop => $eventloop,
@@ -97,7 +95,6 @@ sub new {
 		my $leg = $self->_find_leg4addr( $outgoing_proxy )
 			|| die "cannot find leg for destination $outgoing_proxy";
 		$self->{outgoing_proxy} = $outgoing_proxy;
-		$self->{outgoing_leg}   = $leg;
 	}
 
 

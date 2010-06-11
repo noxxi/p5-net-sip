@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.58_7 2010-06-11
+- removed unused field outgoing_leg from Net::SIP::Dispatcher.
+  Thanks to DetlefPilzecker[AT]web[DOT]de for pointing this out
 0.58_6 2010-06-02
 - fixes on Authorize.pm based on reports from 
   DetlefPilzecker[AT]web[DOT]de:
