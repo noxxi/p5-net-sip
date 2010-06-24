@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.58_9 2010-06-24
+- Endpoint::Context::request_delivery_done - do not remove 
+  transaction, because in case of tcp delivery done will be called
+  once request is send. transaction will be removed in handle_response
+  already
 0.58_8 2010-06-24
 - Request::authorize - accept qop="auth,auth-int".., e.g. es long 
   auth is specifified its ok. Based on Bug report from 

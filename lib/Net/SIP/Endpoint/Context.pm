@@ -234,12 +234,14 @@ sub set_callback {
 sub request_delivery_done {
 	my Net::SIP::Endpoint::Context $self = shift;
 	my ($endpoint,$tid,$error) = @_;
+	return if ! $error; # notify of success once I get response
+
 	my $trans = $self->{_transactions};
 	my @ntrans;
 	foreach my $tr (@$trans) {
 		if ( $tr->{tid} eq $tid ) {
 			$self->{_transactions} = \@ntrans;
-			if ( $error && ( my $cb = $tr->{callback} )) {
+			if ( my $cb = $tr->{callback} ) {
 				# permanently failed
 				invoke_callback( $cb, $self,$endpoint,$error );
 			}
