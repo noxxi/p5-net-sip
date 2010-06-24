@@ -276,6 +276,7 @@ sub authorize {
 
 				# 3.2.2.1
 				if ( $h->{qop} ) {
+					$h->{qop} = 'auth'; # in case it was 'auth,auth-int'
 					my $nc = $digest{nc} = '00000001';
 					my $cnonce = $digest{cnonce} = sprintf("%08x",rand(2**32));
 					$digest{qop} = $h->{qop};

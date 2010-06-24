@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.58_10 2010-06-24
+- if qop=auth,auth-int given respond with qop=auth
 0.58_9 2010-06-24
 - Endpoint::Context::request_delivery_done - do not remove 
   transaction, because in case of tcp delivery done will be called
