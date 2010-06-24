@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.58_8 2010-06-24
+- Request::authorize - accept qop="auth,auth-int".., e.g. es long 
+  auth is specifified its ok. Based on Bug report from 
+  alain[AT]knaff[DOT]lu
 0.58_7 2010-06-11
 - removed unused field outgoing_leg from Net::SIP::Dispatcher.
   Thanks to DetlefPilzecker[AT]web[DOT]de for pointing this out

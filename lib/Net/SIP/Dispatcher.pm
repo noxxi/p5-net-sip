@@ -989,7 +989,7 @@ sub trigger_callback {
 	my Net::SIP::Dispatcher::Packet $self = shift;
 	my $error = shift;
 	my $cb = $self->{callback} || return;
-	invoke_callback( $cb, $error ? ($error,$self):() );
+	invoke_callback( $cb,$error,$self);
 	return 1;
 }
 

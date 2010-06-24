@@ -263,7 +263,7 @@ sub forward_outgoing {
 #   $addr:   ip:port where to deliver
 #   $callback: optional callback, if an error occured the callback will
 #      be called with $! as argument. If no error occured and the
-#      proto is tcp the callback will be called with ENOERR to show
+#      proto is tcp the callback will be called with error=0 to show
 #      that the packet was definitly delivered (and need not retried)
 ###########################################################################
 sub deliver {
@@ -376,7 +376,7 @@ sub sendto {
 		return;
 	}
 
-	# XXXX dont forget to call callback back with ENOERR if
+	# XXXX dont forget to call callback back with error=0 if
 	# delivery by tcp successful
 	return 1;
 }

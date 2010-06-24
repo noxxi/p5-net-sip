@@ -250,9 +250,9 @@ sub authorize {
 
 				if ( lc($a->{data}) ne 'digest'
 					|| $h->{algorithm} && lc($h->{algorithm}) ne 'md5'
-					|| $h->{qop} && lc($h->{qop}) ne 'auth' ) {
+					|| $h->{qop} && $h->{qop} !~ m{(?:^|,\s*)auth(?:$|,)}i ) {
 					no warnings;
-					#warn "unsupported authorization method $a->{data} method=$h->{method} qop=$h->{qop}";
+					DEBUG(10,"unsupported authorization method $a->{data} method=$h->{method} qop=$h->{qop}");
 					next;
 				}
 				my $realm = $h->{realm};
