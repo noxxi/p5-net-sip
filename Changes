@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.58_11 2010-07-09
+- fix for Blocker + test from DetlefPilzecker[AT]web[DOT]de
 0.58_10 2010-06-24
 - if qop=auth,auth-int given respond with qop=auth
 0.58_9 2010-06-24
