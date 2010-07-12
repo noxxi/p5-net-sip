@@ -322,7 +322,7 @@ sub deliver {
 #   $typ: what to cancel, e.g. 'id','callid' or 'qentry', optional,
 #     defaults to 'id' if $id is not ref or 'qentry' if $id is ref
 #   $id: id to cancel, can also be queue entry
-# Returns: NONE
+# Returns: bool, true if the was something canceled
 ###########################################################################
 sub cancel_delivery {
 	my Net::SIP::Dispatcher $self = shift;
@@ -343,6 +343,7 @@ sub cancel_delivery {
 		}
 	}
 	my $q = $self->{queue};
+	my $qn = @$q;
 	if ( $qentry ) {
 		# it's a *::Dispatcher::Packet
 		DEBUG( 100,"cancel packet id: $qentry->{id}" );
@@ -358,6 +359,7 @@ sub cancel_delivery {
 	} else {
 		croak( "cancel_delivery w/o id" );
 	}
+	return @$q < $qn; # true if items got deleted
 }
 
 

@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.59 2010-07-12
+- Dispatcher::cancel_delivery returns true if delivery was canceled
+- Blocker blocks all ACKS if all INVITE will be blocked, no mattter
+  if the response is in delivery queue. Thanks to 
+  DetlefPilzecker[AT]web[DOT]de
 0.58_11 2010-07-09
 - fix for Blocker + test from DetlefPilzecker[AT]web[DOT]de
 0.58_10 2010-06-24

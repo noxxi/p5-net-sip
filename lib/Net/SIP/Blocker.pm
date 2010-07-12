@@ -57,8 +57,9 @@ sub receive {
 	$packet->is_request or return;
 
 	my $method = $packet->method;
-	if ( $method eq 'ACK' && $self->{block}{INVITE} ) {
-		return $self->{dispatcher}->cancel_delivery($packet->tid);
+	if ( $method eq 'ACK' and my $block = $self->{block}{INVITE} ) {
+		$self->{dispatcher}->cancel_delivery($packet->tid);
+		return $block->[0];
 	}
 
 	my $block = $self->{block}{$method} or return;

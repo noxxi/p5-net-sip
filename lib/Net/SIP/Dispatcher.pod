@@ -280,9 +280,12 @@ successfully delivered.
 If TYP given packets can be canceled by something else. TYP can be
 C<callid>, in which case all deliveries for a specific call will be
 canceled. It can be C<id> which will cancel the packet with id ID.
-Or itcan be C<qentry> in which case ID will be interpreted as
+Or it can be C<qentry> in which case ID will be interpreted as
 the L<Net::SIP::Dispatcher::Packet> object in the queue and it will
 cancel this packet.
+
+Will return true if the item was canceled, false if no such item
+was found in delivery queue.
 
 =item receive ( PACKET, LEG, FROM )
 

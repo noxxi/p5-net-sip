@@ -102,7 +102,7 @@ sub uas {
 	Debug->set_prefix( "DEBUG(uas):" );
 
 	my $leg = Leg->new( sock => $sock );
-	my $loop = Net::SIP::Dispatcher::Eventloop->new;
+	my $loop = Dispatcher_Eventloop->new;
 	my $disp = Dispatcher->new( [ $leg ],$loop ) || die $!;
 	print $pipe "UAS created\n";
 
