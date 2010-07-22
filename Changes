@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.59_1 2010-07-22
+- Leg: Via..received= should only contain ip, not ip:port.
+  Thanks to DetlefPilzecker[AT]web[DOT]de for pointing out. Fix
+  Leg and StatelessProxy (where it expects to get port)
 0.59 2010-07-12
 - Dispatcher::cancel_delivery returns true if delivery was canceled
 - Blocker blocks all ACKS if all INVITE will be blocked, no mattter

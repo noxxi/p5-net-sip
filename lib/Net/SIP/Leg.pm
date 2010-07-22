@@ -137,7 +137,7 @@ sub forward_incoming {
 			if ( !$$vref ) {
 				# XXXXXXX maybe check that no received header existed before
 				$$vref = $hdr->{value}.=
-					";received=$self->{addr}:$self->{port}";
+					";received=$self->{addr}";
 				$hdr->set_modified;
 			}
 		}, \$via ]);

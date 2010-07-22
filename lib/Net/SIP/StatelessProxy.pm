@@ -194,11 +194,8 @@ sub __forward_response_1 {
 	}
 
 	if ( my $received = $entry->{via_received} ) {
-		# FIXME: we assume that the received entry is done by us
-		# and that we only put IP addresses inside
-		my ($addr,$port) = split( ':',$received,2 );
 		my @received_legs = $self->{dispatcher}->get_legs(
-			addr => $addr, port => $port );
+			addr => $received );
 		my $dst_addr = $entry->{dst_addr};
 		my @legs;
 		foreach my $addr (@$dst_addr) {
