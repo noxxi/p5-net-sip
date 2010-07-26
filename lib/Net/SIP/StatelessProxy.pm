@@ -159,7 +159,8 @@ sub __forward_response {
 	my ($addr,$port) = $first =~m{([\w\-\.]+)(?::(\d+))?\s*$};
 	$port ||= 5060; # FIXME default for sip, not sips!
 	$addr = $param->{maddr} if $param->{maddr};
-	$addr = $param->{received} if $param->{received}; # where it came in
+	$addr = $param->{received} if $param->{received}; # where it came from
+	$port = $param->{rport} if $param->{rport}; # where it came from
 	@{ $entry->{dst_addr}} = ( "$addr:$port" );
 	DEBUG( 50,"get dst_addr from via header: $first -> $addr:$port" );
 

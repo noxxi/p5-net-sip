@@ -193,11 +193,15 @@ sub add_leg {
 						return if $$vref++;
 						my ($d,$h) = sip_hdrval2parts(via => $hdr->{value});
 						return if $h->{received};
-						$d =~s{^\S+\s+}{}; # strip send-protocol
-						$d =~s{:\d+$}{}; # strip port
-						if ( $d ne $from ) { # either hostname or different IP
-							( my $addr = $from ) =~s{:\d+$}{};
+						# FIXME: not IPv6 save
+						($d,my $port) = $d =~m{^\S+\s+(\S+?)(?:(\d+))?$};
+						my ($addr,$rport) = $from =~m{^(\S+?)(?:(\d+))?$};
+						if ( $d ne $addr ) { # either hostname or different IP
 							$hdr->{value}.= ";received=$addr";
+							$hdr->set_modified;
+						}
+						if ( ! $port || $port != $rport ) {
+							$hdr->{value}.= ";rport=$rport";
 							$hdr->set_modified;
 						}
 					}, \( my $cvia )]);
