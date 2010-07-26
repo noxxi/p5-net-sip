@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.59_2 2010-07-26
+- fix Via:..;received= handling - should by IP of sending host, not
+  of receiving leg. Moved setting it to dispatcher, and set target addr
+  from received in Statelessproxy instead of lookup for leg with this
+  addr.  Thanks again to DetlefPilzecker[AT]web[DOT]de
 0.59_1 2010-07-22
 - Leg: Via..received= should only contain ip, not ip:port.
   Thanks to DetlefPilzecker[AT]web[DOT]de for pointing out. Fix

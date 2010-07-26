@@ -159,10 +159,10 @@ sub __forward_response {
 	my ($addr,$port) = $first =~m{([\w\-\.]+)(?::(\d+))?\s*$};
 	$port ||= 5060; # FIXME default for sip, not sips!
 	$addr = $param->{maddr} if $param->{maddr};
+	$addr = $param->{received} if $param->{received}; # where it came in
 	@{ $entry->{dst_addr}} = ( "$addr:$port" );
 	DEBUG( 50,"get dst_addr from via header: $first -> $addr:$port" );
 
-	$entry->{via_received} = $param->{received};
 	if ( $addr !~m{^[0-9\.]+$} ) {
 		$self->{dispatcher}->dns_host2ip(
 			$addr,
@@ -176,8 +176,6 @@ sub __forward_response {
 ###########################################################################
 # Called from _forward_response directly or indirectly after resolving
 # hostname of destination.
-# If received parameter was in Via header it will try to find the leg
-# based on it.
 # Calls __forward_packet_final at the end to deliver packet
 ###########################################################################
 sub __forward_response_1 {
@@ -191,26 +189,6 @@ sub __forward_response_1 {
 		}
 		# replace host part in dst_addr with ip
 		$entry->{dst_addr}[0] =~s{^(udp:|tcp:)?([^:]+)}{$1$ip};
-	}
-
-	if ( my $received = $entry->{via_received} ) {
-		my @received_legs = $self->{dispatcher}->get_legs(
-			addr => $received );
-		my $dst_addr = $entry->{dst_addr};
-		my @legs;
-		foreach my $addr (@$dst_addr) {
-			push @legs, grep { $_->can_deliver_to( $addr ) } @received_legs;
-		}
-
-		if ( !@legs ) {
-			# FIXME: should we really drop packet if we don't have the specified leg?
-			# or should we use any leg which could deliver to $dst_addr
-			DEBUG( 10,"cannot find leg for $received which can deliver to $dst_addr" );
-			return;
-		}
-
-		@{ $entry->{outgoing_leg} } = @legs;
-		DEBUG( 50,"getting leg from received=$received" );
 	}
 
 	__forward_packet_final( $self,$entry );

@@ -130,19 +130,6 @@ sub forward_incoming {
 		}
 		$packet->set_header( 'max-forwards',$maxf );
 
-		# add received to top via
-		my $via;
-		$packet->scan_header( via => [ sub {
-			my ($vref,$hdr) = @_;
-			if ( !$$vref ) {
-				# XXXXXXX maybe check that no received header existed before
-				$$vref = $hdr->{value}.=
-					";received=$self->{addr}";
-				$hdr->set_modified;
-			}
-		}, \$via ]);
-
-
 		# check if last hop was strict router
 		# remove myself from route
 		my $uri = $packet->uri;

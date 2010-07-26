@@ -187,8 +187,25 @@ sub add_leg {
 						return;
 					};
 
+					# add received to top via
+					$packet->scan_header( via => [ sub {
+						my ($vref,$hdr) = @_;
+						return if $$vref++;
+						my ($d,$h) = sip_hdrval2parts(via => $hdr->{value});
+						return if $h->{received};
+						$d =~s{^\S+\s+}{}; # strip send-protocol
+						$d =~s{:\d+$}{}; # strip port
+						if ( $d ne $from ) { # either hostname or different IP
+							( my $addr = $from ) =~s{:\d+$}{};
+							$hdr->{value}.= ";received=$addr";
+							$hdr->set_modified;
+						}
+					}, \( my $cvia )]);
+
 					# handle received packet
 					$self->receive( $packet,$leg,$from );
+
+
 				};
 				if ($@) {
 					DEBUG(1,"dispatcher croaked: $@");

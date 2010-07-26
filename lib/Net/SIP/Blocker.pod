@@ -6,12 +6,12 @@ Net::SIP::Blocker - blocks SIP requests based on method name
 =head1 SYNOPSIS
 
   my $block = Net::SIP::Blocker->new(
-      block => { 'SUBSCRIBE' => 405, '...' => ... },
-      dispatcher => $disp,
+	  block => { 'SUBSCRIBE' => 405, '...' => ... },
+	  dispatcher => $disp,
   );
 
   my $chain = Net::SIP::ReceiveChain->new(
-      [ $block, ... ]
+	  [ $block, ... ]
   );
 
 =head1 DESCRIPTION
