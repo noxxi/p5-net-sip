@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.59_4 2010-08-08 
+- fix rport handling. Thanks again to DetlefPilzecker[AT]web[DOT]de
 0.59_3 2010-07-26
 - fix Via:..;received= handling - should by IP of sending host, not
   of receiving leg. Moved setting it to dispatcher, and set target addr
