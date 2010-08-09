@@ -123,6 +123,8 @@ sub receive {
 			$a1_hex = md5_hex(join( ':',$user,$realm,$pass ));
 		}
 
+		last if ! defined $a1_hex; # not in user2a1 || user2pass
+
 		# ACK just reuse the authorization from INVITE, so they should
 		# be checked against method INVITE
 		# for CANCEL the RFC doesn't say anything, so we assume it uses

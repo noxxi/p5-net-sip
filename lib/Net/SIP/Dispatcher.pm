@@ -187,30 +187,32 @@ sub add_leg {
 						return;
 					};
 
-					# add received to top via
-					$packet->scan_header( via => [ sub {
-						my ($vref,$hdr) = @_;
-						return if $$vref++;
-						my ($d,$h) = sip_hdrval2parts(via => $hdr->{value});
-						# FIXME: not IPv6 save
-						my ($host,$port) = $d =~m{^\S+\s+(\S+?)(?::(\d+))?$};
-						my ($addr,$rport) = $from =~m{^(\S+)(?::(\d+))$};
-						my %nh;
-						if ( defined $h->{rport} 
-							or ! $port && $rport != 5060 
-							or $port && $port != $rport ) {
-							$nh{rport} = $rport;
-						}
-						if ( $host ne $addr or $nh{rport}) { 
-							# either hostname or different IP or required because
-							# rport was set
-							$nh{received} = $addr;
-						}
-						if (%nh) {
-							$hdr->{value} = sip_parts2hdrval('via',$d,{ %$h,%nh});
-							$hdr->set_modified;
-						}
-					}, \( my $cvia )]);
+					if ($packet->is_request) {
+						# add received and rport to top via
+						$packet->scan_header( via => [ sub {
+							my ($vref,$hdr) = @_;
+							return if $$vref++;
+							my ($d,$h) = sip_hdrval2parts(via => $hdr->{value});
+							# FIXME: not IPv6 save
+							my ($host,$port) = $d =~m{^\S+\s+(\S+?)(?::(\d+))?$};
+							my ($addr,$rport) = $from =~m{^(\S+)(?::(\d+))$};
+							my %nh;
+							if ( defined $h->{rport} 
+								or ! $port && $rport != 5060 
+								or $port && $port != $rport ) {
+								$nh{rport} = $rport;
+							}
+							if ( $host ne $addr or $nh{rport}) { 
+								# either hostname or different IP or required because
+								# rport was set
+								$nh{received} = $addr;
+							}
+							if (%nh) {
+								$hdr->{value} = sip_parts2hdrval('via',$d,{ %$h,%nh});
+								$hdr->set_modified;
+							}
+						}, \( my $cvia )]);
+					}
 
 					# handle received packet
 					$self->receive( $packet,$leg,$from );

@@ -130,8 +130,9 @@ sub sip_parts2hdrval {
 	}
 
 	my $val = $data; # FIXME: need to escape $data?
-	while ( my ($k,$v) = each %$param ) {
+	for my $k ( sort keys %$param ) {
 		$val .= $delim.$k;
+		my $v = $param->{$k};
 		if ( defined $v ) {
 			# escape special chars
 			$v =~s{([%\r\n\t"[:^print:]])}{ sprintf "%%%02x",ord($1) }sg;
