@@ -18,6 +18,10 @@ This package implements a simple SIP registrar. In the current implementation
 registry information are only kept in memory, e.g. they are not preserved over
 restarts.
 
+The implementation itself does not checking if the UAC is authorized to 
+register the given address. This can be done with using an appropriate 
+Authorize Module inside a ReceiveChain in front of the registrar.
+
 =head1 CONSTRUCTOR
 
 =over 4

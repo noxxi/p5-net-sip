@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.59_5 2010-08-09 
+- fix Registrar to get the address for registration from 'To' header, 
+  not 'From' header. Thanks again to DetlefPilzecker[AT]web[DOT]de
 0.59_4 2010-08-08 
 - fix rport handling. Thanks again to DetlefPilzecker[AT]web[DOT]de
 0.59_3 2010-07-26

@@ -83,21 +83,21 @@ sub receive {
 		return; # propagate to next in chain
 	}
 
-	my $from = $packet->get_header( 'from' ) or do {
-		DEBUG( 1,"no from in register request. DROP" );
+	my $to = $packet->get_header( 'to' ) or do {
+		DEBUG( 1,"no to in register request. DROP" );
 		return;
 	};
 
 	# what address will be registered
-	($from) = sip_hdrval2parts( from => $from );
-	if ( my ($domain,$user,$proto) = sip_uri2parts( $from ) ) {
+	($to) = sip_hdrval2parts( to => $to );
+	if ( my ($domain,$user,$proto) = sip_uri2parts( $to ) ) {
 		# normalize if possible
-		$from = "$proto:$user\@$domain";
+		$to = "$proto:$user\@$domain";
 	}
 
 	# check if domain is allowed
 	if ( my $rd = $self->{domains} ) {
-		my ($domain) = $from =~m{\@([\w\-\.]+)};
+		my ($domain) = $to =~m{\@([\w\-\.]+)};
 		if ( ! first { $domain =~m{\.?\Q$_\E$}i || $_ eq '*' } @$rd ) {
 			DEBUG( 1, "$domain matches none of my own domains. DROP" );
 			return;
@@ -135,7 +135,7 @@ sub receive {
 		$curr{$c_addr} = $expire;
 	}
 
-	$self->{store}{ $from } = \%curr;
+	$self->{store}{ $to } = \%curr;
 
 	# expire now!
 	$self->expire();
@@ -179,8 +179,8 @@ sub expire {
 	my $now = $loop->looptime;
 
 	my $store = $self->{store};
-	my (@drop_from,$next_exp);
-	while ( my ($from,$contact) = each %$store ) {
+	my (@drop_addr,$next_exp);
+	while ( my ($addr,$contact) = each %$store ) {
 		my @drop_where;
 		while ( my ($where,$expire) = each %$contact ) {
 			if ( $expire<$now ) {
@@ -191,10 +191,10 @@ sub expire {
 		}
 		if ( @drop_where ) {
 			delete @{$contact}{ @drop_where };
-			push @drop_from,$from if !%$contact;
+			push @drop_addr,$addr if !%$contact;
 		}
 	}
-	delete @{$store}{ @drop_from } if @drop_from;
+	delete @{$store}{ @drop_addr } if @drop_addr;
 
 	# add timer for next expire
 	if ( $next_exp ) {
