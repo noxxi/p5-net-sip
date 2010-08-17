@@ -13,7 +13,7 @@ use Carp 'croak';
 use Net::SIP::Debug;
 use Net::SIP::Util ':all';
 use Digest::MD5 'md5_hex';
-use fields qw( realm opaque user2pass user2a1 i_am_proxy dispatcher );
+use fields qw( realm opaque user2pass user2a1 i_am_proxy dispatcher filter );
 
 ###########################################################################
 # creates new Authorize object
@@ -38,6 +38,36 @@ sub new {
 	$self->{user2a1} = $args{user2a1};
 	$self->{i_am_proxy} = $args{i_am_proxy};
 	$self->{dispatcher} = $args{dispatcher} || croak 'no dispatcher';
+
+	if ( my $f = $args{filter}) {
+		my %filter;
+		while (my($method,$chain) = each %$f) {
+			$chain = [ $chain ] if ! ref($chain) or ref($chain) ne 'ARRAY';
+			$chain = [ $chain ] 
+				if ! ref($chain->[0]) or ref($chain->[0]) ne 'ARRAY';
+			# now we have:
+			# method => [[ cb00,cb01,cb02,..],[ cb10,cb11,cb12,..],...]
+			# where either the cb0* chain or the cb1* chain or the cbX* has to succeed
+			for my $or (@$chain) {
+				for my $and (@$or) {
+					if (ref($_)) {
+						# assume callback
+					} else {
+						# must have authorize class with verify method
+						my $pkg = __PACKAGE__."::$_";
+						my $sub = UNIVERSAL::can($pkg,'verify') || do {
+							# load package
+							eval "require $pkg";
+							UNIVERSAL::can($pkg,'verify')
+						} or die "cannot find sub ${pkg}::verify";
+						$_ = $sub;
+					}
+				}
+			}
+			$filter{uc($method)} = $chain;
+		}
+		$self->{filter} = \%filter;
+	}
 	return $self;
 }
 
@@ -156,7 +186,21 @@ sub receive {
 			}
 
 			if ( $resp eq $want_response ) {
-				$authorized = 1;
+				if ($self->{filter} and my $or = $self->{filter}{$method}) {
+					for my $and (@$or) {
+						$authorized = 1;
+						for my $cb (@$and) {
+							if ( ! invoke_callback(
+								$cb,$packet,$leg,$addr,$user,$realm)) {
+								$authorized = 0;
+								last;
+							}
+						}
+						last if $authorized;
+					}
+				} else {
+					$authorized = 1;
+				}
 				last;
 			}
 		}
@@ -200,6 +244,45 @@ sub receive {
 	# return $acode (TRUE) to show that packet should
 	# not passed thru
 	return $acode;
+}
+
+###########################################################################
+# additional verifications
+###########################################################################
+
+package Net::SIP::Authorize::DomainIsRealm;
+use Net::SIP::Util ':all';
+sub verify {
+	my ($self,$packet,$leg,$addr,$auth_user,$auth_realm) = @_;
+	my $from = $packet->get_header('from');
+	($from) = sip_hdrval2parts( from => $from );
+	my ($domain) = sip_uri2parts($from);
+	return 1 if lc($domain) eq lc($auth_realm); # exact domain
+	return 1 if $domain =~m{\.\Q$auth_realm\E$}i; # subdomain
+	return 0;
+}
+
+package Net::SIP::Authorize::FromIsAuthUser;
+use Net::SIP::Util ':all';
+sub verify {
+	my ($self,$packet,$leg,$addr,$auth_user,$auth_realm) = @_;
+	my $from = $packet->get_header('from');
+	($from) = sip_hdrval2parts( from => $from );
+	my (undef,$user) = sip_uri2parts($from);
+	return 1 if lc($user) eq lc($auth_user);
+	return 0;
+}
+
+package Net::SIP::Authorize::ToIsFrom;
+use Net::SIP::Util ':all';
+sub verify {
+	my ($self,$packet,$leg,$addr,$auth_user,$auth_realm) = @_;
+	my $from = $packet->get_header('from');
+	($from) = sip_hdrval2parts( from => $from );
+	my $to = $packet->get_header('to');
+	($to) = sip_hdrval2parts( to => $to );
+	return 1 if lc($from) eq lc($to);
+	return 0;
 }
 
 1;
