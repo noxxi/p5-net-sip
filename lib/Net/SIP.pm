@@ -4,7 +4,7 @@ use warnings;
 require 5.008;
 
 package Net::SIP;
-our $VERSION = '0.59_7';
+our $VERSION = '0.59_8';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();

@@ -24,6 +24,19 @@ use fields qw( realm opaque user2pass user2a1 i_am_proxy dispatcher filter );
 #        password if given username
 #     dispatcher: Dispatcher object
 #     i_am_proxy: true if should send Proxy-Authenticate, not WWW-Authenticate
+#     filter: hashref with extra verification chain, see packages below.
+#      Usage:
+#      filter => {
+#       # filter chain for registration
+#       REGISTER => [
+#        # all of this three must succeed (user can regist himself)
+#        [ 'ToIsFrom','FromIsRealm','FromIsAuthUser' ],
+#        # or this must succeed
+#        \&call_back, # callback. If arrayref you MUST set [ \&call_back ]
+#       ]
+#       # filter chain for invites
+#       INVITE => 'FromIsRealm',
+#      }
 # Returns: $self
 ###########################################################################
 sub new {
@@ -40,16 +53,16 @@ sub new {
 	$self->{dispatcher} = $args{dispatcher} || croak 'no dispatcher';
 
 	if ( my $f = $args{filter}) {
+		croak 'filter must be hashref' if ref($f) ne 'HASH';
 		my %filter;
 		while (my($method,$chain) = each %$f) {
-			$chain = [ $chain ] if ! ref($chain) or ref($chain) ne 'ARRAY';
-			$chain = [ $chain ] 
-				if ! ref($chain->[0]) or ref($chain->[0]) ne 'ARRAY';
+			$chain = [ $chain ] if ref($chain) ne 'ARRAY';
+			map { $_ = [$_] if ref($_) ne 'ARRAY' } @$chain;
 			# now we have:
 			# method => [[ cb00,cb01,cb02,..],[ cb10,cb11,cb12,..],...]
 			# where either the cb0* chain or the cb1* chain or the cbX* has to succeed
 			for my $or (@$chain) {
-				for my $and (@$or) {
+				for (@$or) {
 					if (ref($_)) {
 						# assume callback
 					} else {
@@ -248,40 +261,59 @@ sub receive {
 
 ###########################################################################
 # additional verifications
+#  Net::SIP::Authorize::FromIsRealm - checks if the domain in 'From' is
+#   the same as the realm in 'Authorization'
+#  Net::SIP::Authorize::FromIsAuthUser - checks if the user in 'From' is
+#   the same as the username in 'Authorization'
+#  Net::SIP::Authorize::ToIsFrom - checks if 'To' and 'From' are equal
+#
+# Args each: ($packet,$leg,$addr,$auth_user,$auth_realm)
+#  $packet: Net::SIP::Request
+#  $leg: Net::SIP::Leg where request came in (and response gets send out)
+#  $addr: ip:port where request came from and response will be send
+#  $auth_user: username from 'Authorization'
+#  $auth_realm: realm from 'Authorization'
+# Returns: TRUE (1) | FALSE (0)
 ###########################################################################
 
-package Net::SIP::Authorize::DomainIsRealm;
-use Net::SIP::Util ':all';
+package Net::SIP::Authorize::FromIsRealm;
+use Net::SIP::Util qw( sip_hdrval2parts sip_uri2parts );
+use Net::SIP::Debug;
 sub verify {
-	my ($self,$packet,$leg,$addr,$auth_user,$auth_realm) = @_;
+	my ($packet,$leg,$addr,$auth_user,$auth_realm) = @_;
 	my $from = $packet->get_header('from');
 	($from) = sip_hdrval2parts( from => $from );
 	my ($domain) = sip_uri2parts($from);
 	return 1 if lc($domain) eq lc($auth_realm); # exact domain
 	return 1 if $domain =~m{\.\Q$auth_realm\E$}i; # subdomain
+	DEBUG( 10, "No Auth-success: From-domain is '$domain' and realm is '$auth_realm'" );
 	return 0;
 }
 
 package Net::SIP::Authorize::FromIsAuthUser;
-use Net::SIP::Util ':all';
+use Net::SIP::Util qw( sip_hdrval2parts sip_uri2parts );
+use Net::SIP::Debug;
 sub verify {
-	my ($self,$packet,$leg,$addr,$auth_user,$auth_realm) = @_;
+	my ($packet,$leg,$addr,$auth_user,$auth_realm) = @_;
 	my $from = $packet->get_header('from');
 	($from) = sip_hdrval2parts( from => $from );
 	my (undef,$user) = sip_uri2parts($from);
 	return 1 if lc($user) eq lc($auth_user);
+	DEBUG( 10, "No Auth-success: From-user is '$user' and auth_user is '$auth_user'" );
 	return 0;
 }
 
 package Net::SIP::Authorize::ToIsFrom;
-use Net::SIP::Util ':all';
+use Net::SIP::Util qw( sip_hdrval2parts );
+use Net::SIP::Debug;
 sub verify {
-	my ($self,$packet,$leg,$addr,$auth_user,$auth_realm) = @_;
+	my ($packet,$leg,$addr,$auth_user,$auth_realm) = @_;
 	my $from = $packet->get_header('from');
 	($from) = sip_hdrval2parts( from => $from );
 	my $to = $packet->get_header('to');
 	($to) = sip_hdrval2parts( to => $to );
 	return 1 if lc($from) eq lc($to);
+	DEBUG( 10, "No Auth-success: To is '$to' and From is '$from'" );
 	return 0;
 }
 

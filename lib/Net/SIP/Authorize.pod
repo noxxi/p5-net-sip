@@ -66,6 +66,61 @@ and sends C<Proxy-Authenticate> or if it is an endpoint
 (e.g. L<Net::SIP::Endpoint>, L<Net::SIP::Registrar>) which sends
 C<WWW-Authenticate>.
 
+=item filter
+
+Additional filter for authorization, e.g. if authorization based on
+username and passwort succeeded it might still fail because of these
+filters. Filter is a hash with the method as key.
+
+The value can be an additional authorization (in which case it
+must succeed), a list of authorizations (all of them must succeed),
+or a list with a list of authorizations (at least one of the inner
+lists must succeed).
+
+The additional authorization can be a name of a L<Net::SIP::Authorize>
+subclass (e.g. C<ToIsFrom> means C<Net::SIP::Authorize::ToIsFrom>)
+which has a C<verify> function or a C<[\&callback]>.
+
+The verify function or callback will be called with
+C<($packet,$leg,$addr,$auth_user,$auth_realm)> where C<$packet> is
+the request, C<$leg> the L<Net::SIP::Leg> object where the packet
+came in, C<$addr> the senders address, C<$auth_user> the
+username from the authorized user and C<$auth_realm> the realm
+which was used for authorization.
+Success for verification means that the function must return true.
+
+The following authorization subclasses are defined:
+
+=over 4
+
+=item FromIsRealm
+
+Succeeds if the senders domain is the realm or a subdomain of the realm.
+
+=item FromIsAuthUser
+
+Succeeds if the username of the sender equals the username used for
+authorization.
+
+=item ToIsFrom
+
+Succeeds if To header equals From header. This can be used to make sure, that a
+user can only call REGISTER for itself.
+
+=back
+
+Example:
+
+  filter => {
+    REGISTER => [
+      # all of these must succeed
+      [ 'ToIsFrom','FromIsRealm','FromIsAuthUser' ],
+      # or this
+      [ \&callback ],
+    ],
+    INVITE => 'FromIsRealm',
+  }
+
 =back
 
 =back

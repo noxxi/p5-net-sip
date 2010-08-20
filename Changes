@@ -1,10 +1,11 @@
 Revision history for Net::SIP
 
+0.59_8 2010-08-20
+- fixes to 0.59_7 from DetlefPilzecker[AT]web[DOT]de
+- added documentation for filter in Authorize
 0.59_7 2010-08-17
 - additional authorization based on idea of 
   DetlefPilzecker[AT]web[DOT]de
-  ** NOT TESTED YET * NEEDS TEST * NEEDS DOCUMENTATION **
-
 0.59_6 2010-08-09 
 - fix unitialized warning in Authorize if user neither in user2a1
   nor in user2pass. 
