@@ -197,9 +197,7 @@ sub add_leg {
 							my ($host,$port) = $d =~m{^\S+\s+(\S+?)(?::(\d+))?$};
 							my ($addr,$rport) = $from =~m{^(\S+)(?::(\d+))$};
 							my %nh;
-							if ( defined $h->{rport} 
-								or ! $port && $rport != 5060 
-								or $port && $port != $rport ) {
+							if ( exists $h->{rport} and ! defined $h->{rport}) {
 								$nh{rport} = $rport;
 							}
 							if ( $host ne $addr or $nh{rport}) { 

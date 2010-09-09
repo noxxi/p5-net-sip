@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.59_9 2010-09-09
+- bugfix rport handling by DetlefPilzecker[AT]web[DOT]de
+- clarify documentation of Net::SIP::Packet, e.g. that it die()s if
+  it cannot parse string as SIP packet
 0.59_8 2010-08-20
 - fixes to 0.59_7 from DetlefPilzecker[AT]web[DOT]de
 - added documentation for filter in Authorize
