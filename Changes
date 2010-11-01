@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.59_10 2010-11-01
+- the route header in ACK must be set to the route it got by 
+  record-route from the response (if any), instead of using the
+  route from the INVITE.
+  Thanks to vitspec[AT]gmail[DOT]com for reporting the bug. 
 0.59_9 2010-09-09
 - bugfix rport handling by DetlefPilzecker[AT]web[DOT]de
 - clarify documentation of Net::SIP::Packet, e.g. that it die()s if

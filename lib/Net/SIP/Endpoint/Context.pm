@@ -159,6 +159,10 @@ sub new_request {
 		# already a request object
 		$request = $method;
 		$method = $request->method;
+		# if we got record-route in response we must fix the route
+		$request->set_header( route => $self->{route} )
+			if @{$self->{route}};
+
 	} else {
 
 		# increase cseq unless its explicitly specified
