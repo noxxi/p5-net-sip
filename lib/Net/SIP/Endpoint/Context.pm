@@ -54,7 +54,7 @@ use Net::SIP::Util ':all';
 #   @args: either single \%args (hash-ref) or %args (hash) with at least
 #     values for from and to
 #     callid,cseq will be generated if not given
-#     routes will default to [] and usually set from record-route header
+#     routes will default to undef and usually set from record-route header
 #     in response packets
 # Returns: $self
 ############################################################################
@@ -65,7 +65,6 @@ sub new {
 	%$self = %args;
 	$self->{callid} ||= md5_hex( time(), rand(2**32) );
 	$self->{cseq} ||= 0;
-	$self->{route} ||= [];
 	$self->{_transactions} = [];
 	$self->{_cseq_incoming} = 0;
 
@@ -160,8 +159,7 @@ sub new_request {
 		$request = $method;
 		$method = $request->method;
 		# if we got record-route in response we must fix the route
-		$request->set_header( route => $self->{route} )
-			if @{$self->{route}};
+		$request->set_header( route => $self->{route} ) if $self->{route};
 
 	} else {
 
@@ -191,14 +189,14 @@ sub new_request {
 				from => $from,
 				to => $to,
 				$self->{contact} ? ( contact => $self->{contact} ):(),
-				route => $self->{route},
 				cseq => "$cseq $method",
 				'call-id' => $self->{callid},
 				'max-forwards' => 70,
-				%args
+				%args,
 			},
 			$body
-		)
+		);
+		$request->set_header( route => $self->{route} ) if $self->{route};
 	}
 
 	# create new transaction
@@ -421,7 +419,7 @@ sub handle_response {
 	} elsif ( $code == 305 ) {
 		# 21.3.4 305 use proxy
 		# set proxy as the first route and insert request again
-		my $route = $self->{route};
+		my $route = $self->{route} ||= [];
 		unshift @$route,$response->get_header( 'contact' );
 		( my $r = $tr->{request} )->set_header( route => $route );
 		$r->set_cseq( ++$self->{cseq} );

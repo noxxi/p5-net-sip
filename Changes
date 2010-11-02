@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.59_11 2010-11-02
+- overwrite a given route header for any new request if there is
+  already a route information for the given context.
+  Thanks to vitspec[AT]gmail[DOT]com for reporting.
 0.59_10 2010-11-01
 - the route header in ACK must be set to the route it got by 
   record-route from the response (if any), instead of using the
