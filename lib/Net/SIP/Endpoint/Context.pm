@@ -158,8 +158,6 @@ sub new_request {
 		# already a request object
 		$request = $method;
 		$method = $request->method;
-		# if we got record-route in response we must fix the route
-		$request->set_header( route => $self->{route} ) if $self->{route};
 
 	} else {
 
@@ -196,8 +194,10 @@ sub new_request {
 			},
 			$body
 		);
-		$request->set_header( route => $self->{route} ) if $self->{route};
 	}
+
+	# overwrite any route header in request if we already learned a route
+	$request->set_header( route => $self->{route} ) if $self->{route};
 
 	# create new transaction
 	my %trans = (
