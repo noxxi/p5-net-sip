@@ -491,7 +491,9 @@ sub handle_request {
 	my @arg = ($endpoint,$self);
 
 	# extract route information for future requests to the UAC (re-invites)
-	if ( my @route = $request->get_header( 'record-route' )) {
+	# only for INVITE (rfc3261,12.1.1)
+	if ( $method eq 'INVITE' and 
+		my @route = $request->get_header( 'record-route' )) {
 		$self->{route} = \@route;
 	}
 
