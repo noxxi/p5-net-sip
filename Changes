@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.62 2010-12-06
+- overwrite route header from record-route only for 200 response
+  which established dialog, not for further responses
+  Thanks to vitspec[AT]gmail[DOT]com for reporting.
 0.61 2010-12-06
 - overwrite route header from record-route only for first INVITE
   in context, not for re-INVITEs.

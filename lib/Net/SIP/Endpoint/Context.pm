@@ -347,15 +347,18 @@ sub handle_response {
 	} elsif ( $code =~m{^2\d\d} ) {
 		# 2xx OK
 
-		# extract route information
-		if ( my @route = $response->get_header( 'record-route' )) {
-			$self->{route} = [ reverse @route ];
-		}
-
 		if ( $method eq 'INVITE' ) {
 			# is response to INVITE, create ACK
 			# and propagate to upper layer
 			my $req = $tr->{request};
+
+			# extract route information on INVIE, but not on re-INVITE
+			# we assume, that it is a re-INVITE, if we have a remote_contact
+			# already
+			if ( ! $self->{remote_contact}
+				and my @route = $response->get_header( 'record-route' )) {
+				$self->{route} = [ reverse @route ];
+			}
 
 			# 12.1.2 - set URI for dialog to contact given in response which
 			# establishes the dialog
@@ -363,6 +366,7 @@ sub handle_response {
 				$contact = $1 if $contact =~m{<(\w+:[^>\s]+)>};
 				$self->{remote_contact} = $contact;
 				$req->set_uri( $contact );
+
 			}
 
 			# use to-tag from this request to update 'to'
