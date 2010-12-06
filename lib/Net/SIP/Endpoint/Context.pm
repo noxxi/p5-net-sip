@@ -458,12 +458,15 @@ sub handle_request {
 	}
 
 	# check with last request in transaction
+	my $ctx_is_new;
 	if ( my $trans = $self->{_last_transreq} ) {
 		my $last_cseq = $trans->cseq;
 		if ( $last_cseq eq $cseq ) {
 			DEBUG( 10,"retransmit of last request. DROP" );
 			return;
 		}
+	} else {
+		$ctx_is_new = 1;
 	}
 	$self->{_last_transreq} = $request;
 
@@ -492,7 +495,7 @@ sub handle_request {
 
 	# extract route information for future requests to the UAC (re-invites)
 	# only for INVITE (rfc3261,12.1.1)
-	if ( $method eq 'INVITE' and 
+	if ( $ctx_is_new and $method eq 'INVITE' and 
 		my @route = $request->get_header( 'record-route' )) {
 		$self->{route} = \@route;
 	}
