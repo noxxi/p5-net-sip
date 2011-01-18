@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.62_1 2011-01-18
+- add Net::SIP::Dropper incl. ...Dropper::{ByIPPort,ByField} based
+  on a lot of input and code from DetlefPilzecker[AT]web[DOT]de
 0.62 2010-12-06
 - overwrite route header from record-route only for 200 response
   which established dialog, not for further responses

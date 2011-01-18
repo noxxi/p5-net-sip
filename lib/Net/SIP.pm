@@ -4,7 +4,7 @@ use warnings;
 require 5.008;
 
 package Net::SIP;
-our $VERSION = '0.62';
+our $VERSION = '0.62_1';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();
@@ -41,6 +41,7 @@ BEGIN {
 		Net::SIP::NATHelper::Server
 		Net::SIP::NATHelper::Local
 		Net::SIP::Debug
+		Net::SIP::Dropper
 		Net::SIP::Leg
 		)) {
 

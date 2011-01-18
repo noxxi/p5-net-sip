@@ -58,6 +58,9 @@ lib/Net/SIP/NATHelper/Client.pm
 lib/Net/SIP/NATHelper/Client.pod
 lib/Net/SIP/NATHelper/Server.pm
 lib/Net/SIP/NATHelper/Server.pod
+lib/Net/SIP/Dropper.pm
+lib/Net/SIP/Dropper/ByField.pm
+lib/Net/SIP/Dropper/ByIPPort.pm
 t/01_load.t
 t/02_listen_and_invite.t
 t/03_forward_stateless.t
@@ -73,6 +76,7 @@ t/12_maddr.t
 t/13_maddr_proxy.t
 t/14_bugfix_0.51.t
 t/15_block_invite.t
+t/16_drop_invite.t
 t/testlib.pl
 samples/README
 samples/invite_and_recv.pl

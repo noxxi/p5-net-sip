@@ -320,7 +320,7 @@ sub invoke_callback {
 		return $cb->(@more_args)
 	} elsif ( my $sub = UNIVERSAL::can( $cb,'run' )) {
 		# Callback object
-		return $sub->( @more_args );
+		return $sub->($cb,@more_args );
 	} elsif ( UNIVERSAL::isa( $cb,'ARRAY' )) {
 		my ($sub,@args) = @$cb;
 		# [ \&sub,@arg ]
