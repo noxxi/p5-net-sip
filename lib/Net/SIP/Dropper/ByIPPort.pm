@@ -1,12 +1,12 @@
 
 =head1 NAME
 
-Net::SIP::Dropper::ByIpPort - drops SIP messages based on senders IP and port
+Net::SIP::Dropper::ByIPPort - drops SIP messages based on senders IP and port
 
 =head1 SYNOPSIS
 
-	use Net::SIP::Dropper::ByIpPort;
-	my $drop_by_ipport = Net::SIP::Dropper::ByIpPort->new(
+	use Net::SIP::Dropper::ByIPPort;
+	my $drop_by_ipport = Net::SIP::Dropper::ByIPPort->new(
 		database => '/path/to/database.drop',
 		methods => [ 'REGISTER', '...', '' ],
 		attempts => 10,
@@ -18,7 +18,7 @@ Net::SIP::Dropper::ByIpPort - drops SIP messages based on senders IP and port
 
 =head1 DESCRIPTION
 
-With C<Net::SIP::Dropper::ByIpPort> one can drop packets, if too much packets
+With C<Net::SIP::Dropper::ByIPPort> one can drop packets, if too much packets
 are received from the same IP and port within a specific interval. This is to
 stop bad behaving clients.
 
@@ -79,7 +79,7 @@ will be considered. If not given all packets will be checked.
 
 sub new {
 	my ($class,%args) = @_;
-	my $interval   = delete $args{interval}   or croak('interval should be defined');
+	my $interval = delete $args{interval} or croak('interval should be defined');
 	my $attempts = delete $args{attempts} or croak('attempts should be defined');
 	my $methods  = delete $args{methods}; # optional
 
@@ -108,12 +108,13 @@ sub new {
 		} else {
 			$dbcb = $db
 		}
+
+		# load contents of database
+		invoke_callback($dbcb,\%ips_ports) if $dbcb;
+
 		DEBUG_DUMP(100, \%ips_ports);
 	}
 
-	# load contents of database
-	invoke_callback($dbcb,\%ips_ports) if $dbcb;
-		invoke_callback($dbcb,\%ips_ports); # load contents of database
 
 	# initialize object
 	my Net::SIP::Dropper::ByIPPort $self = fields::new($class);
@@ -173,7 +174,11 @@ sub run {
 	}
 
 	# drop if too much attempts
-	return $count >= $self->{attempts};
+	if ( $count >= $self->{attempts} ) {
+		DEBUG(1,"message dropped because $ip:$port was in database with $count attempts");
+		return 1;
+	}
+	return;
 }
 
 =item expire
@@ -186,7 +191,6 @@ It will expire all entries which are outside of the interval.
 sub expire {
 	my Net::SIP::Dropper::ByIPPort $self = shift;
 	my $interval = $self->{interval};
-	my $attempts = $self->{attempts};
 	my $data = $self->{data};
 
 	my $maxtime = time() - $interval;
@@ -219,7 +223,7 @@ the C<data> method.
 sub savedb {
 	my Net::SIP::Dropper::ByIPPort $self = shift;
 	my $dbcb = $self->{dbcb} or return;
-	invoke_callback($dbcb,'save')
+	invoke_callback($dbcb,$self->{data},'save')
 }
 
 =item data
@@ -231,7 +235,8 @@ gives) will be added to
 
 By manually manipulating the hash one can restrict a specific IP,port forever
 (just set time to a large value and add a high number of attempts) or even
-restrict access for the whole IP (all ports) by using a port number of 0.
+restrict access for the whole IP (all ports) until time by using a port number 
+of 0.
 
 After changes to the data it is advised to call C<savedb>.
 

@@ -5,8 +5,8 @@ Net::SIP::Dropper - drops SIP messages based on callback
 
 =head1 SYNOPSIS
 
-	use Net::SIP::Dropper::ByIpPort;
-	my $drop_by_ipport = Net::SIP::Dropper::ByIpPort->new(
+	use Net::SIP::Dropper::ByIPPort;
+	my $drop_by_ipport = Net::SIP::Dropper::ByIPPort->new(
 		database => '/path/to/database.drop',
 		methods => [ 'REGISTER', '...', '' ],
 		attempts => 10,
@@ -80,12 +80,12 @@ use Net::SIP::Util qw( invoke_callback );
 # Returns: Net::SIP::Dropper object
 ################################################################################
 sub new {
-    my ($class, %args) = @_;
-    my Net::SIP::Dropper $self = fields::new($class);
+	my ($class, %args) = @_;
+	my Net::SIP::Dropper $self = fields::new($class);
 
-    croak('argument cb or cbs must exist') unless $args{cb} || $args{cbs};
-    $self->{cbs} = $args{cbs} || [ $args{cb} ];
-    return $self;
+	croak('argument cb or cbs must exist') unless $args{cb} || $args{cbs};
+	$self->{cbs} = $args{cbs} || [ $args{cb} ];
+	return $self;
 }
 
 
@@ -96,13 +96,13 @@ sub new {
 # Returns: 1 (stop chain) | <undef> (proceed in chain)
 ################################################################################
 sub receive {
-    my Net::SIP::Dropper $self = shift;
-    my ($packet, $leg, $from) = @_;
+	my Net::SIP::Dropper $self = shift;
+	my ($packet, $leg, $from) = @_;
 
-    for (@{ $self->{cbs} }) {
+	for (@{ $self->{cbs} }) {
 		return 1 if invoke_callback($_, $packet, $leg, $from);
-    }
-    return;
+	}
+	return;
 }
 
 

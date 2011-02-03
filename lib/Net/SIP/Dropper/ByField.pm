@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-Net::SIP::Dropper::ByIpPort - drops SIP messages based on fields in SIP header
+Net::SIP::Dropper::ByField - drops SIP messages based on fields in SIP header
 
 =head1 SYNOPSIS
 
@@ -26,6 +26,7 @@ use strict;
 use warnings;
 
 package Net::SIP::Dropper::ByField;
+use Net::SIP::Util 'invoke_callback';
 use Net::SIP::Debug;
 use fields qw(fields methods);
 
@@ -100,7 +101,10 @@ sub run {
 	my $fields = $self->{fields};
 	for my $f (keys %$fields) {
 		my @v = $packet->get_header($f) or next;
-		invoke_callback( $fields->{$f},@v) and return 1;
+		if ( invoke_callback( $fields->{$f},@v) ) {
+			DEBUG(1,"message dropped because of header field < $f: > =~ $fields->{$f}");
+			return 1;
+		}
 	}
 	return;
 }

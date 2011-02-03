@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.62_2 2011-02-03
+- changes to Net::SIP::Dropper* based on feedback from
+  DetlefPilzecker[AT]web[DOT]de
 0.62_1 2011-01-18
 - add Net::SIP::Dropper incl. ...Dropper::{ByIPPort,ByField} based
   on a lot of input and code from DetlefPilzecker[AT]web[DOT]de
