@@ -12,6 +12,7 @@ package Net::SIP::Endpoint::Context;
 use fields (
 
 	# ===== can be set with new()
+	'method',  # initiated by which method
 	'from',    # from where
 	'to',      # to where
 	'auth',    # [ user,pass ] or { realm1 => [ user1,pass1 ], realm2 => [ user2,pass2 ],... }
@@ -319,6 +320,10 @@ sub handle_response {
 			$endpoint->close_context( $self ) if $method eq 'BYE';
 		}
 		return;
+	} elsif ( $self->{method} ne 'INVITE' and 
+		($code>=200 and $code<300 or $code>=400 and $code != 401 and $code!= 407)) {
+		# final response in non-dialog (only INVITE can create dialog)
+		$endpoint->close_context($self);
 	}
 
 	# for 300-699 an ACK must be created (RFC3261, 17.1.1.2)
