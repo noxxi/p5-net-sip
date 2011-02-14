@@ -246,7 +246,7 @@ sub request_delivery_done {
 			$self->{_transactions} = \@ntrans;
 			if ( my $cb = $tr->{callback} ) {
 				# permanently failed
-				invoke_callback( $cb, $self,$endpoint,$error );
+				invoke_callback( $cb,$endpoint,$self,$error );
 			}
 		} else {
 			push @ntrans,$tr

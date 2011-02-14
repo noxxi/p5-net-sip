@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.62_4 2011-02-14
+- on permanent delivery failure callback was called within context
+  with wrong order of arguments. Thanks to 
+  james[AT]bolderthinking[DOT]com for reporting problem.
 0.62_3 2011-02-03
 - track which method started context and close context on final
   response (>=200) unless method was INVITE.
