@@ -284,6 +284,7 @@ sub verify {
 	my $from = $packet->get_header('from');
 	($from) = sip_hdrval2parts( from => $from );
 	my ($domain) = sip_uri2parts($from);
+	$domain =~s{:\w+$}{};
 	return 1 if lc($domain) eq lc($auth_realm); # exact domain
 	return 1 if $domain =~m{\.\Q$auth_realm\E$}i; # subdomain
 	DEBUG( 10, "No Auth-success: From-domain is '$domain' and realm is '$auth_realm'" );

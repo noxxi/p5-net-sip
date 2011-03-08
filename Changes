@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.62_5 2011-03-08
+- fix to Net::SIP::Authorize::FromIsRealm. Here was not only the domain
+  part compared to the realm but additionally the port if the sender
+  was given as sip:user@host:port
+  Thanks to DetlefPilzecker[AT]web[DOT]de for reporting
 0.62_4 2011-02-14
 - on permanent delivery failure callback was called within context
   with wrong order of arguments. Thanks to 

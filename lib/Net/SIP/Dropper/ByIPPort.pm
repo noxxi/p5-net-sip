@@ -110,7 +110,7 @@ sub new {
 		}
 
 		# load contents of database
-		invoke_callback($dbcb,\%ips_ports) if $dbcb;
+		invoke_callback($dbcb,\%ips_ports);
 
 		DEBUG_DUMP(100, \%ips_ports);
 	}
