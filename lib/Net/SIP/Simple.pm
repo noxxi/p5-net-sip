@@ -323,14 +323,17 @@ sub register {
 	my $cb = sub {
 		my ($self,$cb_final,$expires,$endpoint,$ctx,$errno,$code,$packet,$leg,$from) = @_;
 		if ( $code && $code =~m{^2\d\d} ) {
-			my $exp = $packet->get_header( 'Expires' );
-			if ( ! defined $exp ) {
-				foreach my $c ( $packet->get_header( 'contact' ) ) {
-					my ($addr,$p) = sip_hdrval2parts( contact => $c );
-					defined( my $e = $p->{expires} ) || next;
-					$exp = $e if ! defined($exp) || $e < $exp;
-				}
+			# use expires info on contact
+			# if none given use global expires header
+			# see rfc3261 10.3.8,10.2.4
+			my $exp;
+			for my $c ( $packet->get_header( 'contact' ) ) {
+				my ($addr,$p) = sip_hdrval2parts( contact => $c );
+				defined( my $e = $p->{expires} ) or next;
+				sip_uri_eq($addr,$contact) or next; # not me
+				$exp = $e if ! defined($exp) || $e < $exp;
 			}
+			$exp = $packet->get_header( 'Expires' ) if ! defined $exp;
 			$$expires = $exp;
 			invoke_callback( $cb_final, 'OK', expires => $exp );
 
