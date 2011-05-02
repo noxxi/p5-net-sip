@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.62_7 2011-05-02
+- fix Dispatcher::add_leg for arguments IO::Handle and Hash.
+  Thanks to DetlefPilzecker[AT]web[DOT]de for reporting
 0.62_6 2011-04-15
 - fix UAC behavior for response to REGISTER in Net::SIP::Simple::register
   Thanks to dmw for reporting http://cpanforum.com/posts/13305

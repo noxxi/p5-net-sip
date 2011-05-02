@@ -148,24 +148,24 @@ sub set_receiver {
 sub add_leg {
 	my Net::SIP::Dispatcher $self = shift;
 	my $legs = $self->{legs};
-	foreach my $data (@_) {
+	foreach my $arg (@_) {
 
 		my $leg;
 		# if it is not a leg yet create one based
 		# on the arguments
-		if ( UNIVERSAL::isa( $data,'Net::SIP::Leg' )) {
+		if ( UNIVERSAL::isa( $arg,'Net::SIP::Leg' )) {
 			# already a leg
-			$leg = $data;
+			$leg = $arg;
 
-		} elsif ( UNIVERSAL::isa( $leg,'IO::Handle' )) {
+		} elsif ( UNIVERSAL::isa( $arg,'IO::Handle' )) {
 			# create from socket
-			$leg = Net::SIP::Leg->new( sock => $data );
+			$leg = Net::SIP::Leg->new( sock => $arg );
 
-		} elsif ( UNIVERSAL::isa( $leg,'HASH' )) {
+		} elsif ( UNIVERSAL::isa( $arg,'HASH' )) {
 			# create from %args
-			$leg = Net::SIP::Leg->new( %$data );
+			$leg = Net::SIP::Leg->new( %$arg );
 		} else {
-			croak "invalid spec for leg: $data";
+			croak "invalid spec for leg: $arg";
 		}
 
 		push @$legs, $leg;
