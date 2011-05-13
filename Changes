@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.62_8 2011-05-13
+- deal with mailformed SDP body in Net::SIP::Simple::Call, e.g. catch
+  error and ignore packet instead of letting the application die.
+  Thanks to vitspec[AT]gmail[DOT]com reporting the problem.
 0.62_7 2011-05-02
 - fix Dispatcher::add_leg for arguments IO::Handle and Hash.
   Thanks to DetlefPilzecker[AT]web[DOT]de for reporting

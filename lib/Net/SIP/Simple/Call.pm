@@ -399,9 +399,13 @@ sub receive {
 		} elsif ( $method eq 'ACK' || $method eq 'INVITE' ) {
 
 			# can transport sdp data
-			if ( my $sdp_peer = $packet->sdp_body ) {
+			if ( my $sdp_peer = eval { $packet->sdp_body } ) {
 				DEBUG( 50,"got sdp data from peer: ".$sdp_peer->as_string );
 				$self->_setup_peer_rtp_socks( $sdp_peer );
+			} elsif ($@) {
+				# mailformed SDP?
+				DEBUG(10,"SDP parsing failed, ignoring packet: $@");
+				return;
 			}
 
 			if ( $method eq 'INVITE' ) {
