@@ -177,6 +177,8 @@ in B<new_from_parts>.
 Returns body as L<Net::SIP::SDP> object if there is a body and the
 content-type is 'application/sdp' or empty.
 
+If body contains invalid SDP it raises an exception (e.g. die()).
+
 =back
 
 =head2 UNDOCUMENTED METHODS

@@ -137,6 +137,14 @@ is possible to handle simple RTP data (PCMU/8000).
 
 =back
 
+=head2 Error handling
+
+Unless otherwise documented the common way to propagate errors is to
+raise an exception, e.g. call die(). This might especially happen
+when parsing packets from strings, so unless you want to crash your
+application on bad input you should catch these exceptions with 
+eval. 
+
 =head1 EXPORTS
 
 By default nothing is exported. There are various arguments for

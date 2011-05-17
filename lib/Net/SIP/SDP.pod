@@ -57,6 +57,7 @@ See there.
 =item new_from_string ( STRING )
 
 Creates object from STRING containing the SDP data.
+Raises an exception (e.g. die()) if SDP is invalid.
 
 =item new_from_parts ( \%GLOBAL, @MEDIA )
 

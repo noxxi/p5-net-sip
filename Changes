@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.62_9 2011-05-17
+- clarify behavior for bad packets in documentation (e.g. throw
+  exception)
 0.62_8 2011-05-13
 - deal with mailformed SDP body in Net::SIP::Simple::Call, e.g. catch
   error and ignore packet instead of letting the application die.
