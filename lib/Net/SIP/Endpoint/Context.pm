@@ -305,27 +305,6 @@ sub handle_response {
 	my @arg = ($endpoint,$self);
 	my $code = $response->code;
 
-	# Don't care about the response for a CANCEL  or a BYE
-	# because this connection close is issued by this side
-	# and no matter what the peer wants the call be will closed
-	# But invoke callback to notify upper layer
-	if ( $method eq 'CANCEL' or $method eq 'BYE' ) {
-		if ( $code >=100 and $code<=199 ) {
-			push @ntrans,$tr
-		} else {
-			invoke_callback($cb,@arg,0,$code,$response,$leg,$from);
-			# close context only for BYE,
-			# for CANCEL we will close the context on receiving the
-			# response and sending the ACK
-			$endpoint->close_context( $self ) if $method eq 'BYE';
-		}
-		return;
-	} elsif ( $self->{method} ne 'INVITE' and 
-		($code>=200 and $code<300 or $code>=400 and $code != 401 and $code!= 407)) {
-		# final response in non-dialog (only INVITE can create dialog)
-		$endpoint->close_context($self);
-	}
-
 	# for 300-699 an ACK must be created (RFC3261, 17.1.1.2)
 	# notification of upper layer will be done down in the method
 	# XXXXXXXXXXXXXX do we need to wait that the ACK was accepted
@@ -338,18 +317,55 @@ sub handle_response {
 		$endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
 	}
 
-
+	# transaction is not done
 	if ( $code =~m{^1\d\d} ) {
-		# transaction is not done
-		push @ntrans,$tr if $code >=100 and $code<=199;
+		push @ntrans,$tr;
 
 		# forward preliminary responses to INVITE to app
 		# ignore all other preliminary responses
 		if ( $method eq 'INVITE' ) {
 			invoke_callback($cb,@arg,0,$code,$response,$leg,$from);
 		}
+		return;
+	}
 
-	} elsif ( $code =~m{^2\d\d} ) {
+	# Authorization required
+	if ( $code == 401 || $code == 407 ) {
+		my $r = $tr->{request};
+		my $auth = $self->{auth};
+		if ( $auth && $r->authorize( $response, $auth )) {
+			# found something to authorize
+			# redo request
+			# update local cseq from cseq in request
+			($self->{cseq}) = $r->cseq =~m{(\d+)};
+			$endpoint->new_request( $r,$self );
+		} else {
+			# need user feedback
+			invoke_callback($cb,@arg,EPERM,$code,$response,$leg,$from);
+		}
+		return;
+	}
+
+	# Don't care about the response for a CANCEL  or a BYE
+	# because this connection close is issued by this side
+	# and no matter what the peer wants the call be will closed
+	# But invoke callback to notify upper layer
+	if ( $method eq 'CANCEL' or $method eq 'BYE' ) {
+		invoke_callback($cb,@arg,0,$code,$response,$leg,$from);
+		# close context only for BYE,
+		# for CANCEL we will close the context on receiving the
+		# response and sending the ACK
+		$endpoint->close_context( $self ) if $method eq 'BYE';
+		return;
+	}
+
+	# final response in non-dialog (only INVITE can create dialog)
+	if ( $self->{method} ne 'INVITE' and 
+		($code>=200 and $code<300 or $code>=400)) {
+		$endpoint->close_context($self);
+	}
+
+	if ( $code =~m{^2\d\d} ) {
 		# 2xx OK
 
 		if ( $method eq 'INVITE' ) {
@@ -392,21 +408,6 @@ sub handle_response {
 			# simply propagate to upper layer, only INVITE needs
 			# special handling
 			invoke_callback($cb,@arg,0,$code,$response,$leg,$from);
-		}
-
-	} elsif ( $code == 401 || $code == 407 ) {
-		# Authorization required
-		my $r = $tr->{request};
-		my $auth = $self->{auth};
-		if ( $auth && $r->authorize( $response, $auth )) {
-			# found something to authorize
-			# redo request
-			# update local cseq from cseq in request
-			($self->{cseq}) = $r->cseq =~m{(\d+)};
-			$endpoint->new_request( $r,$self );
-		} else {
-			# need user feedback
-			invoke_callback($cb,@arg,EPERM,$code,$response,$leg,$from);
 		}
 
 	} elsif ( $code == 300 || $code == 301 ) {

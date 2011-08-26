@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.62_10 2001-08-26
+- reorder actions in Endpoint::Context::handle_response, so that 
+  response requesting authorized BYE gets handled with authorized BYE 
+  instead of ignoring it.
+  Thanks to Roland Mas lolando[AT]debian[DOT]org for reporting the problem.
 0.62_9 2011-05-17
 - clarify behavior for bad packets in documentation (e.g. throw
   exception)
