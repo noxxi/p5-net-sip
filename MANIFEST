@@ -77,6 +77,7 @@ t/13_maddr_proxy.t
 t/14_bugfix_0.51.t
 t/15_block_invite.t
 t/16_drop_invite.t
+t/17_call_with_reinvite_and_auth.t
 t/testlib.pl
 samples/README
 samples/invite_and_recv.pl

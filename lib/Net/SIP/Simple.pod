@@ -201,6 +201,10 @@ be created using %ARGS.
 The method does not wait for the calls, its setting only the callback
 on the legs up. Thus it has to be followed by a call to B<loop>.
 
+If %ARGS contain C<auth_*> keys an Authorizer will be added before the listener.
+See L<Net::SIP::Authorize> for the keys, e.g. C<auth_user2pass> will be
+forwarded as C<user2pass> etc to the authorizer.
+
 Special keys not described in L<Net::SIP::Simple::Call>:
 
 =over 8
@@ -243,6 +247,8 @@ See there for the meaning of %ARGS.
 Like with B<listen> you need to B<loop> after calling this
 method, the method itself will not wait.
 
+Like with B<listen> authorization can be added uses C<auth_*> keys.
+
 =item create_stateless_proxy ( %ARGS )
 
 Sets up a simple proxy using L<Net::SIP::StatelessProxy>.
@@ -250,6 +256,8 @@ See there for the meaning of %ARGS.
 
 Like with B<listen> you need to B<loop> after calling this
 method, the method itself will not wait.
+
+Like with B<listen> authorization can be added uses C<auth_*> keys.
 
 =item create_chain ( OBJECTS, %ARGS )
 

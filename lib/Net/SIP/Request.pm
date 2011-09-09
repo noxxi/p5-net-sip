@@ -125,6 +125,11 @@ sub create_ack {
 	# ACK uses cseq from request
 	$self->cseq =~m{(\d+)};
 	my $cseq = "$1 ACK";
+	my %auth;
+	for (qw(authorization proxy-authorization)) {
+		my $v = scalar($self->get_header($_)) or next;
+		$auth{$_} = $v;
+	}
 	my $header = {
 		'call-id' => scalar($self->get_header('call-id')),
 		from      => scalar($self->get_header('from')),
@@ -133,6 +138,7 @@ sub create_ack {
 		via       => [ ($self->get_header( 'via' ))[0] ],
 		route     => [ $self->get_header( 'route' ) ],
 		cseq      => $cseq,
+		%auth,
 	};
 	return Net::SIP::Request->new( 'ACK',$self->uri,$header );
 }
@@ -148,6 +154,11 @@ sub create_cancel {
 	# CANCEL uses cseq from request
 	$self->cseq =~m{(\d+)};
 	my $cseq = "$1 CANCEL";
+	my %auth;
+	for (qw(authorization proxy-authorization)) {
+		my $v = scalar($self->get_header($_)) or next;
+		$auth{$_} = $v;
+	}
 	my $header = {
 		'call-id' => scalar($self->get_header('call-id')),
 		from      => scalar($self->get_header('from')),
@@ -156,6 +167,7 @@ sub create_cancel {
 		via       => [ ($self->get_header( 'via' ))[0] ],
 		route     => [ $self->get_header( 'route' ) ],
 		cseq      => $cseq,
+		%auth
 	};
 	return Net::SIP::Request->new( 'CANCEL',$self->uri,$header );
 }
