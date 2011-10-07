@@ -239,6 +239,13 @@ object as argument.
 
 =back
 
+=item create_auth ( %ARGS )
+
+Sets up authorization.
+See L<Net::SIP::Authorize> for the meaning of %ARGS.
+The returned object should be used together with other objects
+within C<create_chain>.
+
 =item create_registrar ( %ARGS )
 
 Sets up a simple registrar using L<Net::SIP::Registrar>.

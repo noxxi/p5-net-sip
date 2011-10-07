@@ -43,6 +43,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       in INVITE with (self,code,packet)
 #   cb_established: callback which will be called on receiving ACK in INVITE
 #       with (status,self) where status is OK|FAIL
+#   cb_invite: callback called with ($self,$packet) when INVITE is received
 #   sip_header: hashref of SIP headers to add
 #   call_on_hold: one-shot parameter to set local media addr to 0.0.0.0,
 #       will be set to false after use
@@ -73,14 +74,20 @@ sub new {
 	my ($class,$control,$ctx,$param) = @_;
 	my $self = fields::new( $class );
 	%$self = %$control;
+
 	$self->{ua_cleanup} = [];
-	$self->{ctx} = ref($ctx) ? $ctx : {
-		to => $ctx,
-		from => $self->{from},
-		contact => $self->{contact},
-		auth => $self->{auth},
-		route => $self->{route},
-	};
+	if ( ref($ctx) ) {
+		$ctx->{auth} ||= $self->{auth};
+		$self->{ctx} = $ctx;
+	} else {
+		$self->{ctx} = {
+			to => $ctx,
+			from => $self->{from},
+			contact => $self->{contact},
+			auth => $self->{auth},
+			route => $self->{route},
+		};
+	}
 	$self->{call_cleanup} = [];
 	$self->{rtp_cleanup}  = [];
 	$self->{param} = $param ||= {};
@@ -417,6 +424,7 @@ sub receive {
 
 				$param->{leg} ||= $leg;
 				$self->_setup_local_rtp_socks;
+				invoke_callback($param->{cb_invite},$self,$packet);
 
 				# send 200 OK with sdp body
 				my $response = $packet->create_response(

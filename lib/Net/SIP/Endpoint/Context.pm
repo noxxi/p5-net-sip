@@ -334,6 +334,7 @@ sub handle_response {
 		my $r = $tr->{request};
 		my $auth = $self->{auth};
 		if ( $auth && $r->authorize( $response, $auth )) {
+			DEBUG(10,"retrying with authorization");
 			# found something to authorize
 			# redo request
 			# update local cseq from cseq in request
@@ -341,6 +342,7 @@ sub handle_response {
 			$endpoint->new_request( $r,$self );
 		} else {
 			# need user feedback
+			DEBUG(10,"no (usable) authorization data available");
 			invoke_callback($cb,@arg,EPERM,$code,$response,$leg,$from);
 		}
 		return;

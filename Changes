@@ -1,5 +1,12 @@
 Revision history for Net::SIP
 
+0.62_12 2011-10-07
+- authorization infos gets copied to new call object if INVITE was received.
+- add create_auth to Net::SIP::Simple, fix authorization for registrar (only
+  on REGISTER)
+- add cb_invite callback to Net::SIP::Simple::Call, which gets triggered on
+  reinvite from peer
+- added more samples below samples/ directory
 0.62_11 2011-09-11
 - add authorization to listen, registrar, proxy
 - add test for invite+reinvite+bye with authorization

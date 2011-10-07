@@ -454,7 +454,7 @@ sub listen {
 	$self->{endpoint}->set_application( [ $receive,$self,\%args] );
 
 	# in case listener should provide authorization put Authorizer in between
-	if ( my $auth = _make_auth_from_args($self,%args) ) {
+	if ( my $auth = _make_auth_from_args($self,\%args) ) {
 		$self->create_chain([$auth,$self->{endpoint}]);
 	}
 }
@@ -462,25 +462,36 @@ sub listen {
 
 ###########################################################################
 # create authorization if args say so
-# Args: ($self,%args)
-#   %args:
+# Args: ($self,$args)
+#   %$args:
 #     auth_user2pass: see user2pass in Net::SIP::Authorize 
 #     auth_user2a1:   see user2a1 in Net::SIP::Authorize 
 #     auth_realm:     see realm in Net::SIP::Authorize 
 #     auth_.... :     see Net::SIP::Authorize
-# Returns: authorizer if auth_* args given
-###########################################################################
+# Returns: authorizer if auth_* args given, removes auth_ args from hash
+##########################################################################
 sub _make_auth_from_args {
-	my ($self,%args) = @_;
+	my ($self,$args) = @_;
 
-	my %auth = map { m{^auth_(.+)} ? ($1 => $args{$_}):() } keys %args;
+	my %auth = 
+		map { m{^auth_(.+)} ? ($1 => delete $args->{$_}):() } 
+		keys %$args;
 	my $i_am_proxy = delete $auth{i_am_proxy};
 
-	return if ! %auth;
+	return %auth && $self->create_auth(%auth);
+}
+
+###########################################################################
+# setup authorization for use in chain
+# Args: ($self,%args)
+#   %args:  see Net::SIP::Authorize
+# Returns: authorizer object
+##########################################################################
+sub create_auth {
+	my ($self,%args) = @_;
 	return Net::SIP::Authorize->new(
 		dispatcher => $self->{dispatcher},
-		i_am_proxy => $i_am_proxy,
-		%auth,
+		%args,
 	);
 }
 
@@ -498,12 +509,18 @@ sub _make_auth_from_args {
 ###########################################################################
 sub create_registrar {
 	my Net::SIP::Simple $self = shift;
+	my %args = @_;
+	my $auth = _make_auth_from_args($self,\%args);
+
 	my $registrar = Net::SIP::Registrar->new(
 		dispatcher => $self->{dispatcher},
-		@_
+		%args
 	);
-	if ( my $auth = _make_auth_from_args($self,@_) ) {
-		$self->create_chain([$auth,$registrar])
+	if ( $auth ) {
+		$registrar = $self->create_chain(
+			[$auth,$registrar], 
+			methods => ['REGISTER']
+		)
 	} else {
 		$self->{dispatcher}->set_receiver( $registrar );
 	}
@@ -519,12 +536,17 @@ sub create_registrar {
 ###########################################################################
 sub create_stateless_proxy {
 	my Net::SIP::Simple $self = shift;
+	my %args = @_;
+
+	$args{auth_i_am_proxy} = 1;
+	my $auth = _make_auth_from_args($self,\%args);
+
 	my $proxy = Net::SIP::StatelessProxy->new(
 		dispatcher => $self->{dispatcher},
-		@_
+		%args
 	);
-	if ( my $auth = _make_auth_from_args($self,auth_i_am_proxy => 1, @_) ) {
-		$self->create_chain([$auth,$proxy])
+	if ( $auth ) {
+		$proxy = $self->create_chain([$auth,$proxy])
 	} else {
 		$self->{dispatcher}->set_receiver($proxy);
 	}
