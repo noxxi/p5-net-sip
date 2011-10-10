@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.63 2011-10-10
+- just call 0.62_12 0.63 because the last stable was released long ago
 0.62_12 2011-10-07
 - authorization infos gets copied to new call object if INVITE was received.
 - add create_auth to Net::SIP::Simple, fix authorization for registrar (only
