@@ -116,7 +116,32 @@ sub receive {
 	);
 
 	if ( $packet->is_response ) {
+		# find out outgoing leg by checking (and removing) top via
+		if ( my ($via) = $packet->get_header( 'via' )) {
+			my ($data,$param) = sip_hdrval2parts( via => $via );
+			my $branch = $param->{branch};
+			if ( $branch ) {
+				my @legs = $self->{dispatcher}->get_legs( sub => sub {
+					my $lb = shift->{branch};
+					$lb eq substr($branch,0,length($lb));
+				});
+				if (@legs) {
+					$entry{outgoing_leg} = \@legs;
+					# remove top via, see Leg::forward_incoming
+					my $via;
+					$packet->scan_header( via => [ sub { 
+						my ($vref,$hdr) = @_;
+						if ( !$$vref ) { 
+							$$vref = $hdr->{value};
+							$hdr->remove;   
+						}           
+					}, \$via ]);
+				}
+			}
+		}
+
 		__forward_response( $self, \%entry );
+
 	} else {
 
 		# check if the URI was handled by rewrite_contact
@@ -410,6 +435,10 @@ sub __forward_packet_final {
 			}
 		}
 		$packet->set_header( contact => \@contact );
+	}
+
+	if ( $outgoing_leg != $incoming_leg and $packet->is_request ) {
+		$incoming_leg->add_via($packet);
 	}
 
 	# prepare outgoing packet

@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.64 2011-10-25
+- in stateless proxy: if incoming leg and outgoing leg are different add
+  via header for incoming leg and use it when response comes in to find 
+  the outgoing leg for the response
 0.63 2011-10-10
 - just call 0.62_12 0.63 because the last stable was released long ago
 0.62_12 2011-10-07

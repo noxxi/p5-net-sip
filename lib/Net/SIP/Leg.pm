@@ -264,11 +264,7 @@ sub deliver {
 		# one because it might be retried later
 		# (could skip this for tcp?)
 		$packet = $packet->clone;
-
-		# make Via based transaction id
-		my $via = $self->{via};
-		$via .= md5_hex( $packet->tid );
-		$packet->insert_header( via => $via );
+		$self->add_via($packet);
 	}
 
 	# 2xx responses to INVITE requests and the request itself must have a
@@ -425,6 +421,23 @@ sub check_via {
 	my $l_branch = $self->{branch};
 	my $p_branch = substr( $param->{branch},0,length($l_branch));
 	return $l_branch eq $p_branch;
+}
+
+###########################################################################
+# add myself as Via header to packet 
+# Args: ($self,$packet)
+#  $packet: Net::SIP::Packet (usually Net::SIP::Request)
+# Returns: NONE
+# modifies packet in-place
+###########################################################################
+sub add_via {
+	my Net::SIP::Leg $self = shift;
+	my $packet = shift;
+
+	# make Via based transaction id
+	my $via = $self->{via};
+	$via .= md5_hex( $packet->tid );
+	$packet->insert_header( via => $via );
 }
 
 ###########################################################################
