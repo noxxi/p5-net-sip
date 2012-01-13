@@ -182,11 +182,14 @@ will be forwarded to method B<register> in L<Net::SIP::Endpoint>.
 B<from> and B<auth> will be used from %ARGS or if not in %ARGS from
 the constructor.
 
-=item invite ( TO,%ARGS )
+=item invite ( CTX,%ARGS )
 
-Invite party TO. Creates a new L<Net::SIP::Simple::Call> object with
-TO and creates an INVITE request for this call using %ARGS.
+Creates a new call and invites peer.
+Creates a new L<Net::SIP::Simple::Call> object with context CTX
+and creates an INVITE request for this call using %ARGS.
 See B<reinvite> in L<Net::SIP::Simple::Call> for more info on %ARGS.
+
+CTX can be address of peer or context hash containing the address.
 
 Returns with the newly created L<Net::SIP::Simple::Call> object,
 which can later be used for reINVITEs or BYE etc.

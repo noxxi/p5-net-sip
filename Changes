@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.64_1 2012-01-13
+- let Net::SIP::Simple invite and register define the callid for the
+  connection, based on idea from r[DOT]molle[AT]teles[DOT]de
 0.64 2011-10-25
 - in stateless proxy: if incoming leg and outgoing leg are different add
   via header for incoming leg and use it when response comes in to find 

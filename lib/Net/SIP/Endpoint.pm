@@ -90,6 +90,7 @@ sub invite {
 #  there can be:
 #    expires: Expires header, defaults to 900 if not given
 #    callback: callback which will be called on response
+#    callid: callid used for calling context
 #  all other args will be used in creation of request
 # Returns: NONE
 ############################################################################
@@ -108,6 +109,7 @@ sub register {
 		from    => $me,
 		contact => $contact,
 		auth    => delete $args{auth},
+		callid  => delete $args{callid},
 	);
 	return $self->new_request(
 		'REGISTER',
@@ -127,7 +129,7 @@ sub register {
 #   $method: method name, e.g. 'INVITE','REGISTER',..
 #     can also be a full Net::SIP::Request already (used for retries after
 #     302,305 responses)
-#   $ctx: already espablished context (Net::SIP::Endpoint::Context)
+#   $ctx: already established context (Net::SIP::Endpoint::Context)
 #     or \%hash to create a new one (see Net::SIP::Endpoint::Context->new)
 #   $callback: [ \&sub,@arg ] which will be called if the layer receives
 #     responses important to the upper layer (e.g 180 Ringing, 200 Ok,

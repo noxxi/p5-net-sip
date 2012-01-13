@@ -24,8 +24,12 @@ Creates a new L<Net::SIP::Simple::Call> object to control a call.
 Usually called from B<invite> in L<Net::SIP::Simple>.
 
 CONTROL is the L<Net::SIP::Simple> object managing the calls.
+
 CTX is either an existing L<Net::SIP::Endpoint::Context> or the
-SIP address of the peer which will be contacted in this call.
+SIP address of the peer which will be contacted in this call
+or a hash which can be used to create the context. 
+If no complete context is given missing information will be taken
+from C<$call> if called as C<$call->new>.
 
 %ARGS are used to describe the behavior of the call and will be
 saved in the object as the connection parameter. The following

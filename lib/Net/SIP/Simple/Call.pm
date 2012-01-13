@@ -76,18 +76,13 @@ sub new {
 	%$self = %$control;
 
 	$self->{ua_cleanup} = [];
-	if ( ref($ctx) ) {
-		$ctx->{auth} ||= $self->{auth};
-		$self->{ctx} = $ctx;
-	} else {
-		$self->{ctx} = {
-			to => $ctx,
-			from => $self->{from},
-			contact => $self->{contact},
-			auth => $self->{auth},
-			route => $self->{route},
-		};
-	}
+	$ctx = { to => $ctx } if ! ref($ctx);
+	$ctx->{from}    ||= $self->{from};
+	$ctx->{contact} ||= $self->{contact};
+	$ctx->{auth}    ||= $self->{auth};
+	$ctx->{route}   ||= $self->{route};
+	$self->{ctx} = $ctx;
+
 	$self->{call_cleanup} = [];
 	$self->{rtp_cleanup}  = [];
 	$self->{param} = $param ||= {};
