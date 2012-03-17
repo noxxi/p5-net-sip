@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.64_2 2012-03-17
+- if contact is given for leg use it for the default contact in 
+  INVITE requests and 2xx responses instead of addr:port,
+  based on idea from r[DOT]molle[AT]teles[DOT]de
 0.64_1 2012-01-13
 - let Net::SIP::Simple invite and register define the callid for the
   connection, based on idea from r[DOT]molle[AT]teles[DOT]de

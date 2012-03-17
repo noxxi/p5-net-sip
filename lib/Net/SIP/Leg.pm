@@ -287,9 +287,10 @@ sub deliver {
 			? ( from => scalar($packet->get_header('from')) )
 			: ( to   => scalar($packet->get_header('to')) )
 		);
+		my ($proto,$addr) = $self->{contact} =~m{^(\w+):(?:.*\@)?(.*)$};
 		my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ).
-			"\@$self->{addr}:$self->{port}";
-		$contact = 'sip:'.$contact if $contact  !~m{^\w+:};
+		    "\@$addr";
+		$contact = $proto.':'.$contact if $contact !~m{^\w+:};
 		$packet->insert_header( contact => $contact );
 	}
 	if ( $need_allow && ! ( my @a = $packet->get_header( 'allow' ))) {

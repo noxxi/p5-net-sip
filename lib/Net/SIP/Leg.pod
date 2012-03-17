@@ -49,7 +49,8 @@ The connection protocol, e.g. 'tcp' or 'udp'. Defaults to 'udp'.
 =item contact
 
 Optional contact information which will be added as B<Record-route> header
-to outgoing requests. If not given it will be created based on C<addr>, C<port>
+to outgoing requests and used within Contact header for 200 Responses to 
+INVITE. If not given it will be created based on C<addr>, C<port>
 and C<proto>.
 
 =back
