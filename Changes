@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.64_3 2012-03-17
+- add response packet to final callback when registration failed in
+  Simple::register. Can be used to to preflight registration in case
+  of NAT and to extract received_addr etc from response.
+  based on idea from r[DOT]molle[AT]teles[DOT]de
 0.64_2 2012-03-17
 - if contact is given for leg use it for the default contact in 
   INVITE requests and 2xx responses instead of addr:port,

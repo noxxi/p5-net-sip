@@ -339,7 +339,7 @@ sub register {
 
 		} elsif ( $code ) {
 			$self->error( "Failed with code $code" );
-			invoke_callback( $cb_final, 'FAIL', code => $code );
+			invoke_callback( $cb_final, 'FAIL', code => $code, packet => $packet );
 		} elsif ( $errno ) {
 			$self->error( "Failed with error $errno" );
 			invoke_callback( $cb_final, 'FAIL', errno => $errno );
