@@ -177,7 +177,7 @@ the method will wait, until the registration is completed and return
 either the expires time given by the registrar or C<()> if registration
 failed.
 
-All other keys, like B<contact>, B<expires>
+All other keys, like B<contact>, B<expires>, B<resp40x>, B<auth>
 will be forwarded to method B<register> in L<Net::SIP::Endpoint>.
 B<from> and B<auth> will be used from %ARGS or if not in %ARGS from
 the constructor.

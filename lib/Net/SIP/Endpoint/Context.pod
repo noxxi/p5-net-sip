@@ -99,6 +99,11 @@ Creates a new requests for method METHOD with body BODY and additional
 SIP headers defined by %ARGS. The headers for C<to>, C<from>, C<contact>,
 C<route> will be created from the call context info in C<$self>.
 
+One special ARGS can be B<resp40x> which should point to a 401/407 SIP 
+response containing the offer from the server for authorization. This way
+authorization can be fully controlled, e.g. first trying w/o authorization
+and then retrying with authorization credentials and the 40x response.
+
 METHOD might be already a L<Net::SIP::Request> object in which case it
 will be used unmodified. BODY might be a string or object (see constructor
 of L<Net::SIP::Request>).

@@ -208,7 +208,9 @@ Returns peer of call, see B<peer> in L<Net::SIP::Endpoint::Context>.
 
 Creates a INVITE request which causes either the initial SDP session or an update of
 the SDP session (reinvite). %ARGS will merged with the connection parameter, see description
-on the constructor.
+on the constructor. 
+Additionally using B<resp40x> an B<auth> as a parameter here would make sense 
+if you want to habe full control about the authorization process.
 
 Sets up callback for the connection, which will invoke B<cb_final> once the final
 response for the INVITE was received and B<init_media> if this response was

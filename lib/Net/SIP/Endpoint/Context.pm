@@ -154,6 +154,8 @@ sub new_request {
 	my Net::SIP::Endpoint::Context $self = shift;
 	my ($method,$body,%args) = @_;
 
+	my $rsp40x = delete $args{resp40x};
+
 	my $request;
 	if ( ref($method)) {
 		# already a request object
@@ -199,6 +201,11 @@ sub new_request {
 
 	# overwrite any route header in request if we already learned a route
 	$request->set_header( route => $self->{route} ) if $self->{route};
+
+	if ( $rsp40x and $self->{auth} and $request->authorize( $rsp40x, $self->{auth} )) {
+		# update local cseq
+		($self->{cseq}) = $request->cseq =~m{(\d+)};
+	}
 
 	# create new transaction
 	my %trans = (

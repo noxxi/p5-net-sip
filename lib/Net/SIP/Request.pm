@@ -325,9 +325,12 @@ sub authorize {
 
 	return if !$auth; # no usable authenticate headers found
 
-	# increase cseq, because this will be a new request, not a retransmit
+	my ($rseq) = $response->cseq =~m{^(\d+)};
 	$self->cseq =~m{^(\d+)(.*)};
-	$self->set_header( cseq => ($1+1).$2 );
+	if ( defined $1 and $1 <= $rseq ) {
+		# increase cseq, because this will be a new request, not a retransmit
+		$self->set_header( cseq => ($rseq+1).$2 );
+	}
 
 	return 1;
 }

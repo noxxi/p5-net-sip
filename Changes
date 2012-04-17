@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.64_4 2012-04-17
+- to modify request before authorized response one can now first issue 
+  request w/o authorization, catch the 401/407 response within the cb_final
+  and then reissue the request including the response containing the
+  authorization request as resp40x parameter
 0.64_3 2012-03-17
 - add response packet to final callback when registration failed in
   Simple::register. Can be used to to preflight registration in case

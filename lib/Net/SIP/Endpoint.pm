@@ -138,7 +138,7 @@ sub register {
 #     if callback is set it will be the new callback for the context
 #   $body: optional Body, either scalar or smth with method as_string
 #     (like Net::SIP::SDP)
-#   %args: additional args for Net::SIP::Request::new
+#   %args: additional args for Net::SIP::Endpoint::Context::new_request
 # Returns: $ctx
 #    $ctx: context, eg the original one or newly created
 # Comment: if it cannot create a new context (because of missing args)

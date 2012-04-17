@@ -10,7 +10,7 @@ Net::SIP::Endpoint - Endpoint for SIP packets (UAC,UAS)
   $ua->register(
 	from => 'sip:me@example.com',
 	contact => 'sip:me@192.168.0.1',
-	registar => '192.168.0.10:5060'
+	registrar => '192.168.0.10:5060'
   );
 
 =head1 DESCRIPTION
@@ -170,6 +170,8 @@ CTX is either an existing L<Net::SIP::Endpoint::Context> object
 or a hash reference which will be used to construct one. It contains
 information about C<from> and C<to> etc. See
 constructor in L<Net::SIP::Endpoint::Context> for details.
+In case of a hash reference B<auth> and B<callid> from ARGS will be
+used for the newly constructed context.
 
 If it is an existing CTX it has to be one which is already managed
 by this endpoint (e.g. one returned by this method), the endpoint
@@ -183,7 +185,10 @@ context.
 BODY is a string or an object for the SIP body accepted by the
 constructor of L<Net::SIP::Request>.  See there.
 
-Anything in %ARGS will be used to construct the SIP header. See
+If a response object is given as B<resp40x> in ARGS it will be used to 
+authorize the newly created request.
+
+Anything else in %ARGS will be used to construct the SIP header. See
 constructor in L<Net::SIP::Request>.
 
 It returns the L<Net::SIP::Endpoint::Context> object for this
