@@ -335,7 +335,7 @@ sub register {
 			}
 			$exp = $packet->get_header( 'Expires' ) if ! defined $exp;
 			$$expires = $exp;
-			invoke_callback( $cb_final, 'OK', expires => $exp );
+			invoke_callback( $cb_final, 'OK', expires => $exp, packet => $packet );
 
 		} elsif ( $code ) {
 			$self->error( "Failed with code $code" );

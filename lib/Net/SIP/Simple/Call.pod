@@ -132,8 +132,9 @@ invoked, when it received the final answer on locally created INVITE requests
 
 Callback will be invoked with C<< ( STATUS, SELF, %INFO ) >> where STATUS
 is either 'OK' or 'FAIL' ('OK' if final response meant success, else 'FINAL'),
-and %INFO contains more information, like C<< ( CODE => response_code ) >>
-in case failures caused by an unsuccessful response.
+and %INFO contains more information, like C<< ( packet => packet ) >> for the 
+packet containing the final answer or C<< ( code => response_code ) >> in case 
+failures caused by an unsuccessful response.
 
 =item cb_preliminary
 

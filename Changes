@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.64_5 2012-05-06
+- add info about final response to most of the cb_final callbacks
+  based on idea from r[DOT]molle[AT]teles[DOT]de
 0.64_4 2012-04-17
 - to modify request before authorized response one can now first issue 
   request w/o authorization, catch the 401/407 response within the cb_final

@@ -205,7 +205,8 @@ sub reinvite {
 			} else {
 				$self->error( "Failed with error $errno".( $code ? " code=$code" :"" ) );
 			}
-			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,code => $code,packet => $packet );
+			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,
+			    code => $code,packet => $packet );
 			return;
 		}
 
@@ -222,7 +223,8 @@ sub reinvite {
 			return;
 		} elsif ( $code !~m{^2\d\d} ) {
 			DEBUG(10,"got response of %s|%s to INVITE",$code,$packet->msg );
-			invoke_callback( $param->{cb_final},'FAIL',$self,code => $code );
+			invoke_callback( $param->{cb_final},'FAIL',$self,code => $code,
+			    packet => $packet );
 			return;
 		}
 
@@ -237,7 +239,7 @@ sub reinvite {
 			$self->_setup_local_rtp_socks;
 			$ack->set_body( $param->{sdp} );
 		}
-		invoke_callback( $param->{cb_final},'OK',$self );
+		invoke_callback( $param->{cb_final},'OK',$self, packet => $packet );
 		invoke_callback( $param->{init_media},$self,$param );
 	};
 
@@ -268,7 +270,8 @@ sub reinvite {
 
 				if ( $code =~ m{^2\d\d} ) {
 					DEBUG(10,"got response of %s|%s to CANCEL",$code,$packet->msg );
-					invoke_callback( $param->{cb_final},'NOANSWER',$self,code => $code );
+					invoke_callback( $param->{cb_final},'NOANSWER',$self,code => $code, 
+						packet => $packet );
 				}
 			};
 			$noanswercb = [ $noanswercb,$self ];
