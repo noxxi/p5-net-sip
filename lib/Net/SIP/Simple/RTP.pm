@@ -15,6 +15,7 @@ package Net::SIP::Simple::RTP;
 use Net::SIP::Util qw(invoke_callback);
 use Socket;
 use Net::SIP::Debug;
+use Time::HiRes 'gettimeofday';
 
 
 # on MSWin32 non-blocking sockets are not supported from IO::Socket
@@ -48,15 +49,47 @@ sub media_recv_echo {
 			$addr = $addr->[0] if ref($addr);
 
 			my @delay_buffer;
+			my ($ltstamp,$lseq,$ltdiff); # needed to get diff between to packets in timestamp units for dtmf
 			my $echo_back = sub {
 				my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
-				for my $dummy (1) {
-					my $buf = _receive_rtp( $sock,$writeto,$targs,$didit );
-					defined($buf) or last;
+				{
+					my ($buf,$mpt,$seq,$tstamp,$ssrc,$csrc) = 
+						_receive_rtp( $sock,$writeto,$targs,$didit )
+						or last;
 					#DEBUG( "$didit=$$didit" );
 					$$didit = 1;
-					next if $delay<0;
-					next if ! $remote; # call on hold ?
+
+					if ( $ltstamp ) {
+						my $tdiff = $tstamp>$ltstamp ? $tstamp - $ltstamp : 0xffffffff - $ltstamp + $tstamp;
+						my $sdiff = $seq>$lseq ? $seq-$lseq: 0xffff-$lseq+$seq;
+						$ltdiff = $tdiff/$sdiff if $sdiff>0;
+					}
+					$ltstamp = $tstamp;
+					$lseq = $seq;
+
+					# DTMF - get timing from incoming data
+					my $timestamp = $tstamp; # take initial timestamp from sender
+					if ( $ltdiff and 
+						my ($dbuf,$dpt,$drpt) = _handle_dtmf($targs,\$timestamp, $ltdiff )) {
+						my $header = pack('CCnNN',
+							0b10000000, # Version 2
+							$dpt | 0b10000000, # RTP event
+							$seq, # take sequence from sender
+							$timestamp, 
+							0x1234,    # source ID
+						);
+						DEBUG( 100,"send %d bytes to RTP", length($dbuf));
+						while ($drpt-->0) {
+							send( $s_sock,$header.$dbuf,0,$remote );
+						}
+						return; # send DTMF *instead* of echo data
+					}
+					$ltstamp = $tstamp;
+					$lseq = $seq;
+
+
+					last if $delay<0;
+					last if ! $remote; # call on hold ?
 					push @$delay_buffer, $buf;
 					while ( @$delay_buffer > $delay ) {
 						send( $s_sock,shift(@$delay_buffer),0,$remote );
@@ -66,7 +99,9 @@ sub media_recv_echo {
 			};
 
 			$call->{loop}->addFD( $sock,
-				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{},\$didit ],
+				[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{
+					dtmf => $args->{dtmf_events},
+				},\$didit ],
 				'rtp_echo_back' );
 			my $reset_to_blocking = CAN_NONBLOCKING && $s_sock->blocking(0);
 			push @{ $call->{ rtp_cleanup }}, [ sub {
@@ -157,6 +192,7 @@ sub media_send_recv {
 						repeat => $repeat || 1,
 						cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ],
 						rtp_param => $args->{rtp_param},
+						dtmf => $args->{dtmf_events},
 					}],
 					$args->{rtp_param}[2], # repeat timer
 					'rtpsend',
@@ -230,7 +266,7 @@ sub _receive_rtp {
 	}
 	# skip csrc headers
 	my $cc = $vpxcc & 0x0f;
-	substr( $buf,0,4*$cc,'' ) if $cc;
+	my $csrc = $cc && substr( $buf,0,4*$cc,'' );
 
 	# skip extension header
 	my $xh = $vpxcc & 0x10 ? (unpack( 'nn', substr( $buf,0,4,'' )))[1] : 0;
@@ -261,7 +297,7 @@ sub _receive_rtp {
 		syswrite($fd,$payload);
 	}
 
-	return $packet;
+	return wantarray ? ( $packet,$mpt,$seq,$tstamp,$ssrc,$csrc ): $packet;
 }
 
 ###########################################################################
@@ -283,16 +319,29 @@ sub _receive_rtp {
 sub _send_rtp {
 	my ($sock,$loop,$addr,$readfrom,$targs,$timer) = @_;
 
-	my ($buf);
-	if ( ref($readfrom) ) {
+	$targs->{wseq}++;
+	my $seq = $targs->{wseq};
+
+	# 32 bit timestamp based on seq and packet size
+	my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;
+
+	my ($buf,$payload_type,$repeat) = 
+		_handle_dtmf($targs,\$timestamp,$targs->{rtp_param}[1]);
+	my $rtp_event = defined($buf) ? 1:0; # DTMF are events
+	$repeat ||= 1;
+
+	if ( defined $buf ) {
+		# smthg to send already (DTMF)
+	} elsif ( ref($readfrom) ) {
 		# payload by callback
-		$buf = invoke_callback( $readfrom );
+		$buf = invoke_callback($readfrom,$seq);
 		if ( !$buf ) {
 			DEBUG( 50, "no more data from callback" );
 			$timer && $timer->cancel;
 			invoke_callback( $targs->{cb_done} );
 			return;
 		}
+		($buf,$payload_type,$rtp_event,$timestamp) = @$buf if ref($buf);
 	} else {
 		# read from file
 		for(my $tries = 0; $tries<2;$tries++ ) {
@@ -319,15 +368,8 @@ sub _send_rtp {
 			$targs->{repeat}--;
 		}
 	}
-	$buf || die $!;
 
-	# add RTP header
-	$targs->{wseq}++;
-	my $seq = $targs->{wseq};
-	# 32 bit timestamp based on seq and packet size
-	# FIXME: it assumes here that packet size == number of samples which is true only for 8bit
-	my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;
-
+	die $! if ! defined $buf or $buf eq '';
 	if (0) {
 		my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );
 		$fa = inet_ntoa($fa);
@@ -336,15 +378,98 @@ sub _send_rtp {
 		DEBUG( 50, "$fa:$fp -> $ta:$tp seq=$seq ts=%x",$timestamp );
 	}
 
+	# add RTP header
+	$rtp_event = 0 if ! defined $rtp_event;
+	$payload_type = $targs->{rtp_param}[0]||0   # 0 == PMCU 8000
+		if ! defined $payload_type; 
+
 	my $header = pack('CCnNN',
 		0b10000000, # Version 2
-		$targs->{rtp_param}[0], # 0 == PMCU 8000
+		$payload_type | ( $rtp_event << 7 ) ,
 		$seq, # sequence
 		$timestamp,
 		0x1234,    # source ID
 	);
 	DEBUG( 100,"send %d bytes to RTP", length($buf));
-	send( $sock,$header.$buf,0,$addr ) || die $!;
+	while ($repeat-->0) {
+		send( $sock,$header.$buf,0,$addr ) || die $!;
+	}
+}
+
+###########################################################################
+# Helper to send DTMF
+# Args: ($targs,$rtimestamp,$tdiff)
+#  $targs: hash which is shared with _send_rtp and other callbacks, contains
+#    dtmf array with events 
+#  $rtimestamp: reference to timestamp which might get updated with the
+#    timestamp which should get send in RTP packet (all packets for same
+#    RTP event share timestamp, but increase sequence number)
+#  $tdiff: difference between two RTP packets in same unit as timestamp is
+# Returns: () | ($buf,$payload_type,$repeat)
+#  (): if no DTMF events to handle
+#  $buf: RTP payload
+#  $payload_type: type for RTP packet
+#  $repeat: how often the packet should be send, RTP end events will be send
+#     3 times to make sure it gets not lost
+###########################################################################
+sub _handle_dtmf {
+	my ($targs,$rtimestamp,$tdiff) = @_;
+	my $dtmfs = $targs->{dtmf};
+	DEBUG(100,"got %d dtmfs",0+@{$dtmfs||[]});
+	$dtmfs and @$dtmfs or return;
+
+	my ($buf,$payload_type);
+	my $repeat = 1; # DTMF ends gets send 3 times to make sure they get received
+
+	while ( @$dtmfs and ! defined $buf ) {
+		# we have some DTMF to handle
+		# this is an array of hashes with event,volume,duration,callback
+		my $dtmf = $dtmfs->[0];
+
+		# RTP events (DTMF) maintain the timestamp from the initial event packet
+		my $duration = 0;
+		if ( my $t = $dtmf->{timestamp} ) {
+			$tdiff += $$rtimestamp>$t ? $$rtimestamp-$t : 0xffffffff-$t+$$rtimestamp;
+			$$rtimestamp = $t;
+			$duration = 1000 * (gettimeofday - $dtmf->{time});
+		} else {
+			$dtmf->{timestamp} = $$rtimestamp;
+			$dtmf->{time} = gettimeofday;
+		}
+
+		my $event = $dtmf->{event};
+		my $event_end = ($dtmf->{duration}||0) - $duration <= 0 ? 1:0;
+
+		if ( defined $event ) {
+			$payload_type = $dtmf->{dtmf_type};
+			if ( ! defined $payload_type ) {
+				# FIXME - should send sound data instead
+				while (my $dtmf = shift(@$dtmfs)) {
+					my $cb = $dtmf->{cb_final} or next;
+					invoke_callback($cb,'FAIL','rfc2833 not supported by peer');
+				}
+				return;
+			}
+
+			$repeat = 3 if $event_end;
+			$buf = pack('CCn',
+				$event,
+				($event_end<<7) | ($dtmf->{volume}||10),
+				$tdiff,
+			);
+			DEBUG(100,"send DTMF event $event duration=$tdiff/duration end=$event_end");
+		}
+
+		if ( $event_end ) {
+			shift(@$dtmfs);
+			if ( my $cb = $dtmf->{cb_final} ) {
+				invoke_callback($cb,'OK');
+			}
+		}
+	}
+
+	return if ! defined $buf;
+	return ($buf,$payload_type,$repeat);
 }
 
 1;

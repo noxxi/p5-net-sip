@@ -249,6 +249,23 @@ the response for the BYE (which might be a response packet or a timeout).
 The rest of %ARGS will be merged with the connection parameter and given as an argument
 to the B<cb_final> callback (as hash reference).
 
+=item dtmf ( EVENTS, %ARGS )
+
+Sends DTMF (dial tones) events to peer according to RFC2833 (e.g. as RTP
+events). 
+
+EVENTS is a string with the characters 0-9,A-D,*,#. These will be send as DTMF.
+Any other characters in the string will lead to a pause in sending DTMF (e.g.
+"123--#" will send "1","2,","3", then add to pauses and then send "#"). 
+
+In %ARGS one can specify a B<duration> in ms (default 100ms) and a callback
+B<cb_final> which is invoked with first argument 'OK', when all events are send. 
+If no B<cb_final> callback is given the method will return only when all events 
+are send.
+
+If RFC2833 support is not offered by the peer the method will croak for
+now. In the future it will fall back to sending audio data.
+
 =item receive ( ENDPOINT, CTX, ERROR, CODE, PACKET, LEG, FROM )
 
 Will be called from the dispatcher on incoming packets. ENDPOINT is the

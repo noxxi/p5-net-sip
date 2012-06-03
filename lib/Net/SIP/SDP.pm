@@ -315,6 +315,24 @@ sub get_media {
 }
 
 ###########################################################################
+# returns type number to RTP codec name, e.g. 'telephone-event/8000' -> 101
+# Args: ($self,$name,[$index])
+#  $name: name of codec
+#  $index: index of media description, default 0
+# Returns: type number|undef
+###########################################################################
+sub name2int {
+	my ($self,$name,$index) = @_;
+	my $m = $self->{media}[ $index||0 ] or return;
+	for my $l (@{$m->{lines}}) {
+		$l->[0] eq 'a' or next;
+		$l->[1] =~m{^rtpmap:(\d+)\s+(\S+)} or next;
+		return $1 if $2 eq $name;
+	}
+	return;
+}
+
+###########################################################################
 # replace the addr and port (eg where it will listen) from the media in
 # the SDP packet
 # used for remapping by a proxy for NAT or inspection etc.

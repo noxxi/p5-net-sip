@@ -142,4 +142,10 @@ The number of entries in the list should be the same as the number of media
 entries in the object ( see B<get_media> ). If this is not the case it will
 C<die()>.
 
+=item name2int ( NAME, INDEX )
+
+Returns the RTP payload id for NAME (e.g. "telephone-event/8000").
+INDEX is the index into the list of media information, matching the list
+returned from L<get_media>.
+
 =back

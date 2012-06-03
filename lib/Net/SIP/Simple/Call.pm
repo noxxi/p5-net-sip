@@ -88,6 +88,7 @@ sub new {
 	$self->{param} = $param ||= {};
 	$param->{init_media} ||= $self->rtp( 'media_recv_echo' );
 	$param->{rtp_param}  ||= [ 0,160,160/8000 ]; # PCMU/8000: 5*160 bytes/second
+	$param->{dtmf_events} ||= []; # get added by sub dtmf
 	return $self;
 }
 
@@ -376,6 +377,57 @@ sub bye {
 }
 
 ###########################################################################
+# send DTMF (dial tone) events
+# Args: ($self,$events,%args)
+#  $events: string of characters from dial pad, any other character will
+#    cause pause
+#  %args:
+#    duration: length of dial tone in milliseconds, default 100
+#    cb_final: callback called with (status,errormsg) when done
+#       status can be OK|FAIL. If not given will wait until all
+#       events are sent
+# Returns: NONE
+# Comment: will croak if peer does not report RFC2833 support
+###########################################################################
+sub dtmf {
+	my ($self,$events,%args) = @_;
+	my $duration = $args{duration} || 100;
+	my $arr = $self->{param}{dtmf_events};
+
+	my $dtmf_type = $self->{param}{sdp_peer}
+		&& $self->{param}{sdp_peer}->name2int('telephone-event/8000');
+	if ( ! defined $dtmf_type ) {
+		# FIXME - should fall back to audio data then
+		croak "no support for RFC2833";
+	}
+
+	for( split('',$events)) {
+		if ( m{(\d)|([A-D])|(\*)|(\#)}i ) {
+			my $ev =
+				$4 ? 11 :
+				$3 ? 10 :
+				$2 ? ord(uc($2))-65+12 :
+				$1;
+			push @$arr, {	
+				event => $ev, 
+				duration => $duration,
+				dtmf_type => $dtmf_type,
+			}
+		} else {
+			# pause
+			push @$arr, { duration => $duration }
+		}
+	}
+	if ( my $cb_final = $args{cb_final} ) {
+		push @$arr, { cb_final => $cb_final }
+	} else {
+		my $stopvar;
+		push @$arr, { cb_final => \$stopvar };
+		$self->loop(\$stopvar);
+	}
+}
+
+###########################################################################
 # handle new packets within existing call
 # Args: ($self,$endpoint,$ctx,$error,$code,$packet,$leg,$from)
 #   $endpoint: the endpoint
@@ -543,13 +595,15 @@ sub _setup_local_rtp_socks {
 			}
 		} else {
 			my $rp = $param->{rtp_param};
+			my @a;
+			push @a,( "rtpmap:$rp->[0] $rp->[3]" , "ptime:".$rp->[2]*1000) if $rp->[3];
+			my $te = $rp->[3] && $rp->[0] == 101 ? 102: 101;
+			push @a, ( "rtpmap:$te telephone-event/8000","fmtp:$te 0-16" );
 			push @media, {
 				proto => 'RTP/AVP',
 				media => 'audio',
 				fmt   => $rp->[0] || 0, # PCMU/8000
-				$rp->[3] ? (
-					a => [ "rtpmap:$rp->[0] $rp->[3]" , "ptime:".$rp->[2]*1000 ]
-				) :(),
+				a     => \@a,
 			}
 		}
 

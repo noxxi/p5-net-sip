@@ -89,6 +89,7 @@ samples/3pcc.pl
 samples/bench/README
 samples/bench/call.pl
 samples/bench/listen.pl
+samples/dtmf.pl
 bin/nathelper.pl
 bin/stateless_proxy.pl
 bin/answer_machine.pl

@@ -21,5 +21,8 @@ test_registrar_and_proxy.pl
   body, invites 2nd party with SDP body from 1st and then re-INVITES
   1st party with SDP from 2nd
 
+dtmf.pl
+- sample code on how to send dial tones (DTMF)
+
 bench/*
 - programs for benchmarking, see bench/README
