@@ -94,3 +94,4 @@ bin/nathelper.pl
 bin/stateless_proxy.pl
 bin/answer_machine.pl
 bin/README
+tools/generate-dtmf.pl

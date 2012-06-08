@@ -146,6 +146,7 @@ C<die()>.
 
 Returns the RTP payload id for NAME (e.g. "telephone-event/8000").
 INDEX is the index into the list of media information, matching the list
-returned from L<get_media>.
+returned from L<get_media>. INDEX can also be 'audio','video'.., which
+will then lookup at the first matching entry in the media list.
 
 =back

@@ -263,8 +263,11 @@ B<cb_final> which is invoked with first argument 'OK', when all events are send.
 If no B<cb_final> callback is given the method will return only when all events 
 are send.
 
-If RFC2833 support is not offered by the peer the method will croak for
-now. In the future it will fall back to sending audio data.
+One can also overwrite the automatic detection of the DTMF method using
+B<methods> in %ARGS. Default is 'rfc2833,audio', with 'rfc2833' only one 
+enforces the use of RTP events, and if the peer does not support it it will
+croak. Setting to 'audio' will not fail from the client side, but the peer
+might not look for DTMF inband data if it expects RTP events.
 
 =item receive ( ENDPOINT, CTX, ERROR, CODE, PACKET, LEG, FROM )
 

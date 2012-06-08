@@ -386,21 +386,36 @@ sub bye {
 #    cb_final: callback called with (status,errormsg) when done
 #       status can be OK|FAIL. If not given will wait until all
 #       events are sent
+#    methods: methods it should try for DTMF in this order
+#       default is 'rfc2833,audio'. If none of the specified
+#       methods is supported by peer it will croak
 # Returns: NONE
-# Comment: will croak if peer does not report RFC2833 support
 ###########################################################################
 sub dtmf {
 	my ($self,$events,%args) = @_;
 	my $duration = $args{duration} || 100;
-	my $arr = $self->{param}{dtmf_events};
+	my @methods = split(m{[\s,]+}, lc($args{methods}||'rfc2833,audio'));
 
-	my $dtmf_type = $self->{param}{sdp_peer}
-		&& $self->{param}{sdp_peer}->name2int('telephone-event/8000');
-	if ( ! defined $dtmf_type ) {
-		# FIXME - should fall back to audio data then
-		croak "no support for RFC2833";
+	my %payload_type;
+	while ( ! %payload_type
+		and my $m = shift(@methods)) {
+		my $type;
+		if ( $m eq 'rfc2833' ) {
+			$type = $self->{param}{sdp_peer}
+				&& $self->{param}{sdp_peer}->name2int('telephone-event/8000','audio');
+		} elsif ( $m eq 'audio' ) {
+			$type = $self->{param}{sdp_peer}
+				&& $self->{param}{sdp_peer}->name2int('PCMU/8000','audio')
+				|| 0; # default id for PCMU/8000
+		} else {
+			croak("unknown method $m in methods:$args{methods}");
+		}
+		%payload_type = ( $m."_type" => $type ) if defined $type;
 	}
+	%payload_type or croak("no usable DTMF method found");
 
+	my $arr = $self->{param}{dtmf_events};
+	my $lastev;
 	for( split('',$events)) {
 		if ( m{(\d)|([A-D])|(\*)|(\#)}i ) {
 			my $ev =
@@ -408,14 +423,23 @@ sub dtmf {
 				$3 ? 10 :
 				$2 ? ord(uc($2))-65+12 :
 				$1;
+			if (defined $lastev) {
+				# force some silence to distinguish DTMF
+				push @$arr, {
+					duration => 50,
+					%payload_type
+				}
+			}
 			push @$arr, {	
 				event => $ev, 
 				duration => $duration,
-				dtmf_type => $dtmf_type,
-			}
+				%payload_type,
+			};
+			$lastev = $ev;
 		} else {
 			# pause
-			push @$arr, { duration => $duration }
+			push @$arr, { duration => $duration };
+			$lastev = undef;
 		}
 	}
 	if ( my $cb_final = $args{cb_final} ) {
