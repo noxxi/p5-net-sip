@@ -15,7 +15,7 @@ package Net::SIP::Simple::RTP;
 use Net::SIP::Util qw(invoke_callback);
 use Socket;
 use Net::SIP::Debug;
-use Time::HiRes 'gettimeofday';
+use Net::SIP::DTMF;
 
 
 # on MSWin32 non-blocking sockets are not supported from IO::Socket
@@ -49,7 +49,6 @@ sub media_recv_echo {
 			$addr = $addr->[0] if ref($addr);
 
 			my @delay_buffer;
-			my ($ltstamp,$lseq,$ltdiff); # needed to get diff between to packets in timestamp units for dtmf
 			my $echo_back = sub {
 				my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
 				{
@@ -59,34 +58,12 @@ sub media_recv_echo {
 					#DEBUG( "$didit=$$didit" );
 					$$didit = 1;
 
-					if ( $ltstamp ) {
-						my $tdiff = $tstamp>$ltstamp ? $tstamp - $ltstamp : 0xffffffff - $ltstamp + $tstamp;
-						my $sdiff = $seq>$lseq ? $seq-$lseq: 0xffff-$lseq+$seq;
-						$ltdiff = $tdiff/$sdiff if $sdiff>0;
-					}
-					$ltstamp = $tstamp;
-					$lseq = $seq;
-
-					# DTMF - get timing from incoming data
-					my $timestamp = $tstamp; # take initial timestamp from sender
-					if ( $ltdiff and 
-						my ($dbuf,$dpt,$drpt) = _handle_dtmf($targs,\$timestamp, $ltdiff )) {
-						my $header = pack('CCnNN',
-							0b10000000, # Version 2
-							$dpt | 0b10000000, # RTP event
-							$seq, # take sequence from sender
-							$timestamp, 
-							0x1234,    # source ID
-						);
-						DEBUG( 100,"send %d bytes to RTP", length($dbuf));
-						while ($drpt-->0) {
-							send( $s_sock,$header.$dbuf,0,$remote );
-						}
+					my @pkt = _handle_dtmf($targs,$seq,$tstamp,0x1234);
+					if (@pkt && $pkt[0] ne '') {
+						DEBUG( 100,"send DTMF to RTP");
+						send( $s_sock,$_,0,$remote ) for(@pkt);
 						return; # send DTMF *instead* of echo data
 					}
-					$ltstamp = $tstamp;
-					$lseq = $seq;
-
 
 					last if $delay<0;
 					last if ! $remote; # call on hold ?
@@ -325,14 +302,18 @@ sub _send_rtp {
 	# 32 bit timestamp based on seq and packet size
 	my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;
 
-	my ($buf,$payload_type,$repeat) = 
-		_handle_dtmf($targs,\$timestamp,$targs->{rtp_param}[1]);
-	my $rtp_event = defined($buf) ? 1:0; # DTMF are events
-	$repeat ||= 1;
+	my @pkt = _handle_dtmf($targs,$seq,$timestamp,0x1234);
+	if (@pkt && $pkt[0] ne '') {
+		DEBUG( 100,"send DTMF to RTP");
+		send( $sock,$_,0,$addr ) for(@pkt);
+		return; 
+	}
 
-	if ( defined $buf ) {
-		# smthg to send already (DTMF)
-	} elsif ( ref($readfrom) ) {
+	my $buf;
+	my $rtp_event;
+	my $payload_type;
+
+	if ( ref($readfrom) ) {
 		# payload by callback
 		$buf = invoke_callback($readfrom,$seq);
 		if ( !$buf ) {
@@ -391,193 +372,40 @@ sub _send_rtp {
 		0x1234,    # source ID
 	);
 	DEBUG( 100,"send %d bytes to RTP", length($buf));
-	while ($repeat-->0) {
-		send( $sock,$header.$buf,0,$addr ) || die $!;
-	}
+	send( $sock,$header.$buf,0,$addr ) || die $!;
 }
 
 ###########################################################################
 # Helper to send DTMF
-# Args: ($targs,$rtimestamp,$tdiff)
+# Args: ($targs,$seq,$timestamp,$srcid)
 #  $targs: hash which is shared with _send_rtp and other callbacks, contains
 #    dtmf array with events 
-#  $rtimestamp: reference to timestamp which might get updated with the
-#    timestamp which should get send in RTP packet (all packets for same
-#    RTP event share timestamp, but increase sequence number)
-#  $tdiff: difference between two RTP packets in same unit as timestamp is
-# Returns: () | ($buf,$payload_type,$repeat)
-#  (): if no DTMF events to handle
-#  $buf: RTP payload
-#  $payload_type: type for RTP packet
-#  $repeat: how often the packet should be send, RTP end events will be send
-#     3 times to make sure it gets not lost
+#  $seq,$timestamp,$srcid: parameter for RTP packet
+# Returns: @pkt
+#  ():            no DTMF events to handle
+#  $pkt[0] eq '': DTMF in process, but no data
+#  @pkt:          RTP packets to send
 ###########################################################################
 sub _handle_dtmf {
-	my ($targs,$rtimestamp,$tdiff) = @_;
+	my ($targs,$seq,$timestamp,$srcid) = @_;
 	my $dtmfs = $targs->{dtmf};
 	DEBUG(100,"got %d dtmfs",0+@{$dtmfs||[]});
 	$dtmfs and @$dtmfs or return;
 
-	my ($buf,$payload_type);
-	my $repeat = 1; # DTMF ends gets send 3 times to make sure they get received
-
-	while ( @$dtmfs and ! defined $buf ) {
-		# we have some DTMF to handle
-		# this is an array of hashes with event,volume,duration,callback
+	while ( @$dtmfs ) {
 		my $dtmf = $dtmfs->[0];
-
-		my $duration = 0;
-		if ( my $t = $dtmf->{timestamp} ) {
-			$tdiff += $$rtimestamp>$t ? $$rtimestamp-$t : 0xffffffff-$t+$$rtimestamp;
-			$duration = 1000 * (gettimeofday - $dtmf->{time});
-		} else {
-			$dtmf->{timestamp} = $$rtimestamp;
-			$dtmf->{time} = gettimeofday;
+		if ( my $duration = $dtmf->{duration} ) {
+			my $cb = $dtmf->{sub} 
+				||= dtmf_generator($dtmf->{event},$duration,%$dtmf);
+			my @pkt = $cb->($seq,$timestamp,$srcid);
+			return @pkt if @pkt;
 		}
-
-		my $event = $dtmf->{event};
-		my $event_end = ($dtmf->{duration}||0) - $duration <= 0 ? 1:0;
-
-		if ( defined $event ) {
-			if ( defined( $payload_type = $dtmf->{rfc2833_type} )) {
-				DEBUG(100,"send DTMF event $event duration=$tdiff/duration end=$event_end");
-				$repeat = 3 if $event_end;
-				$buf = pack('CCn',
-					$event,
-					($event_end<<7) | ($dtmf->{volume}||10),
-					$tdiff,
-				);
-				# RTP events (DTMF) maintain the timestamp from the initial event packet
-				$$rtimestamp = $dtmf->{timestamp};
-
-			} elsif ( defined( $payload_type = $dtmf->{audio_type} )) {
-				DEBUG(100,"send DTMF audio $event duration=$tdiff/duration end=$event_end");
-				my $cb = $dtmf->{dtmftone} ||= _dtmftone($event);
-				$buf = $cb->();
-
-			} else {
-				while (my $dtmf = shift(@$dtmfs)) {
-					my $cb = $dtmf->{cb_final} or next;
-					invoke_callback($cb,'FAIL','neither rfc2833 nor audio are supported by peer');
-				}
-				return;
-			}
-		} elsif ( ! $event_end and ! defined($dtmf->{rfc2833_type})
-			and defined( $payload_type = $dtmf->{audio_type} )) {
-			# add audio for silence
-			DEBUG(100,"send DTMF audio silence duration=$tdiff/duration");
-			my $cb = $dtmf->{dtmftone} ||= _dtmftone('');
-			$buf = $cb->();
-		}
-
-		if ( $event_end ) {
-			shift(@$dtmfs);
-			if ( my $cb = $dtmf->{cb_final} ) {
-				invoke_callback($cb,'OK');
-			}
+		shift(@$dtmfs);
+		if ( my $cb = $dtmf->{cb_final} ) {
+			invoke_callback($cb,'OK');
 		}
 	}
-
-	return if ! defined $buf;
-	return ($buf,$payload_type,$repeat);
-}
-
-###########################################################################
-# sub _dtmftone returns a sub to generate audio/silence for DTMF in 
-# any duration
-# Args: $event
-# Returns: $sub for $event
-# Comment: the sub should then be called with $sub->(nr_of_samples), e.g.
-#  usually $sub->(160). This will generate the payload for the RTP 
-#  packet. If $event is no DTMF event it will return a sub which
-#  gives silence
-#  data returned from the subs are PCMU/8000
-###########################################################################
-
-{
-	my %event2f = (
-		'0' => [ 941,1336 ],
-		'1' => [ 697,1209 ],
-		'2' => [ 697,1336 ],
-		'3' => [ 697,1477 ],
-		'4' => [ 770,1209 ],
-		'5' => [ 770,1336 ],
-		'6' => [ 770,1477 ],
-		'7' => [ 852,1209 ],
-		'8' => [ 852,1336 ],
-		'9' => [ 852,1477 ],
-		'*' => [ 941,1209 ], '10' => [ 941,1209 ],
-		'#' => [ 941,1477 ], '11' => [ 941,1477 ],
-		'A' => [ 697,1633 ], '12' => [ 697,1633 ],
-		'B' => [ 770,1633 ], '13' => [ 770,1633 ],
-		'C' => [ 852,1633 ], '14' => [ 852,1633 ],
-		'D' => [ 941,1633 ], '15' => [ 941,1633 ],
-	);
-
-	my $tabsize = 256;
-	my $volume  = 100;
-	my $speed   = 8000;
-	my $samples4pkt = 160;
-	my @costab;
-	my @ulaw_expandtab;
-	my @ulaw_compresstab;
-
-	sub _dtmftone {
-		my $event = shift;
-
-		my $f = $event2f{$event};
-		if ( ! $f ) {
-			# generate silence
-			return sub { 
-				my $samples = shift || $samples4pkt;
-				return pack('C',128) x $samples;
-			}
-		}
-
-		if (!@costab) {
-			for(my $i=0;$i<$tabsize;$i++) {
-				$costab[$i] = $volume/100*16383*cos(2*$i*3.14159265358979323846/$tabsize);
-			}
-			for( my $i=0;$i<128;$i++) {
-				$ulaw_expandtab[$i] = int( (256**($i/127) - 1) / 255 * 32767 ); 
-			}
-			my $j = 0;
-			for( my $i=0;$i<32768;$i++ ) {
-				$ulaw_compresstab[$i] = $j;
-				$j++ if $j<127 and $ulaw_expandtab[$j+1] - $i < $i - $ulaw_expandtab[$j];
-			}
-		}
-		
-		my ($f1,$f2) = @$f;
-		$f1*= $tabsize;
-		$f2*= $tabsize;
-		my $d1 = int($f1/$speed);
-		my $d2 = int($f2/$speed);
-		my $g1 = $f1 % $speed;
-		my $g2 = $f2 % $speed;
-		my $e1 = int($speed/2);
-		my $e2 = int($speed/2);
-		my $i1 = my $i2 = 0;
-
-		return sub {
-			my $samples = shift || $samples4pkt;
-			my $buf = '';
-			while ( $samples-- > 0 ) {
-				my $val = $costab[$i1]+$costab[$i2];
-				my $c = $val>=0 ? 255-$ulaw_compresstab[$val] : 127-$ulaw_compresstab[-$val];
-				$buf .= pack('C',$c);
-
-				$e1+= $speed, $i1++ if $e1<0;
-				$i1 = ($i1+$d1) % $tabsize;
-				$e1-= $g1;
-
-				$e2+= $speed, $i2++ if $e2<0;
-				$i2 = ($i2+$d2) % $tabsize;
-				$e2-= $g2;
-			}
-			return $buf;
-		}
-	}
+	return;
 }
 
 1;

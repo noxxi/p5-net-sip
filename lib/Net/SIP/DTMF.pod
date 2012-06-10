@@ -1,0 +1,101 @@
+=head1 NAME
+
+Net::SIP::DTMF - DTMF RTP packet generating and extracting
+
+=head1 SYNOPSIS
+
+  use Net::SIP::DTMF;
+  my $sub = generate_dtmf(
+    11,                  # event '#'
+	100,                 # duration 100ms
+	rfc2833_type => 101, # RTP type 101 for telephone-event/8000
+	# audio_type => 0,   # RTP type 0 for PCMU/8000
+  );
+  while (...) {
+  	my @pkt = $sub->($sequence,$timestamp,$srcid);
+	last if ! @pkt;        # dtmf done
+	next if $buf[0] eq ''; # more coming, but no data this time (pause)
+	.. send @pkts ...
+  }
+
+
+  use Net::SIP::DTMF;
+  my $sub = extract_dtmf(
+	rfc2833_type => 101, # RTP type 101 for telephone-event/8000
+	audio_type => 0,     # RTP type 0 for PCMU/8000
+  );
+  while (...) {
+  	if ( my ($event,$duration) = $sub->($packet)) {
+	  # event received
+	  ...
+	}
+  }
+
+=head1 DESCRIPTION
+
+This package provides functions for generating RTP packets containing DTMF
+events or extracting DTMF events from RTP packets. 
+
+=head1 FUNCTIONS
+
+=over 4
+
+=item generate_dtmf ( EVENT, DURATION, %ARGS )
+
+Generates a function which is used to generate packets for the given EVENT.
+
+EVENT is the event numer (0..15) or undef if it should just generate silence or
+pause. DURATION is the time for the event in ms. ARGS contain information how
+the event should be packed: either as RFC2833 RTP event or as RTP audio
+PCMU/8000.
+%ARGS can be
+
+=over 8
+
+=item rfc2833_type => rtp_type
+
+Gives the RTP payload type number for rfc2833 RTP events (telephone-event/8000). 
+If not given will try B<audio_type> instead.
+
+=item audio_type => rtp_type
+
+Gives the RTP payload type number for PCMU/8000.
+If not given and no B<rfc2833_type> given it will croak.
+
+=item volume => volume
+
+Sets the volume for RTP event according to rfc2833.
+
+=back
+
+The generated function should then be called with SEQUENCE,TIMESTAMP,SRCID to
+generate the RTP packets and will return @RTP_PACKETS, with
+
+=over 8
+
+=item () - DTMF event is finished
+
+=item $RTP_PACKETS[0] eq '' - no RTP packet for this call (pause)
+
+=item @RTP_PACKETS - RTP packets which can be send to the peer
+
+=back
+
+=item extract_dtmf ( %ARGS )
+
+Generates a function which is used to extract DTMF events.
+Keys B<rfc2833_type> and B<audio_type> have the same meaning as in
+B<generate_dtmf>. It will only attempt to extract DTMF events from rfc2833 RTP
+events or audio if the relevant rtp_type is given.
+
+The function will be called with the RTP packet as the only argument and will
+return () if no new events where found or (EVENT,DURATION) if an event finished.
+
+For performance reasons it is best to use rfc2833 if the peer supports it.
+
+=back
+
+=head1 TODO
+
+actually implement extract_dtmf
+

@@ -438,7 +438,7 @@ sub dtmf {
 			$lastev = $ev;
 		} else {
 			# pause
-			push @$arr, { duration => $duration };
+			push @$arr, { duration => $duration, %payload_type };
 			$lastev = undef;
 		}
 	}
