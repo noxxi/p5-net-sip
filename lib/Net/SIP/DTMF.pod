@@ -5,7 +5,7 @@ Net::SIP::DTMF - DTMF RTP packet generating and extracting
 =head1 SYNOPSIS
 
   use Net::SIP::DTMF;
-  my $sub = generate_dtmf(
+  my $sub = dtmf_generator(
     11,                  # event '#'
 	100,                 # duration 100ms
 	rfc2833_type => 101, # RTP type 101 for telephone-event/8000
@@ -20,7 +20,7 @@ Net::SIP::DTMF - DTMF RTP packet generating and extracting
 
 
   use Net::SIP::DTMF;
-  my $sub = extract_dtmf(
+  my $sub = dtmf_extractor(
 	rfc2833_type => 101, # RTP type 101 for telephone-event/8000
 	audio_type => 0,     # RTP type 0 for PCMU/8000
   );
@@ -40,7 +40,7 @@ events or extracting DTMF events from RTP packets.
 
 =over 4
 
-=item generate_dtmf ( EVENT, DURATION, %ARGS )
+=item dtmf_generator ( EVENT, DURATION, %ARGS )
 
 Generates a function which is used to generate packets for the given EVENT.
 
@@ -81,7 +81,7 @@ generate the RTP packets and will return @RTP_PACKETS, with
 
 =back
 
-=item extract_dtmf ( %ARGS )
+=item dtmf_extractor ( %ARGS )
 
 Generates a function which is used to extract DTMF events.
 Keys B<rfc2833_type> and B<audio_type> have the same meaning as in

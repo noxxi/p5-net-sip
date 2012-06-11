@@ -81,6 +81,7 @@ t/15_block_invite.t
 t/16_drop_invite.t
 t/17_call_with_reinvite_and_auth.t
 t/18_register_with_auth_step_by_step.t
+t/19_call_with_dtmf.t
 t/testlib.pl
 samples/README
 samples/invite_and_recv.pl

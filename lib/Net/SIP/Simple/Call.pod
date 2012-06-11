@@ -159,6 +159,17 @@ invoked, when it received an INVITE request
 Callback will be invoked with C<< ( SELF, REQUEST ) >> where REQUEST
 is the L<Net::SIP::Request> packet for the INVITE.
 
+=item cb_dtmf
+
+Callback usable by B<invoke_callback> in L<Net::SIP::Util> which will be
+invoked, when it received an DTMF event.
+
+Callback will be invoked with C<< ( EVENT, DURATION ) >> where EVENT
+is the event ([0-9A-D*#]) and DURATION the duration in ms.
+
+Needs to be supported by the RTP handler set with B<init_media>. All
+builtin handlers from L<Net::SIP::Simple::RTP> are supported.
+
 =item sip_header
 
 A reference to a hash with additional SIP headers for the INVITE requests.
@@ -268,6 +279,9 @@ B<methods> in %ARGS. Default is 'rfc2833,audio', with 'rfc2833' only one
 enforces the use of RTP events, and if the peer does not support it it will
 croak. Setting to 'audio' will not fail from the client side, but the peer
 might not look for DTMF inband data if it expects RTP events.
+
+Needs to be supported by the RTP handler set with B<init_media>. All
+builtin handlers from L<Net::SIP::Simple::RTP> are supported.
 
 =item receive ( ENDPOINT, CTX, ERROR, CODE, PACKET, LEG, FROM )
 
