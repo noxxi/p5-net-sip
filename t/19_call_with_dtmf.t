@@ -40,7 +40,7 @@ alarm(15);
 $SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
 
 uac( $uas_addr,$read );
-ok( <$read>, "UAS finished events=1 2 #" );
+ok( <$read>, "UAS finished events=1 2 D # 3 4 B *" );
 wait;
 
 ###############################################
@@ -82,7 +82,8 @@ sub uac {
 	ok( ! $uac->error, 'no error on UAC' );
 	ok( $call, 'Call established' );
 
-	$call->dtmf('12#');
+	$call->dtmf('12D#',methods => 'rfc2833');
+	$call->dtmf('34B*',methods => 'audio');
 
 	$call->loop( \$rtp_done, 10 );
 	ok( $rtp_done, "Done sending RTP" );
@@ -147,7 +148,7 @@ sub uas {
 
 	# done
 	if ( $call_closed ) {
-		print $pipe "UAS finished events=1 2 #\n";
+		print $pipe "UAS finished events=1 2 D # 3 4 B *\n";
 	} else {
 		print $pipe "call closed by timeout not stopvar\n";
 	}

@@ -25,7 +25,7 @@ Net::SIP::DTMF - DTMF RTP packet generating and extracting
 	audio_type => 0,     # RTP type 0 for PCMU/8000
   );
   while (...) {
-  	if ( my ($event,$duration) = $sub->($packet)) {
+  	if ( my ($event,$duration,$type) = $sub->($packet)) {
 	  # event received
 	  ...
 	}
@@ -89,13 +89,11 @@ B<generate_dtmf>. It will only attempt to extract DTMF events from rfc2833 RTP
 events or audio if the relevant rtp_type is given.
 
 The function will be called with the RTP packet as the only argument and will
-return () if no new events where found or (EVENT,DURATION) if an event finished.
+return () if no new events where found or (EVENT,DURATION,TYPE) if an event 
+finished, where DURATION is the duration in ms and TYPE is audio|rfc2833.
 
-For performance reasons it is best to use rfc2833 if the peer supports it.
+For performance reasons it is best to use only rfc2833 if the peer supports it.
 
 =back
 
-=head1 TODO
-
-actually implement extract_dtmf
 

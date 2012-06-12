@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.64_6 2012-06-12
+- support for DTMF in Net::SIP::Simple : sending and receiving, rfc2833 
+  and audio. See sub dtmf and callback cb_dtmf.
 0.64_5 2012-05-06
 - add info about final response to most of the cb_final callbacks
   based on idea from r[DOT]molle[AT]teles[DOT]de
