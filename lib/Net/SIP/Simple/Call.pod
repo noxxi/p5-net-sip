@@ -167,8 +167,10 @@ invoked, when it received an DTMF event.
 Callback will be invoked with C<< ( EVENT, DURATION ) >> where EVENT
 is the event ([0-9A-D*#]) and DURATION the duration in ms.
 
-Needs to be supported by the RTP handler set with B<init_media>. All
-builtin handlers from L<Net::SIP::Simple::RTP> are supported.
+Receiving DTMF needs to be supported by the active RTP handler set with 
+B<init_media>. All builtin handlers from L<Net::SIP::Simple::RTP> are supported.
+If no RTP handler is set up or if the RTP handler does not support DTMF
+sending no DTMF will be received without any warning.
 
 =item sip_header
 
@@ -280,8 +282,10 @@ enforces the use of RTP events, and if the peer does not support it it will
 croak. Setting to 'audio' will not fail from the client side, but the peer
 might not look for DTMF inband data if it expects RTP events.
 
-Needs to be supported by the RTP handler set with B<init_media>. All
-builtin handlers from L<Net::SIP::Simple::RTP> are supported.
+Sending DTMF needs to be supported by the active RTP handler set with
+B<init_media>. All builtin handlers from L<Net::SIP::Simple::RTP> are supported.
+If no RTP handler is set up or if the RTP handler does not support DTMF sending
+no DTMF will be received without any warning.
 
 =item receive ( ENDPOINT, CTX, ERROR, CODE, PACKET, LEG, FROM )
 

@@ -1,5 +1,13 @@
 Revision history for Net::SIP
 
+0.65 2012-06-25
+- first non-developer release with DTMF support.
+  Reworked some documentation regarding DTMF handling, otherwise same as
+  0.64_6
+- removed t/*fdleak tests for now, because they no longer work on recent
+  linux versions (ubuntu 12.04) which sometimes map /proc/pid/auxv as
+  a file descriptor and thus mix up fd count. 
+  Will be added again once the problem is worked around
 0.64_6 2012-06-12
 - support for DTMF in Net::SIP::Simple : sending and receiving, rfc2833 
   and audio. See sub dtmf and callback cb_dtmf.
