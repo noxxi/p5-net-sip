@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.65 2012-06-26
+- fix in DTMF code for perl<5.14
 0.65 2012-06-25
 - first non-developer release with DTMF support.
   Reworked some documentation regarding DTMF handling, otherwise same as

@@ -402,8 +402,8 @@ sub _dtmf_xtc_audio {
 		$time = pop @time;
 		my @r;
 		for my $f (@freq1,@freq2) {
-			my $d1 = pop($d1{$f});
-			my $d2 = pop($d2{$f});
+			my $d1 = pop(@{$d1{$f}});
+			my $d2 = pop(@{$d2{$f}});
 			push @r, [ $f, $d1*$d1+$d2*$d2-$d1*$d2*$coeff{$f} ];
 		}
 
