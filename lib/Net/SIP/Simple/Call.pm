@@ -400,13 +400,16 @@ sub request {
 	my $rqcb = [
 		sub {
 			my Net::SIP::Simple::Call $self = shift || return;
-			my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
+			my ($cb,$args,$endpoint,$ctx,$error,$code,$pkt) = @_;
 			if ( $code && $code =~m{^1\d\d} ) {
 				DEBUG( 10,"got prelimary response for request $method" );
 				return;
 			}
-			invoke_callback( $cb,$args );
-			$self->cleanup;
+			invoke_callback( $cb,
+				$error ? 'FAIL':'OK',
+				$self,
+				{ code => $code, packet => $pkt}
+			);
 		},
 		$self,$cb,\%cbargs
 	];
