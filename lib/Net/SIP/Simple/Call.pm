@@ -46,6 +46,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #   cb_invite: callback called with ($self,$packet) when INVITE is received
 #   cb_dtmf: callback called with ($event,$duration) when DTMF events
 #       are received, works only with media handling from Net::SIP::Simple::RTP
+#   cb_notify: callback called with ($self,$packet) when NOTIFY is received
 #   sip_header: hashref of SIP headers to add
 #   call_on_hold: one-shot parameter to set local media addr to 0.0.0.0,
 #       will be set to false after use
@@ -554,6 +555,12 @@ sub receive {
 
 			my $response = $packet->create_response( '200','OK',$self->{options} );
 			$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+
+		} elsif ( $method eq 'NOTIFY' ) {
+
+			my $response = $packet->create_response( '200','OK' );
+			$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+			invoke_callback($param->{cb_notify},$self,$packet);
 		}
 
 	} else {
