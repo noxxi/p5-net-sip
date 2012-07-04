@@ -1,6 +1,9 @@
 Revision history for Net::SIP
 
-0.65 2012-06-26
+0.66_1 2012-07-03
+- added method request to Simple::Call, usable to create requests within the
+  context of the current call, like REFER.
+0.66 2012-06-26
 - fix in DTMF code for perl<5.14
 0.65 2012-06-25
 - first non-developer release with DTMF support.

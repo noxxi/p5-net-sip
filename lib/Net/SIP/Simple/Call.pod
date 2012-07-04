@@ -262,6 +262,14 @@ the response for the BYE (which might be a response packet or a timeout).
 The rest of %ARGS will be merged with the connection parameter and given as an argument
 to the B<cb_final> callback (as hash reference).
 
+=item request ( METHOD, BODY, %ARGS )
+
+Will create a request with METHOD and BODY and wait for completion.
+If %ARGS contains B<cb_final> it will be used as a callback and invoked once it gets
+the response for the request (or timeout).
+The rest of %ARGS will be used to create request (mostly for request header, see
+L<Net::SIP::Endpoint::new_request>)
+
 =item dtmf ( EVENTS, %ARGS )
 
 Sends DTMF (dial tones) events to peer according to RFC2833 (e.g. as RTP

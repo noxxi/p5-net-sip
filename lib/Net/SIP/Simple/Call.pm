@@ -380,6 +380,42 @@ sub bye {
 }
 
 ###########################################################################
+# request
+# Args: ($self,$method,$body,%args)
+#   $method: method name
+#   $body:   optional body
+#   %args:
+#     cb_final: callback when response got received
+#     all other args will be used to create request (mostly as header
+#       for the request, see Net::SIP::Endpoint::new_request)
+# Returns: NONE
+###########################################################################
+sub request {
+	my Net::SIP::Simple::Call $self = shift;
+	my ($method,$body,%args) = @_;
+
+	my $cb = delete $args{cb_final};
+	my %cbargs = ( %{ $self->{param} }, %args );
+
+	my $rqcb = [
+		sub {
+			my Net::SIP::Simple::Call $self = shift || return;
+			my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
+			if ( $code && $code =~m{^1\d\d} ) {
+				DEBUG( 10,"got prelimary response for request $method" );
+				return;
+			}
+			invoke_callback( $cb,$args );
+			$self->cleanup;
+		},
+		$self,$cb,\%cbargs
+	];
+	weaken( $rqcb->[1] );
+
+	$self->{endpoint}->new_request( $method,$self->{ctx},$rqcb,$body,%args );
+}
+
+###########################################################################
 # send DTMF (dial tone) events
 # Args: ($self,$events,%args)
 #  $events: string of characters from dial pad, any other character will
