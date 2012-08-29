@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.67 2012-08-29
+- fixed https://rt.cpan.org/Ticket/Display.html?id=78979, thanks to 
+  Martin Skøtt for reporting
+- added cb_notify callback to Net::SIP::Simple, which gets triggered 
+  when a NOTIFY gets received
 0.66_1 2012-07-03
 - added method request to Simple::Call, usable to create requests within the
   context of the current call, like REFER.

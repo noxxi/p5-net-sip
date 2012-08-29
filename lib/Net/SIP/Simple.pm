@@ -371,7 +371,7 @@ sub register {
 sub invite {
 	my Net::SIP::Simple $self = shift;
 	my ($ctx,%args) = @_;
-	my $to = ref($ctx) ? $ctx->{to} : $ctx;
+	(my $to,$ctx) = ref($ctx) ? ($ctx->{to},$ctx) : ($ctx,undef);
 	$to || croak( "need peer of call" );
 	if ( $to !~m{\s} && $to !~m{\@} ) {;
 		croak( "no domain and no fully qualified to" ) if ! $self->{domain};
