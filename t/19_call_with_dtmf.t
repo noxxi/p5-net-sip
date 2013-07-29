@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 8;
+use Test::More tests => 9;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -21,26 +21,27 @@ my ($sock_uas,$uas_addr) = create_socket();
 diag( "UAS on $uas_addr" );
 
 # fork UAS and make call from UAC to UAS
-pipe( my $read,my $write); # for status updates
+pipe( my $from_uas,my $to_uac); # for status updates
 defined( my $pid = fork() ) || die $!;
 
 if ( $pid == 0 ) {
 	# CHILD = UAS
-	close($read);
-	$write->autoflush;
-	uas( $sock_uas, $write );
+	close($from_uas);
+	$to_uac->autoflush;
+	uas( $sock_uas, $to_uac );
 	exit(0);
 }
 
 # PARENT = UAC
-close( $sock_uas );
-close($write);
+close($sock_uas);
+close($to_uac);
 
-alarm(15);
+alarm(40);
 $SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
 
-uac( $uas_addr,$read );
-ok( <$read>, "UAS finished events=1 2 D # 3 4 B *" );
+uac( $uas_addr,$from_uas );
+my $uas = <$from_uas>;
+is( $uas, "UAS finished events=1 2 D # 3 4 B *\n", "UAS finished with DTMF" );
 wait;
 
 ###############################################
@@ -48,7 +49,7 @@ wait;
 ###############################################
 
 sub uac {
-	my ($peer_addr,$pipe) = @_;
+	my ($peer_addr,$from_uas) = @_;
 	Debug->set_prefix( "DEBUG(uac):" );
 
 	my $packets = 300;
@@ -71,13 +72,18 @@ sub uac {
 	ok( $uac, 'UAC created' );
 
 	# wait until UAS is ready and listening
-	ok( <$pipe>, "UAS ready\n" );
+	my $uas = <$from_uas>;
+	is( $uas, "UAS ready\n","UAS ready" );
 
 	# Call UAS
+	my @events;
 	my $call = $uac->invite(
 		'you.uas@example.com',
 		init_media  => $uac->rtp( 'send_recv', $send_something ),
 		cb_rtp_done => \$rtp_done,
+		cb_dtmf => sub {
+			push @events,shift;
+		}
 	);
 	ok( ! $uac->error, 'no error on UAC' );
 	ok( $call, 'Call established' );
@@ -93,7 +99,10 @@ sub uac {
 	$call->loop( \$stop,10 );
 	ok( $stop, 'UAS down' );
 
-	ok( <$pipe>, "UAS RTP ok\n" );
+	$uas = <$from_uas>;
+	is( $uas,"UAS RTP ok\n","UAS RTP ok" );
+	# DTMF echoed back
+	is( "@events","1 2 D # 3 4 B *", "UAC DTMF received");
 }
 
 ###############################################
@@ -101,7 +110,7 @@ sub uac {
 ###############################################
 
 sub uas {
-	my ($sock,$pipe) = @_;
+	my ($sock,$to_uac) = @_;
 	Debug->set_prefix( "DEBUG(uas):" );
 	my $uas = Simple->new(
 		domain => 'example.com',
@@ -120,7 +129,7 @@ sub uas {
 	my ($call_closed,@events);
 	$uas->listen(
 		cb_create      => sub { diag( 'call created' );1 },
-		cb_established => sub { diag( 'call established' ) },
+		cb_established => sub { diag( 'call established' );1 },
 		cb_cleanup     => sub {
 			diag( 'call cleaned up' );
 			$call_closed =1;
@@ -132,7 +141,7 @@ sub uas {
 	);
 
 	# notify UAC process that I'm listening
-	print $pipe "UAS ready\n";
+	print $to_uac "UAS ready\n";
 
 	# Loop until call is closed, at most 10 seconds
 	$uas->loop( \$call_closed, 10 );
@@ -141,15 +150,15 @@ sub uas {
 
 	# at least 20% of all RTP packets should come through
 	if ( @received > 20 ) {
-		print $pipe "UAS RTP ok\n"
+		print $to_uac "UAS RTP ok\n"
 	} else {
-		print $pipe "UAS RTP received only ".int(@received)."/100 packets\n";
+		print $to_uac "UAS RTP received only ".int(@received)."/100 packets\n";
 	}
 
 	# done
 	if ( $call_closed ) {
-		print $pipe "UAS finished events=1 2 D # 3 4 B *\n";
+		print $to_uac "UAS finished events=@events\n";
 	} else {
-		print $pipe "call closed by timeout not stopvar\n";
+		print $to_uac "call closed by timeout not stopvar\n";
 	}
 }

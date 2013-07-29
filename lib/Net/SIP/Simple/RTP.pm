@@ -160,7 +160,19 @@ sub media_send_recv {
 					CAN_NONBLOCKING or return;
 				}
 			};
-			$call->{loop}->addFD( $sock, [ $receive,$writeto,{},\$didit ],'rtp_receive' );
+			$call->{loop}->addFD( $sock, 
+				[ 
+					$receive,
+					$writeto, 
+					{
+						dtmf_gen => $args->{dtmf_events},
+						dtmf_xtract => $mdtmf && $mdtmf->[$i] && $args->{cb_dtmf} 
+							&& [ $mdtmf->[$i], $args->{cb_dtmf} ],
+					},
+					\$didit 
+				],
+				'rtp_receive' 
+			);
 			my $reset_to_blocking = CAN_NONBLOCKING && $sock->blocking(0);
 
 			# sending need to be done with a timer
@@ -283,6 +295,7 @@ sub _receive_rtp {
 	if ( my $xt = $targs->{dtmf_xtract} ) {
 		my ($sub,$cb) = @$xt;
 		if ( my ($event,$duration) = $sub->($packet)) {
+			DEBUG(40,"received dtmf <$event,$duration>");
 			$cb->($event,$duration);
 		}
 	}
@@ -403,11 +416,15 @@ sub _generate_dtmf {
 	my ($targs,$seq,$timestamp,$srcid) = @_;
 	my $dtmfs = $targs->{dtmf_gen};
 	$dtmfs and @$dtmfs or return;
-	DEBUG(100,"got %d dtmfs",0+@{$dtmfs||[]});
 
 	while ( @$dtmfs ) {
 		my $dtmf = $dtmfs->[0];
 		if ( my $duration = $dtmf->{duration} ) {
+			DEBUG(40,"generate dtmf ".( 
+				$dtmf->{sub} ? '<sub>' :
+				defined $dtmf->{event} ? "<$dtmf->{event},$duration>"  :
+				"<pause,$duration>"
+			));
 			my $cb = $dtmf->{sub} 
 				||= dtmf_generator($dtmf->{event},$duration,%$dtmf);
 			my @pkt = $cb->($seq,$timestamp,$srcid);
