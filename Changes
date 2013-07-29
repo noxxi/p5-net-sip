@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.681 2013-07-29
+- add DMTP media type to SDPs media line in 
+  Simple::Call_setup_local_rtp_sockets.
+  Thanks to stefano[DOT]pisani[AT]omniavoip[DOT]org
 0.68 2012-12-17
 - https://rt.cpan.org/Ticket/Display.html?id=82041 by dying in Makefile.PL
   on Win32. Probably only the forking tests will be the problem on windows,

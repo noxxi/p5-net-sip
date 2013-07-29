@@ -678,7 +678,7 @@ sub _setup_local_rtp_socks {
 					media => $m->{media},
 					proto => $m->{proto},
 					range => $m->{range},
-					fmt   => $m->{fmt},
+					fmt   => [ $m->{fmt},101 ],
 					a     => [ "rtpmap:101 telephone-event/8000", "fmtp:101 0-16" ],
 				};
 			}
@@ -691,7 +691,7 @@ sub _setup_local_rtp_socks {
 			push @media, {
 				proto => 'RTP/AVP',
 				media => 'audio',
-				fmt   => $rp->[0] || 0, # PCMU/8000
+				fmt   => [ $rp->[0] || 0, $te ], 
 				a     => \@a,
 			}
 		}
