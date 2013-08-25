@@ -202,11 +202,14 @@ L<Net::SIP::Util>.
   # restrict rtp sockets from command line
   perl -MNet::SIP=rtp:4000-4010 program.pl
 
+=head1 BUGS
+
+Support for TCP and SIPS and not or not fully implemented.
 
 =head1 COPYRIGHT
 
 This module and are modules in the Net::SIP Hierarchy distributed
-together with this module are copyright (c) 2006-2007, Steffen Ullrich.
+together with this module are copyright (c) 2006-2013, Steffen Ullrich.
 All Rights Reserved.
 These modules are free software. They may be used, redistributed
 and/or modified under the same terms as Perl itself.
