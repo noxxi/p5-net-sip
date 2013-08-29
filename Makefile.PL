@@ -7,4 +7,9 @@ WriteMakefile(
 	PREREQ_PM => {
 		'Net::DNS' => 0.56,
 	},
+	META_MERGE => {
+		resources => {
+			repository => 'https://github.com/noxxi/p5-net-sip',
+		},
+	},
 );
