@@ -67,7 +67,7 @@ sub new {
 	$self->{callid} ||= md5_hex( time(), rand(2**32) );
 	$self->{cseq} ||= 0;
 	$self->{_transactions} = [];
-	$self->{_cseq_incoming} = 0;
+	$self->{_cseq_incoming} = undef;
 
 	# create tag on my side (to|from)
 	my $side = $self->{incoming} ? 'to':'from';
@@ -469,8 +469,10 @@ sub handle_request {
 	my $cseq = $request->cseq;
 	my ($cseq_num) = $cseq=~m{^(\d+)};
 
-	DEBUG( 100,"method=%s cseq=%s/%s inc=%d", $request->method, $cseq_num,$cseq, $self->{_cseq_incoming} );
-	if ( $cseq_num < $self->{_cseq_incoming} ) {
+	DEBUG( 100,"method=%s cseq=%s/%s inc=%s", $request->method, $cseq_num,$cseq, 
+		defined($self->{_cseq_incoming}) ? $self->{_cseq_incoming} : '<undef>' );
+	if ( defined $self->{_cseq_incoming} 
+		and $cseq_num < $self->{_cseq_incoming} ) {
 		# must be an retransmit of an really old request, drop
 		DEBUG( 10,"retransmit of really old request? Dropping" );
 		return;
@@ -493,13 +495,15 @@ sub handle_request {
 
 	if ( $method eq 'ACK' || $method eq 'CANCEL' ) {
 		# must be have same cseq_num as last request, otherwise drop
-		if ( $cseq_num != $self->{_cseq_incoming} ) {
+		if ( defined $self->{_cseq_incoming} 
+			and $cseq_num != $self->{_cseq_incoming} ) {
 			DEBUG( 10,"received $method for unreceived INVITE: $cseq_num|$self->{_cseq_incoming}" );
 			return;
 		}
 	} else {
 		# cannot have the same cseq_num as last request
-		if ( $cseq_num == $self->{_cseq_incoming} ) {
+		if ( defined $self->{_cseq_incoming}
+			and $cseq_num == $self->{_cseq_incoming} ) {
 			DEBUG( 10,"reused cseq for $method. DROP" );
 			return;
 		}
