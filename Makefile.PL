@@ -7,9 +7,15 @@ WriteMakefile(
 	PREREQ_PM => {
 		'Net::DNS' => 0.56,
 	},
-	META_MERGE => {
-		resources => {
-			repository => 'https://github.com/noxxi/p5-net-sip',
-		},
-	},
-);
+    $ExtUtils::MakeMaker::VERSION >= 6.46 ? (
+        'META_MERGE' => {
+            resources => {
+                license     => 'http://dev.perl.org/licenses/',
+                repository  => 'https://github.com/noxxi/p5-net-sip',
+                homepage    => 'https://github.com/noxxi/p5-net-sip',
+                bugtracker  => 'https://rt.cpan.org/Dist/Display.html?Queue=Net-SIP',
+            },
+        },
+    ):(),
+
+)

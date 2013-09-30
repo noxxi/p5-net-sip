@@ -4,6 +4,7 @@ Revision history for Net::SIP
 - fixed issue, where incoming sequence number of 0 was seen as duplicate of
   previous incoming request
   Thanks to stefano[DOT]pisani[AT]omniavoip[DOT]org
+- added more meta information to Makefile.PL
 0.682 2013-07-29
 - add DTMF receiving to Simple::RTP send_recv handler
   Thanks to stefano[DOT]pisani[AT]omniavoip[DOT]org
