@@ -553,21 +553,31 @@ sub as_parts {
 	sub _hdrkey_parse_comma_seperated {
 		my ($v,$k) = @_;
 		my @v = ( '' );
-		my $quoted = 0;
+		my $quote = '';
 		# split on komma (but not if quoted)
 		while (1) {
-			if ( $v =~m{\G(.*?)([\\",])}gc ) {
+			if ( $quote ) {
+				if ( $v =~m{\G(.*?)(\\|$quote)}gc ) {
+					if ( $2 eq "\\" ) {
+						$v[-1].=$1.$2.substr( $v,pos($v),1 );
+						pos($v)++;
+					} else {
+						$v[-1].=$1.$2;
+						$quote = '';
+					}
+				}
+			} elsif ( $v =~m{\G(.*?)([\\"<,])}gc ) {
 				if ( $2 eq "\\" ) {
 					$v[-1].=$1.$2.substr( $v,pos($v),1 );
 					pos($v)++;
-				} elsif ( $2 eq '"' ) {
-					$v[-1].=$1.$2;
-					$quoted = !$quoted;
 				} elsif ( $2 eq ',' ) {
 					# next item if not quoted
 					( $v[-1].=$1 ) =~s{\s+$}{}; # strip trailing space
-					push @v,'' if !$quoted;
+					push @v,'' if !$quote;
 					$v =~m{\G\s+}gc; # skip space after ','
+				} else {
+					$v[-1].=$1.$2;
+					$quote = $2 eq '<' ? '>':$2;
 				}
 			} else {
 				# add rest to last from @v
