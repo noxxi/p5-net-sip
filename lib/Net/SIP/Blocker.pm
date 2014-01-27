@@ -24,22 +24,22 @@ use Net::SIP::Debug;
 # Returns: $self
 ###########################################################################
 sub new {
-	my ($class,%args) = @_;
-	my $self = fields::new( $class );
+    my ($class,%args) = @_;
+    my $self = fields::new( $class );
 
-	my $map = delete $args{block}
-		or croak("no mapping between method and code");
-	while (my ($method,$code) = each %$map) {
-		$method = uc($method);
-		($code, my $msg) = $code =~m{^(\d\d\d)(?:\s+(.+))?$} or
-			croak("block code for $method must be DDD [text]");
-		$self->{block}{$method} = defined($msg) ? [$code,$msg]:[$code];
-	}
+    my $map = delete $args{block}
+	or croak("no mapping between method and code");
+    while (my ($method,$code) = each %$map) {
+	$method = uc($method);
+	($code, my $msg) = $code =~m{^(\d\d\d)(?:\s+(.+))?$} or
+	    croak("block code for $method must be DDD [text]");
+	$self->{block}{$method} = defined($msg) ? [$code,$msg]:[$code];
+    }
 
-	$self->{dispatcher} = delete $args{dispatcher}
-		or croak('no dispatcher given');
+    $self->{dispatcher} = delete $args{dispatcher}
+	or croak('no dispatcher given');
 
-	return $self;
+    return $self;
 }
 
 
@@ -51,26 +51,26 @@ sub new {
 # Returns: block_code | NONE
 ###########################################################################
 sub receive {
-	my Net::SIP::Blocker $self = shift;
-	my ($packet,$leg,$from) = @_;
+    my Net::SIP::Blocker $self = shift;
+    my ($packet,$leg,$from) = @_;
 
-	$packet->is_request or return;
+    $packet->is_request or return;
 
-	my $method = $packet->method;
-	if ( $method eq 'ACK' and my $block = $self->{block}{INVITE} ) {
-		$self->{dispatcher}->cancel_delivery($packet->tid);
-		return $block->[0];
-	}
+    my $method = $packet->method;
+    if ( $method eq 'ACK' and my $block = $self->{block}{INVITE} ) {
+	$self->{dispatcher}->cancel_delivery($packet->tid);
+	return $block->[0];
+    }
 
-	my $block = $self->{block}{$method} or return;
+    my $block = $self->{block}{$method} or return;
 
-	DEBUG( 10,"block $method with code @$block" );
-	$self->{dispatcher}->deliver(
-		$packet->create_response(@$block),
-		leg => $leg,
-		dst_addr => $from
-	);
-	return $block->[0]
+    DEBUG( 10,"block $method with code @$block" );
+    $self->{dispatcher}->deliver(
+	$packet->create_response(@$block),
+	leg => $leg,
+	dst_addr => $from
+    );
+    return $block->[0]
 }
 
 1;

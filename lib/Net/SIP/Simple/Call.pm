@@ -75,25 +75,25 @@ use Scalar::Util 'weaken';
 # Returns: $self
 ###########################################################################
 sub new {
-	my ($class,$control,$ctx,$param) = @_;
-	my $self = fields::new( $class );
-	%$self = %$control;
+    my ($class,$control,$ctx,$param) = @_;
+    my $self = fields::new( $class );
+    %$self = %$control;
 
-	$self->{ua_cleanup} = [];
-	$ctx = { to => $ctx } if ! ref($ctx);
-	$ctx->{from}    ||= $self->{from};
-	$ctx->{contact} ||= $self->{contact};
-	$ctx->{auth}    ||= $self->{auth};
-	$ctx->{route}   ||= $self->{route};
-	$self->{ctx} = $ctx;
+    $self->{ua_cleanup} = [];
+    $ctx = { to => $ctx } if ! ref($ctx);
+    $ctx->{from}    ||= $self->{from};
+    $ctx->{contact} ||= $self->{contact};
+    $ctx->{auth}    ||= $self->{auth};
+    $ctx->{route}   ||= $self->{route};
+    $self->{ctx} = $ctx;
 
-	$self->{call_cleanup} = [];
-	$self->{rtp_cleanup}  = [];
-	$self->{param} = $param ||= {};
-	$param->{init_media} ||= $self->rtp( 'media_recv_echo' );
-	$param->{rtp_param}  ||= [ 0,160,160/8000 ]; # PCMU/8000: 5*160 bytes/second
-	$param->{dtmf_events} ||= []; # get added by sub dtmf
-	return $self;
+    $self->{call_cleanup} = [];
+    $self->{rtp_cleanup}  = [];
+    $self->{param} = $param ||= {};
+    $param->{init_media} ||= $self->rtp( 'media_recv_echo' );
+    $param->{rtp_param}  ||= [ 0,160,160/8000 ]; # PCMU/8000: 5*160 bytes/second
+    $param->{dtmf_events} ||= []; # get added by sub dtmf
+    return $self;
 }
 
 ###########################################################################
@@ -103,28 +103,28 @@ sub new {
 ###########################################################################
 
 sub cleanup {
-	my Net::SIP::Simple::Call $self = shift;
-	$self->rtp_cleanup;
-	while ( my $cb = shift @{ $self->{call_cleanup} } ) {
-		invoke_callback($cb,$self)
-	}
-	if ( my $ctx = $self->{ctx} ) {
-		$self->{endpoint}->close_context( $ctx );
-	}
-	$self->{param} = {};
-	$self->SUPER::cleanup;
+    my Net::SIP::Simple::Call $self = shift;
+    $self->rtp_cleanup;
+    while ( my $cb = shift @{ $self->{call_cleanup} } ) {
+	invoke_callback($cb,$self)
+    }
+    if ( my $ctx = $self->{ctx} ) {
+	$self->{endpoint}->close_context( $ctx );
+    }
+    $self->{param} = {};
+    $self->SUPER::cleanup;
 }
 
 sub rtp_cleanup {
-	my Net::SIP::Simple::Call $self = shift;
-	while ( my $cb = shift @{ $self->{rtp_cleanup} } ) {
-		invoke_callback($cb,$self)
-	}
-	DEBUG( 100,"done" );
+    my Net::SIP::Simple::Call $self = shift;
+    while ( my $cb = shift @{ $self->{rtp_cleanup} } ) {
+	invoke_callback($cb,$self)
+    }
+    DEBUG( 100,"done" );
 }
 
 sub DESTROY {
-	DEBUG( 100,"done" );
+    DEBUG( 100,"done" );
 }
 
 
@@ -134,8 +134,8 @@ sub DESTROY {
 # Returns: $peer
 ###########################################################################
 sub get_peer {
-	my Net::SIP::Simple::Call $self = shift;
-	return $self->{ctx}->peer;
+    my Net::SIP::Simple::Call $self = shift;
+    return $self->{ctx}->peer;
 }
 
 ###########################################################################
@@ -144,10 +144,10 @@ sub get_peer {
 # Returns: $self
 ###########################################################################
 sub set_param {
-	my Net::SIP::Simple::Call $self = shift;
-	my %args = @_;
-	@{ $self->{param} }{ keys %args } = values %args;
-	return $self;
+    my Net::SIP::Simple::Call $self = shift;
+    my %args = @_;
+    @{ $self->{param} }{ keys %args } = values %args;
+    return $self;
 }
 
 ###########################################################################
@@ -156,9 +156,9 @@ sub set_param {
 # Returns: @values|$value[0]
 ###########################################################################
 sub get_param {
-	my Net::SIP::Simple::Call $self = shift;
-	my @v = @{$self->{param}}{@_};
-	return wantarray ? @v : $v[0];
+    my Net::SIP::Simple::Call $self = shift;
+    my @v = @{$self->{param}}{@_};
+    return wantarray ? @v : $v[0];
 }
 
 ###########################################################################
@@ -172,131 +172,131 @@ sub get_param {
 # response, otherwise it will return immediatly
 ###########################################################################
 sub reinvite {
-	my Net::SIP::Simple::Call $self = shift;
-	my %args = @_;
+    my Net::SIP::Simple::Call $self = shift;
+    my %args = @_;
 
+    my $param = $self->{param};
+    my $clear_sdp = delete $args{clear_sdp};
+    $clear_sdp = $param->{clear_sdp} if ! defined $clear_sdp;
+    if ( $clear_sdp ) {
+	# clear SDP keys so that a new SDP session will be created
+	@{ $param }{qw( sdp _sdp_saved sdp_peer media_ssocks media_lsocks )} = ()
+    }
+    $self->{param} = $param = { %$param, %args } if %args;
+
+
+    my $leg = $param->{leg};
+    if ( ! $leg ) {
+	($leg) = $self->{dispatcher}->get_legs();
+	$param->{leg} = $leg;
+    }
+
+    my $ctx = $self->{ctx};
+
+    my $sdp;
+    if ( ! $param->{sdp_on_ack} ) {
+	$self->_setup_local_rtp_socks;
+	$sdp = $param->{sdp}
+    }
+
+    # predefined callback
+    my $cb = sub {
+	my Net::SIP::Simple::Call $self = shift || return;
+	my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
+
+	if ( $errno ) {
+	    if ( $code == 487 ) {
+		# request was canceled, probably be me -> ignore
+	    } else {
+		$self->error( "Failed with error $errno".( $code ? " code=$code" :"" ) );
+	    }
+	    invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,
+		code => $code,packet => $packet );
+	    return;
+	}
+
+	# new requests in existing call are handled in receive()
+	return $self->receive( @_ ) if $packet->is_request;
+
+	# response to INVITE
+	# all other responses will not be propagated to this callback
 	my $param = $self->{param};
-	my $clear_sdp = delete $args{clear_sdp};
-	$clear_sdp = $param->{clear_sdp} if ! defined $clear_sdp;
-	if ( $clear_sdp ) {
-		# clear SDP keys so that a new SDP session will be created
-		@{ $param }{qw( sdp _sdp_saved sdp_peer media_ssocks media_lsocks )} = ()
-	}
-	$self->{param} = $param = { %$param, %args } if %args;
-
-
-	my $leg = $param->{leg};
-	if ( ! $leg ) {
-		($leg) = $self->{dispatcher}->get_legs();
-		$param->{leg} = $leg;
+	if ( $code =~m{^1\d\d} ) {
+	    # preliminary response, ignore
+	    DEBUG(10,"got preliminary response of %s|%s to INVITE",$code,$packet->msg );
+	    invoke_callback( $param->{cb_preliminary},$self,$code,$packet );
+	    return;
+	} elsif ( $code !~m{^2\d\d} ) {
+	    DEBUG(10,"got response of %s|%s to INVITE",$code,$packet->msg );
+	    invoke_callback( $param->{cb_final},'FAIL',$self,code => $code,
+		packet => $packet );
+	    return;
 	}
 
-	my $ctx = $self->{ctx};
+	# cleanup RTP from last call
+	$self->rtp_cleanup;
 
-	my $sdp;
-	if ( ! $param->{sdp_on_ack} ) {
-		$self->_setup_local_rtp_socks;
-		$sdp = $param->{sdp}
+	$self->_setup_peer_rtp_socks( $packet ) || do {
+	    invoke_callback( $param->{cb_final},'FAIL',$self );
+	    return;
+	};
+	if ( $param->{sdp_on_ack} && $ack ) {
+	    $self->_setup_local_rtp_socks;
+	    $ack->set_body( $param->{sdp} );
 	}
+	invoke_callback( $param->{cb_final},'OK',$self, packet => $packet );
+	invoke_callback( $param->{init_media},$self,$param );
+    };
 
-	# predefined callback
-	my $cb = sub {
+
+    my $stopvar = 0;
+    $param->{cb_final} ||= \$stopvar;
+    $cb = [ $cb,$self ];
+    weaken( $cb->[1] );
+    $self->{ctx} = $self->{endpoint}->invite(
+	$ctx, $cb, $sdp,
+	$param->{sip_header} ? %{ $param->{sip_header} } : ()
+    );
+
+    if ( $param->{cb_final} == \$stopvar ) {
+
+	# This callback will be called on timeout or response to cancel which
+	# got send after ring_time was over
+	my $noanswercb;
+	if ( $param->{ring_time} ) {
+	    $noanswercb = sub {
 		my Net::SIP::Simple::Call $self = shift || return;
 		my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
 
-		if ( $errno ) {
-			if ( $code == 487 ) {
-				# request was canceled, probably be me -> ignore
-			} else {
-				$self->error( "Failed with error $errno".( $code ? " code=$code" :"" ) );
-			}
-			invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,
-			    code => $code,packet => $packet );
-			return;
-		}
-
-		# new requests in existing call are handled in receive()
-		return $self->receive( @_ ) if $packet->is_request;
-
-		# response to INVITE
-		# all other responses will not be propagated to this callback
+		$stopvar = 'NOANSWER' ;
 		my $param = $self->{param};
-		if ( $code =~m{^1\d\d} ) {
-			# preliminary response, ignore
-			DEBUG(10,"got preliminary response of %s|%s to INVITE",$code,$packet->msg );
-			invoke_callback( $param->{cb_preliminary},$self,$code,$packet );
-			return;
-		} elsif ( $code !~m{^2\d\d} ) {
-			DEBUG(10,"got response of %s|%s to INVITE",$code,$packet->msg );
-			invoke_callback( $param->{cb_final},'FAIL',$self,code => $code,
-			    packet => $packet );
-			return;
+		invoke_callback( $param->{cb_noanswer}, 'NOANSWER',$self,
+		    errno => $errno,code => $code,packet => $packet );
+
+		if ( $code =~ m{^2\d\d} ) {
+		    DEBUG(10,"got response of %s|%s to CANCEL",$code,$packet->msg );
+		    invoke_callback( $param->{cb_final},'NOANSWER',$self,code => $code,
+			packet => $packet );
 		}
+	    };
+	    $noanswercb = [ $noanswercb,$self ];
+	    weaken( $noanswercb->[1] );
 
-		# cleanup RTP from last call
-		$self->rtp_cleanup;
+	    # wait until final response
+	    $self->loop( $param->{ring_time}, \$stopvar );
 
-		$self->_setup_peer_rtp_socks( $packet ) || do {
-			invoke_callback( $param->{cb_final},'FAIL',$self );
-			return;
-		};
-		if ( $param->{sdp_on_ack} && $ack ) {
-			$self->_setup_local_rtp_socks;
-			$ack->set_body( $param->{sdp} );
-		}
-		invoke_callback( $param->{cb_final},'OK',$self, packet => $packet );
-		invoke_callback( $param->{init_media},$self,$param );
-	};
-
-
-	my $stopvar = 0;
-	$param->{cb_final} ||= \$stopvar;
-	$cb = [ $cb,$self ];
-	weaken( $cb->[1] );
-	$self->{ctx} = $self->{endpoint}->invite(
-		$ctx, $cb, $sdp,
-		$param->{sip_header} ? %{ $param->{sip_header} } : ()
-	);
-
-	if ( $param->{cb_final} == \$stopvar ) {
-
-		# This callback will be called on timeout or response to cancel which
-		# got send after ring_time was over
-		my $noanswercb;
-		if ( $param->{ring_time} ) {
-			$noanswercb = sub {
-				my Net::SIP::Simple::Call $self = shift || return;
-				my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
-
-				$stopvar = 'NOANSWER' ;
-				my $param = $self->{param};
-				invoke_callback( $param->{cb_noanswer}, 'NOANSWER',$self,
-					errno => $errno,code => $code,packet => $packet );
-
-				if ( $code =~ m{^2\d\d} ) {
-					DEBUG(10,"got response of %s|%s to CANCEL",$code,$packet->msg );
-					invoke_callback( $param->{cb_final},'NOANSWER',$self,code => $code, 
-						packet => $packet );
-				}
-			};
-			$noanswercb = [ $noanswercb,$self ];
-			weaken( $noanswercb->[1] );
-
-			# wait until final response
-			$self->loop( $param->{ring_time}, \$stopvar );
-
-			unless ($stopvar) { # timed out
-				$self->{endpoint}->cancel_invite( $self->{ctx},undef, $noanswercb );
-				$self->loop( \$stopvar );
-			}
-		} else {
-			# wait until final response
-			$self->loop( \$stopvar );
-		}
-
-		$param->{cb_final} = undef;
+	    unless ($stopvar) { # timed out
+		$self->{endpoint}->cancel_invite( $self->{ctx},undef, $noanswercb );
+		$self->loop( \$stopvar );
+	    }
+	} else {
+	    # wait until final response
+	    $self->loop( \$stopvar );
 	}
-	return $self->{ctx};
+
+	$param->{cb_final} = undef;
+    }
+    return $self->{ctx};
 }
 
 
@@ -311,32 +311,32 @@ sub reinvite {
 # or waiting for the reply timed out
 ###########################################################################
 sub cancel {
-	my Net::SIP::Simple::Call $self = shift;
-	my %args = @_;
+    my Net::SIP::Simple::Call $self = shift;
+    my %args = @_;
 
-	my $cb = delete $args{cb_final};
-	%args = ( %{ $self->{param} }, %args );
-	$cb ||= $args{send_cancel};
+    my $cb = delete $args{cb_final};
+    %args = ( %{ $self->{param} }, %args );
+    $cb ||= $args{send_cancel};
 
-	my $cancel_cb = [
-		sub {
-			my Net::SIP::Simple::Call $self = shift || return;
-			my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
-			# we don't care about the cause of this callback
-			# it might be a successful or failed reply packet or no reply
-			# packet at all (timeout) - the call is considered closed
-			# in any case except for 1xx responses
-			if ( $code && $code =~m{^1\d\d} ) {
-				DEBUG( 10,"got prelimary response for CANCEL" );
-				return;
-			}
-			invoke_callback( $cb,$args );
-		},
-		$self,$cb,\%args
-	];
-	weaken( $cancel_cb->[1] );
+    my $cancel_cb = [
+	sub {
+	    my Net::SIP::Simple::Call $self = shift || return;
+	    my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
+	    # we don't care about the cause of this callback
+	    # it might be a successful or failed reply packet or no reply
+	    # packet at all (timeout) - the call is considered closed
+	    # in any case except for 1xx responses
+	    if ( $code && $code =~m{^1\d\d} ) {
+		DEBUG( 10,"got prelimary response for CANCEL" );
+		return;
+	    }
+	    invoke_callback( $cb,$args );
+	},
+	$self,$cb,\%args
+    ];
+    weaken( $cancel_cb->[1] );
 
-	return $self->{endpoint}->cancel_invite( $self->{ctx}, undef, $cancel_cb );
+    return $self->{endpoint}->cancel_invite( $self->{ctx}, undef, $cancel_cb );
 }
 
 ###########################################################################
@@ -350,34 +350,34 @@ sub cancel {
 # or waiting for the reply timed out
 ###########################################################################
 sub bye {
-	my Net::SIP::Simple::Call $self = shift;
-	my %args = @_;
+    my Net::SIP::Simple::Call $self = shift;
+    my %args = @_;
 
-	my $cb = delete $args{cb_final};
-	%args = ( %{ $self->{param} }, %args );
-	$cb ||= $args{send_bye};
+    my $cb = delete $args{cb_final};
+    %args = ( %{ $self->{param} }, %args );
+    $cb ||= $args{send_bye};
 
-	my $bye_cb = [
-		sub {
-			my Net::SIP::Simple::Call $self = shift || return;
-			my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
-			# we don't care about the cause of this callback
-			# it might be a successful or failed reply packet or no reply
-			# packet at all (timeout) - the call is considered closed
-			# in any case except for 1xx responses
-			# FIXME: should we check for 302 moved etc?
-			if ( $code && $code =~m{^1\d\d} ) {
-				DEBUG( 10,"got prelimary response for BYE" );
-				return;
-			}
-			invoke_callback( $cb,$args );
-			$self->cleanup;
-		},
-		$self,$cb,\%args
-	];
-	weaken( $bye_cb->[1] );
+    my $bye_cb = [
+	sub {
+	    my Net::SIP::Simple::Call $self = shift || return;
+	    my ($cb,$args,$endpoint,$ctx,$error,$code) = @_;
+	    # we don't care about the cause of this callback
+	    # it might be a successful or failed reply packet or no reply
+	    # packet at all (timeout) - the call is considered closed
+	    # in any case except for 1xx responses
+	    # FIXME: should we check for 302 moved etc?
+	    if ( $code && $code =~m{^1\d\d} ) {
+		DEBUG( 10,"got prelimary response for BYE" );
+		return;
+	    }
+	    invoke_callback( $cb,$args );
+	    $self->cleanup;
+	},
+	$self,$cb,\%args
+    ];
+    weaken( $bye_cb->[1] );
 
-	$self->{endpoint}->new_request( 'BYE',$self->{ctx}, $bye_cb );
+    $self->{endpoint}->new_request( 'BYE',$self->{ctx}, $bye_cb );
 }
 
 ###########################################################################
@@ -392,31 +392,31 @@ sub bye {
 # Returns: NONE
 ###########################################################################
 sub request {
-	my Net::SIP::Simple::Call $self = shift;
-	my ($method,$body,%args) = @_;
+    my Net::SIP::Simple::Call $self = shift;
+    my ($method,$body,%args) = @_;
 
-	my $cb = delete $args{cb_final};
-	my %cbargs = ( %{ $self->{param} }, %args );
+    my $cb = delete $args{cb_final};
+    my %cbargs = ( %{ $self->{param} }, %args );
 
-	my $rqcb = [
-		sub {
-			my Net::SIP::Simple::Call $self = shift || return;
-			my ($cb,$args,$endpoint,$ctx,$error,$code,$pkt) = @_;
-			if ( $code && $code =~m{^1\d\d} ) {
-				DEBUG( 10,"got prelimary response for request $method" );
-				return;
-			}
-			invoke_callback( $cb,
-				$error ? 'FAIL':'OK',
-				$self,
-				{ code => $code, packet => $pkt}
-			);
-		},
-		$self,$cb,\%cbargs
-	];
-	weaken( $rqcb->[1] );
+    my $rqcb = [
+	sub {
+	    my Net::SIP::Simple::Call $self = shift || return;
+	    my ($cb,$args,$endpoint,$ctx,$error,$code,$pkt) = @_;
+	    if ( $code && $code =~m{^1\d\d} ) {
+		DEBUG( 10,"got prelimary response for request $method" );
+		return;
+	    }
+	    invoke_callback( $cb,
+		$error ? 'FAIL':'OK',
+		$self,
+		{ code => $code, packet => $pkt}
+	    );
+	},
+	$self,$cb,\%cbargs
+    ];
+    weaken( $rqcb->[1] );
 
-	$self->{endpoint}->new_request( $method,$self->{ctx},$rqcb,$body,%args );
+    $self->{endpoint}->new_request( $method,$self->{ctx},$rqcb,$body,%args );
 }
 
 ###########################################################################
@@ -436,58 +436,58 @@ sub request {
 # Comments: works only with media handling from Net::SIP::Simple::RTP
 ###########################################################################
 sub dtmf {
-	my ($self,$events,%args) = @_;
-	my $duration = $args{duration} || 100;
-	my @methods = split(m{[\s,]+}, lc($args{methods}||'rfc2833,audio'));
+    my ($self,$events,%args) = @_;
+    my $duration = $args{duration} || 100;
+    my @methods = split(m{[\s,]+}, lc($args{methods}||'rfc2833,audio'));
 
-	my %payload_type;
-	while ( ! %payload_type
-		and my $m = shift(@methods)) {
-		my $type;
-		if ( $m eq 'rfc2833' ) {
-			$type = $self->{param}{sdp_peer}
-				&& $self->{param}{sdp_peer}->name2int('telephone-event/8000','audio');
-		} elsif ( $m eq 'audio' ) {
-			$type = $self->{param}{sdp_peer}
-				&& $self->{param}{sdp_peer}->name2int('PCMU/8000','audio')
-				|| 0; # default id for PCMU/8000
-		} else {
-			croak("unknown method $m in methods:$args{methods}");
-		}
-		%payload_type = ( $m."_type" => $type ) if defined $type;
-	}
-	%payload_type or croak("no usable DTMF method found");
-
-	my $arr = $self->{param}{dtmf_events};
-	my $lastev;
-	for( split('',$events)) {
-		if ( m{[\dA-D*#]} ) {
-			if (defined $lastev) {
-				# force some silence to distinguish DTMF
-				push @$arr, {
-					duration => 50,
-					%payload_type
-				}
-			}
-			push @$arr, {	
-				event => $_, 
-				duration => $duration,
-				%payload_type,
-			};
-			$lastev = $_;
-		} else {
-			# pause
-			push @$arr, { duration => $duration, %payload_type };
-			$lastev = undef;
-		}
-	}
-	if ( my $cb_final = $args{cb_final} ) {
-		push @$arr, { cb_final => $cb_final }
+    my %payload_type;
+    while ( ! %payload_type
+	and my $m = shift(@methods)) {
+	my $type;
+	if ( $m eq 'rfc2833' ) {
+	    $type = $self->{param}{sdp_peer}
+		&& $self->{param}{sdp_peer}->name2int('telephone-event/8000','audio');
+	} elsif ( $m eq 'audio' ) {
+	    $type = $self->{param}{sdp_peer}
+		&& $self->{param}{sdp_peer}->name2int('PCMU/8000','audio')
+		|| 0; # default id for PCMU/8000
 	} else {
-		my $stopvar;
-		push @$arr, { cb_final => \$stopvar };
-		$self->loop(\$stopvar);
+	    croak("unknown method $m in methods:$args{methods}");
 	}
+	%payload_type = ( $m."_type" => $type ) if defined $type;
+    }
+    %payload_type or croak("no usable DTMF method found");
+
+    my $arr = $self->{param}{dtmf_events};
+    my $lastev;
+    for( split('',$events)) {
+	if ( m{[\dA-D*#]} ) {
+	    if (defined $lastev) {
+		# force some silence to distinguish DTMF
+		push @$arr, {
+		    duration => 50,
+		    %payload_type
+		}
+	    }
+	    push @$arr, {
+		event => $_,
+		duration => $duration,
+		%payload_type,
+	    };
+	    $lastev = $_;
+	} else {
+	    # pause
+	    push @$arr, { duration => $duration, %payload_type };
+	    $lastev = undef;
+	}
+    }
+    if ( my $cb_final = $args{cb_final} ) {
+	push @$arr, { cb_final => $cb_final }
+    } else {
+	my $stopvar;
+	push @$arr, { cb_final => \$stopvar };
+	$self->loop(\$stopvar);
+    }
 }
 
 ###########################################################################
@@ -503,72 +503,72 @@ sub dtmf {
 # Returns: NONE
 ###########################################################################
 sub receive {
-	my ($self,$endpoint,$ctx,$error,$code,$packet,$leg,$from) = @_;
-	if ( ! $packet ) {
-		$self->error( "error occured: $error" );
-	} elsif ( $packet->is_request ) {
-		my $method = $packet->method;
-		my $param = $self->{param};
+    my ($self,$endpoint,$ctx,$error,$code,$packet,$leg,$from) = @_;
+    if ( ! $packet ) {
+	$self->error( "error occured: $error" );
+    } elsif ( $packet->is_request ) {
+	my $method = $packet->method;
+	my $param = $self->{param};
 
-		if ( $method eq 'BYE' || $method eq 'CANCEL' ) {
-			# tear down
-			$self->cleanup;
-			invoke_callback( $param->{recv_bye},$param);
-			# everything else already handled by Net::SIP::Endpoint::Context
+	if ( $method eq 'BYE' || $method eq 'CANCEL' ) {
+	    # tear down
+	    $self->cleanup;
+	    invoke_callback( $param->{recv_bye},$param);
+	    # everything else already handled by Net::SIP::Endpoint::Context
 
-		} elsif ( $method eq 'ACK' || $method eq 'INVITE' ) {
+	} elsif ( $method eq 'ACK' || $method eq 'INVITE' ) {
 
-			# can transport sdp data
-			if ( my $sdp_peer = eval { $packet->sdp_body } ) {
-				DEBUG( 50,"got sdp data from peer: ".$sdp_peer->as_string );
-				$self->_setup_peer_rtp_socks( $sdp_peer );
-			} elsif ($@) {
-				# mailformed SDP?
-				DEBUG(10,"SDP parsing failed, ignoring packet: $@");
-				return;
-			}
+	    # can transport sdp data
+	    if ( my $sdp_peer = eval { $packet->sdp_body } ) {
+		DEBUG( 50,"got sdp data from peer: ".$sdp_peer->as_string );
+		$self->_setup_peer_rtp_socks( $sdp_peer );
+	    } elsif ($@) {
+		# mailformed SDP?
+		DEBUG(10,"SDP parsing failed, ignoring packet: $@");
+		return;
+	    }
 
-			if ( $method eq 'INVITE' ) {
+	    if ( $method eq 'INVITE' ) {
 
-				if ( $param->{clear_sdp} ) {
-					# clear SDP keys so that a new SDP session will be created
-					@{ $param }{qw( sdp _sdp_saved sdp_peer media_ssocks media_lsocks )} = ()
-				}
-
-				$param->{leg} ||= $leg;
-				$self->_setup_local_rtp_socks;
-				invoke_callback($param->{cb_invite},$self,$packet);
-
-				# send 200 OK with sdp body
-				my $response = $packet->create_response(
-					'200','OK',{},$param->{sdp} );
-				DEBUG( 100,'created response '.$response->as_string );
-				$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
-
-			} elsif ( $method eq 'ACK' ) {
-				$self->rtp_cleanup; # close last RTP session
-				invoke_callback($param->{cb_established},'OK',$self);
-				invoke_callback($param->{init_media},$self,$param);
-			}
-
-		} elsif ( $method eq 'OPTIONS' ) {
-
-			my $response = $packet->create_response( '200','OK',$self->{options} );
-			$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
-
-		} elsif ( $method eq 'NOTIFY' ) {
-
-			my $response = $packet->create_response( '200','OK' );
-			$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
-			invoke_callback($param->{cb_notify},$self,$packet);
+		if ( $param->{clear_sdp} ) {
+		    # clear SDP keys so that a new SDP session will be created
+		    @{ $param }{qw( sdp _sdp_saved sdp_peer media_ssocks media_lsocks )} = ()
 		}
 
-	} else {
-		# don't expect any responses.
-		# Response to BYE is handled by Net::SIP::Endpoint::Context
-		# other responses from the peer I don't expect
-		DEBUG( 100,"got response. WHY? DROP." );
+		$param->{leg} ||= $leg;
+		$self->_setup_local_rtp_socks;
+		invoke_callback($param->{cb_invite},$self,$packet);
+
+		# send 200 OK with sdp body
+		my $response = $packet->create_response(
+		    '200','OK',{},$param->{sdp} );
+		DEBUG( 100,'created response '.$response->as_string );
+		$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+
+	    } elsif ( $method eq 'ACK' ) {
+		$self->rtp_cleanup; # close last RTP session
+		invoke_callback($param->{cb_established},'OK',$self);
+		invoke_callback($param->{init_media},$self,$param);
+	    }
+
+	} elsif ( $method eq 'OPTIONS' ) {
+
+	    my $response = $packet->create_response( '200','OK',$self->{options} );
+	    $self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+
+	} elsif ( $method eq 'NOTIFY' ) {
+
+	    my $response = $packet->create_response( '200','OK' );
+	    $self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+	    invoke_callback($param->{cb_notify},$self,$packet);
 	}
+
+    } else {
+	# don't expect any responses.
+	# Response to BYE is handled by Net::SIP::Endpoint::Context
+	# other responses from the peer I don't expect
+	DEBUG( 100,"got response. WHY? DROP." );
+    }
 }
 
 ###########################################################################
@@ -579,64 +579,64 @@ sub receive {
 # Returns: NONE
 ###########################################################################
 sub _setup_peer_rtp_socks {
-	my Net::SIP::Simple::Call $self = shift;
-	my $param = $self->{param};
-	my $data = shift || $param->{sdp_peer};
+    my Net::SIP::Simple::Call $self = shift;
+    my $param = $self->{param};
+    my $data = shift || $param->{sdp_peer};
 
-	my $sdp_peer;
-	if ( UNIVERSAL::isa( $data, 'Net::SIP::Packet' )) {
-		$sdp_peer = $data->sdp_body or do {
-			$self->error( "No SDP body in packet" );
-			return;
-		};
+    my $sdp_peer;
+    if ( UNIVERSAL::isa( $data, 'Net::SIP::Packet' )) {
+	$sdp_peer = $data->sdp_body or do {
+	    $self->error( "No SDP body in packet" );
+	    return;
+	};
+    } else {
+	$sdp_peer = $data
+    }
+
+    $param->{sdp_peer} = $sdp_peer;
+
+    my @media = $sdp_peer->get_media;
+    my $ls = $param->{media_lsocks};
+    if ( $ls && @$ls && @media != @$ls ) {
+	$self->error( "Unexpected number of media entries in SDP from peer" );
+	return;
+    }
+
+    my $raddr = $param->{media_raddr} = [];
+    my @media_dtmfxtract;
+    my $null_address = pack( 'CCCC',0,0,0,0 ); # c=0.0.0.0 => call on hold
+    for( my $i=0;$i<@media;$i++) {
+	my $m = $media[$i];
+	my $range = $m->{range} || 1;
+	my $paddr = inet_aton( $m->{addr} );
+	if ( $paddr eq $null_address ) {
+	    # on-hold for this media
+	    push @$raddr, undef;
 	} else {
-		$sdp_peer = $data
-	}
+	    my @socks = map { scalar(sockaddr_in( $m->{port}+$_ , $paddr )) }
+		(0..$range-1);
+	    push @$raddr, @socks == 1 ? $socks[0] : \@socks;
 
-	$param->{sdp_peer} = $sdp_peer;
-
-	my @media = $sdp_peer->get_media;
-	my $ls = $param->{media_lsocks};
-	if ( $ls && @$ls && @media != @$ls ) {
-		$self->error( "Unexpected number of media entries in SDP from peer" );
-		return;
-	}
-
-	my $raddr = $param->{media_raddr} = [];
-	my @media_dtmfxtract;
-	my $null_address = pack( 'CCCC',0,0,0,0 ); # c=0.0.0.0 => call on hold
-	for( my $i=0;$i<@media;$i++) {
-		my $m = $media[$i];
-		my $range = $m->{range} || 1;
-		my $paddr = inet_aton( $m->{addr} );
-		if ( $paddr eq $null_address ) {
-			# on-hold for this media
-			push @$raddr, undef;
-		} else {
-			my @socks = map { scalar(sockaddr_in( $m->{port}+$_ , $paddr )) }
-				(0..$range-1);
-			push @$raddr, @socks == 1 ? $socks[0] : \@socks;
-
-			if ( $m->{media} eq 'audio' and $param->{cb_dtmf} ) {
-				my %rmap = ( 
-					'PCMU/8000' => 'audio_type',
-					'telephone-event/8000' => 'rfc2833_type'
-				);
-				my %pargs = ( audio_type => 0 ); # 0 is default type for PCMU/8000
-				for my $l (@{$m->{lines}}) {
-					$l->[0] eq 'a' or next;
-					my ($type,$name) = $l->[1] =~m{^rtpmap:(\d+)\s+(\S+)} or next;
-					my $pname = $rmap{$name} or next;
-					$pargs{$pname} = $type;
-				}
-				$media_dtmfxtract[$i] = dtmf_extractor(%pargs) if %pargs;
-			}
+	    if ( $m->{media} eq 'audio' and $param->{cb_dtmf} ) {
+		my %rmap = (
+		    'PCMU/8000' => 'audio_type',
+		    'telephone-event/8000' => 'rfc2833_type'
+		);
+		my %pargs = ( audio_type => 0 ); # 0 is default type for PCMU/8000
+		for my $l (@{$m->{lines}}) {
+		    $l->[0] eq 'a' or next;
+		    my ($type,$name) = $l->[1] =~m{^rtpmap:(\d+)\s+(\S+)} or next;
+		    my $pname = $rmap{$name} or next;
+		    $pargs{$pname} = $type;
 		}
+		$media_dtmfxtract[$i] = dtmf_extractor(%pargs) if %pargs;
+	    }
 	}
+    }
 
-	$param->{media_dtmfxtract} = @media_dtmfxtract ? \@media_dtmfxtract :undef;
+    $param->{media_dtmfxtract} = @media_dtmfxtract ? \@media_dtmfxtract :undef;
 
-	return 1;
+    return 1;
 }
 
 ###########################################################################
@@ -646,104 +646,104 @@ sub _setup_peer_rtp_socks {
 # Comments: set sdp,media_lsocks,media_ssocks in self->{param}
 ###########################################################################
 sub _setup_local_rtp_socks {
-	my Net::SIP::Simple::Call $self = shift;
-	my $param = $self->{param};
+    my Net::SIP::Simple::Call $self = shift;
+    my $param = $self->{param};
 
-	my $call_on_hold = $param->{call_on_hold};
-	$param->{call_on_hold} = 0; # one-shot
+    my $call_on_hold = $param->{call_on_hold};
+    $param->{call_on_hold} = 0; # one-shot
 
-	my $sdp = $param->{_sdp_saved} || $param->{sdp};
-	if ( $sdp && !UNIVERSAL::isa( $sdp,'Net::SIP::SDP' )) {
-		$sdp = Net::SIP::SDP->new( $sdp );
-	}
+    my $sdp = $param->{_sdp_saved} || $param->{sdp};
+    if ( $sdp && !UNIVERSAL::isa( $sdp,'Net::SIP::SDP' )) {
+	$sdp = Net::SIP::SDP->new( $sdp );
+    }
 
-	my $laddr = $param->{leg}{addr};
-	if ( !$sdp ) {
-		# create SDP body
-		my $raddr = $param->{media_rsocks};
+    my $laddr = $param->{leg}{addr};
+    if ( !$sdp ) {
+	# create SDP body
+	my $raddr = $param->{media_rsocks};
 
-		# if no raddr yet just assume one
-		my @media;
-		if ( my $sdp_peer = $param->{sdp_peer} ) {
-			foreach my $m ( $sdp_peer->get_media ) {
-				if ( $m->{proto} ne 'RTP/AVP' ) {
-					$self->error( "only RTP/AVP supported" );
-					return;
-				}
-				if ( $m->{media} eq 'audio' ) {
-					# enforce PCMU/8000 for now
-					$m = { %$m, fmt => '0' }
-				}
-				push @media, {
-					media => $m->{media},
-					proto => $m->{proto},
-					range => $m->{range},
-					fmt   => [ $m->{fmt},101 ],
-					a     => [ "rtpmap:101 telephone-event/8000", "fmtp:101 0-16" ],
-				};
-			}
-		} else {
-			my $rp = $param->{rtp_param};
-			my @a;
-			push @a,( "rtpmap:$rp->[0] $rp->[3]" , "ptime:".$rp->[2]*1000) if $rp->[3];
-			my $te = $rp->[3] && $rp->[0] == 101 ? 102: 101;
-			push @a, ( "rtpmap:$te telephone-event/8000","fmtp:$te 0-16" );
-			push @media, {
-				proto => 'RTP/AVP',
-				media => 'audio',
-				fmt   => [ $rp->[0] || 0, $te ], 
-				a     => \@a,
-			}
+	# if no raddr yet just assume one
+	my @media;
+	if ( my $sdp_peer = $param->{sdp_peer} ) {
+	    foreach my $m ( $sdp_peer->get_media ) {
+		if ( $m->{proto} ne 'RTP/AVP' ) {
+		    $self->error( "only RTP/AVP supported" );
+		    return;
 		}
-
-		my $lsocks = $param->{media_lsocks} = [];
-		foreach my $m (@media) {
-			my ($port,@socks) = create_rtp_sockets( $laddr,$m->{range} )
-				or die $!;
-			push @$lsocks, @socks == 1 ? $socks[0] : \@socks;
-			$m->{port} = $port;
+		if ( $m->{media} eq 'audio' ) {
+		    # enforce PCMU/8000 for now
+		    $m = { %$m, fmt => '0' }
 		}
-
-		$sdp = $param->{sdp} = Net::SIP::SDP->new(
-			{ addr => $laddr },
-			@media
-		);
+		push @media, {
+		    media => $m->{media},
+		    proto => $m->{proto},
+		    range => $m->{range},
+		    fmt   => [ $m->{fmt},101 ],
+		    a     => [ "rtpmap:101 telephone-event/8000", "fmtp:101 0-16" ],
+		};
+	    }
+	} else {
+	    my $rp = $param->{rtp_param};
+	    my @a;
+	    push @a,( "rtpmap:$rp->[0] $rp->[3]" , "ptime:".$rp->[2]*1000) if $rp->[3];
+	    my $te = $rp->[3] && $rp->[0] == 101 ? 102: 101;
+	    push @a, ( "rtpmap:$te telephone-event/8000","fmtp:$te 0-16" );
+	    push @media, {
+		proto => 'RTP/AVP',
+		media => 'audio',
+		fmt   => [ $rp->[0] || 0, $te ],
+		a     => \@a,
+	    }
 	}
 
-	unless ( $param->{media_lsocks} ) {
-		# SDP body was provided, but sockets not
-		croak( 'not supported: if you provide SDP body you need to provide sockets too' );
+	my $lsocks = $param->{media_lsocks} = [];
+	foreach my $m (@media) {
+	    my ($port,@socks) = create_rtp_sockets( $laddr,$m->{range} )
+		or die $!;
+	    push @$lsocks, @socks == 1 ? $socks[0] : \@socks;
+	    $m->{port} = $port;
 	}
 
-	# asymetric_rtp, e.g. source socket of packet to peer is not the socket where RTP
-	# from peer gets received
-	if ( !$param->{media_ssocks} && $param->{asymetric_rtp} ) {
-		my @arg = (
-			Proto => 'udp',
-			LocalAddr => ( $param->{rtp_addr} || $laddr )
-		);
-		my $msocks = $param->{media_ssocks} = [];
-		foreach my $m (@{ $param->{media_lsocks} }) {
-			my $socks;
-			if ( UNIVERSAL::isa( $m,'ARRAY' )) {
-				$socks = [];
-				foreach my $sock (@$m) {
-					push @$socks, IO::Socket::INET->new(@arg) || die $!;
-				}
-			} else {
-				$socks = IO::Socket::INET->new(@arg) || die $!;
-			}
-			push @$msocks,$socks;
+	$sdp = $param->{sdp} = Net::SIP::SDP->new(
+	    { addr => $laddr },
+	    @media
+	);
+    }
+
+    unless ( $param->{media_lsocks} ) {
+	# SDP body was provided, but sockets not
+	croak( 'not supported: if you provide SDP body you need to provide sockets too' );
+    }
+
+    # asymetric_rtp, e.g. source socket of packet to peer is not the socket where RTP
+    # from peer gets received
+    if ( !$param->{media_ssocks} && $param->{asymetric_rtp} ) {
+	my @arg = (
+	    Proto => 'udp',
+	    LocalAddr => ( $param->{rtp_addr} || $laddr )
+	);
+	my $msocks = $param->{media_ssocks} = [];
+	foreach my $m (@{ $param->{media_lsocks} }) {
+	    my $socks;
+	    if ( UNIVERSAL::isa( $m,'ARRAY' )) {
+		$socks = [];
+		foreach my $sock (@$m) {
+		    push @$socks, IO::Socket::INET->new(@arg) || die $!;
 		}
+	    } else {
+		$socks = IO::Socket::INET->new(@arg) || die $!;
+	    }
+	    push @$msocks,$socks;
 	}
+    }
 
-	$param->{_sdp_saved} = $sdp;
-	if ( $call_on_hold ) {
-		$sdp = dclone($sdp); # make changes on clone
-		my @new = map { [ '0.0.0.0',$_->{port} ] } $sdp->get_media;
-		$sdp->replace_media_listen( @new );
-		$param->{sdp} = $sdp;
-	}
+    $param->{_sdp_saved} = $sdp;
+    if ( $call_on_hold ) {
+	$sdp = dclone($sdp); # make changes on clone
+	my @new = map { [ '0.0.0.0',$_->{port} ] } $sdp->get_media;
+	$sdp->replace_media_listen( @new );
+	$param->{sdp} = $sdp;
+    }
 }
 
 1;

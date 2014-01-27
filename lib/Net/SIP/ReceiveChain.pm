@@ -26,21 +26,21 @@ use Net::SIP::Util 'invoke_callback';
 # Returns: $self
 ###########################################################################
 sub new {
-	my ($class,$objects,%args) = @_;
-	my $self = fields::new( $class );
-	if ( ! ( $self->{filter} = $args{filter} )) {
-		if ( my $m = $args{methods} ) {
-			# predefined filter to filter based on method
-			my %m = map { $_ => 1 } @$m;
-			my $method_filter = sub {
-				my ($hm,$packet) = @_;
-				return $hm->{ $packet->method }
-			};
-			$self->{filter} = [ $method_filter, \%m ];
-		}
+    my ($class,$objects,%args) = @_;
+    my $self = fields::new( $class );
+    if ( ! ( $self->{filter} = $args{filter} )) {
+	if ( my $m = $args{methods} ) {
+	    # predefined filter to filter based on method
+	    my %m = map { $_ => 1 } @$m;
+	    my $method_filter = sub {
+		my ($hm,$packet) = @_;
+		return $hm->{ $packet->method }
+	    };
+	    $self->{filter} = [ $method_filter, \%m ];
 	}
-	$self->{objects} = $objects;
-	return $self;
+    }
+    $self->{objects} = $objects;
+    return $self;
 }
 
 ###########################################################################
@@ -52,18 +52,18 @@ sub new {
 # Returns: TRUE if it handled the packet
 ###########################################################################
 sub receive {
-	my Net::SIP::ReceiveChain $self = shift;
-	my ($packet,$leg,$addr) = @_;
+    my Net::SIP::ReceiveChain $self = shift;
+    my ($packet,$leg,$addr) = @_;
 
-	if ( my $f = $self->{filter} ) {
-		# check if packet should be handled by filter
-		return if ! invoke_callback($f,$packet,$leg,$addr);
-	}
-	foreach my $object (@{ $self->{objects} }) {
-		my $handled = $object->receive($packet,$leg,$addr);
-		return $handled if $handled;
-	}
-	return; # not handled
+    if ( my $f = $self->{filter} ) {
+	# check if packet should be handled by filter
+	return if ! invoke_callback($f,$packet,$leg,$addr);
+    }
+    foreach my $object (@{ $self->{objects} }) {
+	my $handled = $object->receive($packet,$leg,$addr);
+	return $handled if $handled;
+    }
+    return; # not handled
 }
 
 1;

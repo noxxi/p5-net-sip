@@ -30,23 +30,23 @@ use Carp 'croak';
 #    if $sub returns ('') no data are produced (pause between events)
 #    usually sub will return just one packet, but for RTP event ends it
 #    will return 3 to make sure that at least one gets received
-#   
+#
 ###########################################################################
 sub dtmf_generator {
-	my ($event,$duration,%pargs) = @_;
+    my ($event,$duration,%pargs) = @_;
 
-	# empty or invalid stuff will cause pause/silence
-	$event = '' if ! defined $event or $event !~m{(\d)|([A-D])|(\*)|(\#)}i;
+    # empty or invalid stuff will cause pause/silence
+    $event = '' if ! defined $event or $event !~m{(\d)|([A-D])|(\*)|(\#)}i;
 
-	if ( defined( my $type = $pargs{rfc2833_type} )) {
-		# create RFC2833 payload
-		return _dtmf_gen_rtpevent($event,$type,$duration,%pargs);
-	} elsif ( defined($type = $pargs{audio_type})) {
-		# create audio payload
-		return _dtmf_gen_audio($event,$type,$duration,%pargs);
-	} else {
-		croak "neither rfc2833 nor audio RTP type defined"
-	}
+    if ( defined( my $type = $pargs{rfc2833_type} )) {
+	# create RFC2833 payload
+	return _dtmf_gen_rtpevent($event,$type,$duration,%pargs);
+    } elsif ( defined($type = $pargs{audio_type})) {
+	# create audio payload
+	return _dtmf_gen_audio($event,$type,$duration,%pargs);
+    } else {
+	croak "neither rfc2833 nor audio RTP type defined"
+    }
 }
 
 ###########################################################################
@@ -56,40 +56,40 @@ sub dtmf_generator {
 #    will try to extract DTMF from RTP packets for any type set, e.g.
 #    RFC2833 and audio can be done in parallel
 # Returns: $sub
-#  $sub: should be called with ($packet,[$time]), if $time not 
+#  $sub: should be called with ($packet,[$time]), if $time not
 #    given current time will be used. The $sub itself will return () if no
 #    event (end) was found and ($event,$duration,$type) if event was detected.
 #    $event is [0-9A-D*#], $type rfc2833|audio
-# Comment: FIXME - maybe disable audio detection if a rfc2833 event was 
+# Comment: FIXME - maybe disable audio detection if a rfc2833 event was
 #    received. In this case the peer obviously uses rfc2833
 ###########################################################################
 sub dtmf_extractor {
-	my %pargs = @_;
-	my %sub;
-	if ( defined( my $type = delete $pargs{rfc2833_type} )) {
-		# extract from RFC2833 payload
-		$sub{$type} = _dtmf_xtc_rtpevent(%pargs);
-	} 
-	if ( defined( my $type = delete $pargs{audio_type})) {
-		# extract from audio payload
-		$sub{$type} = _dtmf_xtc_audio(%pargs);
+    my %pargs = @_;
+    my %sub;
+    if ( defined( my $type = delete $pargs{rfc2833_type} )) {
+	# extract from RFC2833 payload
+	$sub{$type} = _dtmf_xtc_rtpevent(%pargs);
+    }
+    if ( defined( my $type = delete $pargs{audio_type})) {
+	# extract from audio payload
+	$sub{$type} = _dtmf_xtc_audio(%pargs);
+    }
+    croak "neither rfc2833 nor audio RTP type defined" if ! %sub;
+
+    return sub {
+	my ($pkt,$time) = @_;
+	my ($ver,$type,$seq,$tstamp,$srcid,$payload) = unpack('CCnNNa*',$pkt);
+	$ver == 0b10000000 or return;
+	my $marker;
+	if ($type & 0b10000000) {
+	    $marker = 1;
+	    $type &= 0b01111111;
 	}
-	croak "neither rfc2833 nor audio RTP type defined" if ! %sub;
 
-	return sub {
-		my ($pkt,$time) = @_;
-		my ($ver,$type,$seq,$tstamp,$srcid,$payload) = unpack('CCnNNa*',$pkt);
-		$ver == 0b10000000 or return;
-		my $marker;
-		if ($type & 0b10000000) {
-			$marker = 1;
-			$type &= 0b01111111;
-		}
-
-		my $sub = $sub{$type} or return;
-		my ($event,$duration,$media)  = $sub->($payload,$time,$marker) or return;
-		return ($event, int(1000*$duration),$media);
-	};
+	my $sub = $sub{$type} or return;
+	my ($event,$duration,$media)  = $sub->($payload,$time,$marker) or return;
+	return ($event, int(1000*$duration),$media);
+    };
 }
 
 
@@ -114,53 +114,53 @@ my %i2event = reverse %event2i;
 #  %args: volume => v will be used to set volume of RTP event, default 10
 # Returns: $sub for $event
 # Comment: the sub should then be called with $sub->($seq,$timstamp,$srcid)
-#  This will generate the RTP packet. 
+#  This will generate the RTP packet.
 #  If $event is no DTMF event it will return '' to indicate pause
 ###########################################################################
 sub _dtmf_gen_rtpevent {
-	my ($event,$type,$duration,%args) = @_;
-	my $volume = $args{volume} || 10;
+    my ($event,$type,$duration,%args) = @_;
+    my $volume = $args{volume} || 10;
 
-	$duration/=1000; # ms ->s
-	my $start = gettimeofday();
-	my $end = 0;
-	my $first = 1;
-	my $initial_timestamp;
+    $duration/=1000; # ms ->s
+    my $start = gettimeofday();
+    my $end = 0;
+    my $first = 1;
+    my $initial_timestamp;
 
-	return sub {
-		my ($seq,$timestamp,$srcid) = @_;
+    return sub {
+	my ($seq,$timestamp,$srcid) = @_;
 
-		# all packets get timestamp from start of event
-		if ( ! $initial_timestamp ) {
-			$initial_timestamp = $timestamp; 
-			return ''; # need another call to get duration
-		}
-
-		if ( gettimeofday() - $start > $duration ) {
-			return if $end; # end already sent
-			$end = 1;
-		}
-
-		return '' if $event eq '';
-
-		my $pt = $type;
-		if ( $first ) {
-			$first = 0;
-			$pt |= 0b10000000; # marker bit set on first packet of event
-		}
-		return pack('CCnNNCCn',
-			0b10000000,
-			$pt,
-			$seq,
-			$initial_timestamp,
-			$srcid,
-			$event2i{$event},
-			($end<<7) | $volume,
-			$timestamp > $initial_timestamp 
-				? $timestamp - $initial_timestamp
-				: 0x10000 - $initial_timestamp + $timestamp,
-		);
+	# all packets get timestamp from start of event
+	if ( ! $initial_timestamp ) {
+	    $initial_timestamp = $timestamp;
+	    return ''; # need another call to get duration
 	}
+
+	if ( gettimeofday() - $start > $duration ) {
+	    return if $end; # end already sent
+	    $end = 1;
+	}
+
+	return '' if $event eq '';
+
+	my $pt = $type;
+	if ( $first ) {
+	    $first = 0;
+	    $pt |= 0b10000000; # marker bit set on first packet of event
+	}
+	return pack('CCnNNCCn',
+	    0b10000000,
+	    $pt,
+	    $seq,
+	    $initial_timestamp,
+	    $srcid,
+	    $event2i{$event},
+	    ($end<<7) | $volume,
+	    $timestamp > $initial_timestamp
+		? $timestamp - $initial_timestamp
+		: 0x10000 - $initial_timestamp + $timestamp,
+	);
+    }
 }
 
 ###########################################################################
@@ -171,39 +171,39 @@ sub _dtmf_gen_rtpevent {
 #   will return ($event,$duration) if DTMF event was found
 ###########################################################################
 sub _dtmf_xtc_rtpevent {
-	my $current_event;
-	return sub {
-		my ($payload,$time,$marker) = @_;
-		my ($event,$volume,$duration) = unpack('CCn',$payload);
-		$event = $i2event{$event};
-		my $end;
-		if ( $volume & 0b10000000 ) {
-			$end = 1;
-			$volume &= 0b01111111
-		}
-		if ( ! $current_event ) {
-			return if $end; # probably repeated send of end
-			# we don't look at the marker for initial packet, because maybe
-			# the initial packet got lost
-			$current_event = [ $event,$time||gettimeofday(),$volume ];
-		} elsif ( $event eq $current_event->[0] ) {
-			if ( $end ) {
-				# explicit end of event 
-				my $ce = $current_event;
-				$current_event = undef;
-				$time ||= gettimeofday();
-				return ($ce->[0],$time - $ce->[1],'rfc2833');
-			}
-		} else {
-			# implicit end because we get another event
-			my $ce = $current_event;
-			$time||= gettimeofday();
-			$current_event = [ $event,$time,$volume ];
-			return if ! $ce->[2]; # volume == 0
-			return ($ce->[0],$time - $ce->[1],'rfc2833');
-		}
-		return;
-	};
+    my $current_event;
+    return sub {
+	my ($payload,$time,$marker) = @_;
+	my ($event,$volume,$duration) = unpack('CCn',$payload);
+	$event = $i2event{$event};
+	my $end;
+	if ( $volume & 0b10000000 ) {
+	    $end = 1;
+	    $volume &= 0b01111111
+	}
+	if ( ! $current_event ) {
+	    return if $end; # probably repeated send of end
+	    # we don't look at the marker for initial packet, because maybe
+	    # the initial packet got lost
+	    $current_event = [ $event,$time||gettimeofday(),$volume ];
+	} elsif ( $event eq $current_event->[0] ) {
+	    if ( $end ) {
+		# explicit end of event
+		my $ce = $current_event;
+		$current_event = undef;
+		$time ||= gettimeofday();
+		return ($ce->[0],$time - $ce->[1],'rfc2833');
+	    }
+	} else {
+	    # implicit end because we get another event
+	    my $ce = $current_event;
+	    $time||= gettimeofday();
+	    $current_event = [ $event,$time,$volume ];
+	    return if ! $ce->[2]; # volume == 0
+	    return ($ce->[0],$time - $ce->[1],'rfc2833');
+	}
+	return;
+    };
 }
 
 ###########################################################################
@@ -219,10 +219,10 @@ my @keys  = '123A 456B 789C *0#D' =~m{(\S)}g;
 
 my (%event2f,@f2event);
 for( my $i=0;$i<@keys;$i++ ) {
-	my $freq1 = $freq1[ $i/4 ];
-	my $freq2 = $freq2[ $i%4 ];
-	$event2f{$keys[$i]} = [$freq1,$freq2];
-	$f2event[$freq1][$freq2] = $keys[$i];
+    my $freq1 = $freq1[ $i/4 ];
+    my $freq2 = $freq2[ $i%4 ];
+    $event2f{$keys[$i]} = [$freq1,$freq2];
+    $f2event[$freq1][$freq2] = $keys[$i];
 }
 
 # basic paramter, PCMU/8000 160 samples per RTP packet
@@ -250,109 +250,109 @@ my @blackman; # exact blackman
 # precompute stuff into tables for faster operation
 sub _init_audio_processing {
 
-	# audio generation
-	@costab and return;
-	for(my $i=0;$i<$tabsize;$i++) {
-		$costab[$i] = $volume/100*16383*cos(2*PI*$i/$tabsize);
-	}
+    # audio generation
+    @costab and return;
+    for(my $i=0;$i<$tabsize;$i++) {
+	$costab[$i] = $volume/100*16383*cos(2*PI*$i/$tabsize);
+    }
 
-	# PCMU/8000 u-law (de)compression
-	for( my $i=0;$i<128;$i++) {
-		$ulaw_expandtab[$i] = int( (256**($i/127) - 1) / 255 * 32767 ); 
-	}
-	my $j = 0;
-	for( my $i=0;$i<32768;$i++ ) {
-		$ulaw_compresstab[$i] = $j;
-		$j++ if $j<127 and $ulaw_expandtab[$j+1] - $i < $i - $ulaw_expandtab[$j];
-	}
+    # PCMU/8000 u-law (de)compression
+    for( my $i=0;$i<128;$i++) {
+	$ulaw_expandtab[$i] = int( (256**($i/127) - 1) / 255 * 32767 );
+    }
+    my $j = 0;
+    for( my $i=0;$i<32768;$i++ ) {
+	$ulaw_compresstab[$i] = $j;
+	$j++ if $j<127 and $ulaw_expandtab[$j+1] - $i < $i - $ulaw_expandtab[$j];
+    }
 
-	for my $freq (@freq1,@freq2) {
-		my $k = int(0.5+$samples4pkt*$freq/$samples4s);
-		my $w = 2*PI/$samples4pkt*$k;
-		$coeff{$freq} = 2*cos($w);
-	}
+    for my $freq (@freq1,@freq2) {
+	my $k = int(0.5+$samples4pkt*$freq/$samples4s);
+	my $w = 2*PI/$samples4pkt*$k;
+	$coeff{$freq} = 2*cos($w);
+    }
 
-	my $n = $samples4pkt*$gzpkts;
-	for( my $i=0;$i<$n;$i++) {
-		$blackman[$i] = 0.426591 - 0.496561*cos(2*PI*$i/$n) +0.076848*cos(4*PI*$i/$n)
-	}
+    my $n = $samples4pkt*$gzpkts;
+    for( my $i=0;$i<$n;$i++) {
+	$blackman[$i] = 0.426591 - 0.496561*cos(2*PI*$i/$n) +0.076848*cos(4*PI*$i/$n)
+    }
 }
 
 
 ###########################################################################
-# sub _dtmf_gen_audio returns a sub to generate audio/silence for DTMF in 
+# sub _dtmf_gen_audio returns a sub to generate audio/silence for DTMF in
 # any duration
 # Args: $event,$duration
 # Returns: $sub for $event
 # Comment: the sub should then be called with $sub->($seq,$timstamp,$srcid)
-#  This will generate the RTP packet. 
+#  This will generate the RTP packet.
 #  If $event is no DTMF event it will return a sub which  gives silence.
 #  Data returned from the subs are PCMU/8000, 160 samples per packet
 ###########################################################################
 sub _dtmf_gen_audio {
-	my ($event,$type,$duration) = @_;
+    my ($event,$type,$duration) = @_;
 
-	$duration/=1000; # ms ->s
-	my $start = gettimeofday();
+    $duration/=1000; # ms ->s
+    my $start = gettimeofday();
 
-	my $f = $event2f{$event};
-	if ( ! $f ) {
-		# generate silence
-		return sub { 
-			my ($seq,$timestamp,$srcid) = @_;
-			return if gettimeofday() - $start > $duration; # done
-			return pack('CCnNNa*',
-				0b10000000,
-				$type,
-				$seq,
-				$timestamp,
-				$srcid,
-				pack('C',128) x $samples4pkt,
-			);
-		}
-	}
-
-	_init_audio_processing() if !@costab;
-	
-	my ($f1,$f2) = @$f;
-	$f1*= $tabsize;
-	$f2*= $tabsize;
-	my $d1 = int($f1/$samples4s);
-	my $d2 = int($f2/$samples4s);
-	my $g1 = $f1 % $samples4s;
-	my $g2 = $f2 % $samples4s;
-	my $e1 = int($samples4s/2);
-	my $e2 = int($samples4s/2);
-	my $i1 = my $i2 = 0;
-
+    my $f = $event2f{$event};
+    if ( ! $f ) {
+	# generate silence
 	return sub {
-		my ($seq,$timestamp,$srcid) = @_;
-		return if gettimeofday() - $start > $duration; # done
-
-		my $samples = $samples4pkt;
-		my $buf = '';
-		while ( $samples-- > 0 ) {
-			my $val = $costab[$i1]+$costab[$i2];
-			my $c = $val>=0 ? 255-$ulaw_compresstab[$val] : 127-$ulaw_compresstab[-$val];
-			$buf .= pack('C',$c);
-
-			$e1+= $samples4s, $i1++ if $e1<0;
-			$i1 = ($i1+$d1) % $tabsize;
-			$e1-= $g1;
-
-			$e2+= $samples4s, $i2++ if $e2<0;
-			$i2 = ($i2+$d2) % $tabsize;
-			$e2-= $g2;
-		}
-		return pack('CCnNNa*',
-			0b10000000,
-			$type,
-			$seq,
-			$timestamp,
-			$srcid,
-			$buf,
-		);
+	    my ($seq,$timestamp,$srcid) = @_;
+	    return if gettimeofday() - $start > $duration; # done
+	    return pack('CCnNNa*',
+		0b10000000,
+		$type,
+		$seq,
+		$timestamp,
+		$srcid,
+		pack('C',128) x $samples4pkt,
+	    );
 	}
+    }
+
+    _init_audio_processing() if !@costab;
+
+    my ($f1,$f2) = @$f;
+    $f1*= $tabsize;
+    $f2*= $tabsize;
+    my $d1 = int($f1/$samples4s);
+    my $d2 = int($f2/$samples4s);
+    my $g1 = $f1 % $samples4s;
+    my $g2 = $f2 % $samples4s;
+    my $e1 = int($samples4s/2);
+    my $e2 = int($samples4s/2);
+    my $i1 = my $i2 = 0;
+
+    return sub {
+	my ($seq,$timestamp,$srcid) = @_;
+	return if gettimeofday() - $start > $duration; # done
+
+	my $samples = $samples4pkt;
+	my $buf = '';
+	while ( $samples-- > 0 ) {
+	    my $val = $costab[$i1]+$costab[$i2];
+	    my $c = $val>=0 ? 255-$ulaw_compresstab[$val] : 127-$ulaw_compresstab[-$val];
+	    $buf .= pack('C',$c);
+
+	    $e1+= $samples4s, $i1++ if $e1<0;
+	    $i1 = ($i1+$d1) % $tabsize;
+	    $e1-= $g1;
+
+	    $e2+= $samples4s, $i2++ if $e2<0;
+	    $i2 = ($i2+$d2) % $tabsize;
+	    $e2-= $g2;
+	}
+	return pack('CCnNNa*',
+	    0b10000000,
+	    $type,
+	    $seq,
+	    $timestamp,
+	    $srcid,
+	    $buf,
+	);
+    }
 }
 
 
@@ -365,79 +365,79 @@ sub _dtmf_gen_audio {
 #   will return ($event,$duration) if DTMF event was found, event being 0..15
 ###########################################################################
 sub _dtmf_xtc_audio {
-	_init_audio_processing() if !@costab;
-	my (%d1,%d2,@time,@lastev);
-	return sub {
-		my ($payload,$time) = @_;
-		$time ||= gettimeofday();
-		my @samples = map { 
-			( $_<128 ? -$ulaw_expandtab[127-$_] : $ulaw_expandtab[255-$_] )/32768
-			} unpack('C*',$payload);
-		@samples == $samples4pkt or return; # unexpected sample size
+    _init_audio_processing() if !@costab;
+    my (%d1,%d2,@time,@lastev);
+    return sub {
+	my ($payload,$time) = @_;
+	$time ||= gettimeofday();
+	my @samples = map {
+	    ( $_<128 ? -$ulaw_expandtab[127-$_] : $ulaw_expandtab[255-$_] )/32768
+	    } unpack('C*',$payload);
+	@samples == $samples4pkt or return; # unexpected sample size
 
-		unshift @time, $time;
+	unshift @time, $time;
 
-		for my $f (@freq1,@freq2) {
-			my $coeff = $coeff{$f};
+	for my $f (@freq1,@freq2) {
+	    my $coeff = $coeff{$f};
 
-			my $da1 = $d1{$f} ||= [];
-			my $da2 = $d2{$f} ||= [];
-			unshift @$da1,0;
-			unshift @$da2,0;
+	    my $da1 = $d1{$f} ||= [];
+	    my $da2 = $d2{$f} ||= [];
+	    unshift @$da1,0;
+	    unshift @$da2,0;
 
-			for(my $gzi=0;$gzi<@$da1;$gzi++) {
-				my $d1 = $da1->[$gzi];
-				my $d2 = $da2->[$gzi];
-				my $o  = $gzi*$samples4pkt;
-				for( my $i=0;$i<@samples;$i++) {
-					($d2,$d1) = ($d1, $samples[$i]*$blackman[$i+$o] + $coeff*$d1 - $d2);
-				}
-				$da1->[$gzi] = $d1;
-				$da2->[$gzi] = $d2;
-			}
+	    for(my $gzi=0;$gzi<@$da1;$gzi++) {
+		my $d1 = $da1->[$gzi];
+		my $d2 = $da2->[$gzi];
+		my $o  = $gzi*$samples4pkt;
+		for( my $i=0;$i<@samples;$i++) {
+		    ($d2,$d1) = ($d1, $samples[$i]*$blackman[$i+$o] + $coeff*$d1 - $d2);
 		}
+		$da1->[$gzi] = $d1;
+		$da2->[$gzi] = $d2;
+	    }
+	}
 
-		return if @time < $gzpkts;
+	return if @time < $gzpkts;
 
-		$time = pop @time;
-		my @r;
-		for my $f (@freq1,@freq2) {
-			my $d1 = pop(@{$d1{$f}});
-			my $d2 = pop(@{$d2{$f}});
-			push @r, [ $f, $d1*$d1+$d2*$d2-$d1*$d2*$coeff{$f} ];
-		}
+	$time = pop @time;
+	my @r;
+	for my $f (@freq1,@freq2) {
+	    my $d1 = pop(@{$d1{$f}});
+	    my $d2 = pop(@{$d2{$f}});
+	    push @r, [ $f, $d1*$d1+$d2*$d2-$d1*$d2*$coeff{$f} ];
+	}
 
 
-		# the highest two freq should be significantly higher then rest
-		@r = sort { $b->[1] <=> $a->[1] } @r; # sort by magnitude, largest first
-		my $event;
-		if ( @r and ! $r[2][1] || $r[1][1]/$r[2][1]> 5 ) {
-			$event = $f2event[ $r[0][0] ][ $r[1][0] ];
-			$event = $f2event[ $r[1][0] ][ $r[0][0] ] if ! defined $event;
-		}
+	# the highest two freq should be significantly higher then rest
+	@r = sort { $b->[1] <=> $a->[1] } @r; # sort by magnitude, largest first
+	my $event;
+	if ( @r and ! $r[2][1] || $r[1][1]/$r[2][1]> 5 ) {
+	    $event = $f2event[ $r[0][0] ][ $r[1][0] ];
+	    $event = $f2event[ $r[1][0] ][ $r[0][0] ] if ! defined $event;
+	}
 
-		$event = '' if ! defined $event;
-		push @lastev,[$event,$time];
-		# remove pause from start of lastev
-		shift(@lastev) while (@lastev && $lastev[0][0] eq ''); 
+	$event = '' if ! defined $event;
+	push @lastev,[$event,$time];
+	# remove pause from start of lastev
+	shift(@lastev) while (@lastev && $lastev[0][0] eq '');
 
-		# if last event same as first wait for more
-		if ( ! @lastev ) {
-			# return; # no events detected
-		} elsif ( $event eq $lastev[0][0] ) {
-			return;   # event not finished
-		} else {
-			my @ev = shift(@lastev);
-			while (@lastev and $lastev[0][0] eq $ev[0][0]) {
-				push @ev,shift(@lastev);
-			}
-			# get the event at least 2 times
-			return if @ev == 1;
-			return ($ev[0][0],$ev[-1][1]-$ev[0][1],'audio'); # event,duration
-		}
+	# if last event same as first wait for more
+	if ( ! @lastev ) {
+	    # return; # no events detected
+	} elsif ( $event eq $lastev[0][0] ) {
+	    return;   # event not finished
+	} else {
+	    my @ev = shift(@lastev);
+	    while (@lastev and $lastev[0][0] eq $ev[0][0]) {
+		push @ev,shift(@lastev);
+	    }
+	    # get the event at least 2 times
+	    return if @ev == 1;
+	    return ($ev[0][0],$ev[-1][1]-$ev[0][1],'audio'); # event,duration
+	}
 
-		return;
-	};
+	return;
+    };
 }
 
 1;

@@ -33,9 +33,9 @@ ok( open( my $tfh, "+>", undef ), "open tempfile");
 
 # create leg for UAS on dynamic port
 my $sock_uas = IO::Socket::INET->new(
-	Proto => 'udp',
-	LocalAddr => '127.0.0.1',
-	LocalPort => 0, # let system pick one
+    Proto => 'udp',
+    LocalAddr => '127.0.0.1',
+    LocalPort => 0, # let system pick one
 );
 ok( $sock_uas, 'create socket' );
 
@@ -49,10 +49,10 @@ $host = inet_ntoa( $host );
 pipe( my $read,my $write); # to sync UAC with UAS
 my $pid = fork();
 if ( defined($pid) && $pid == 0 ) {
-	close($read);
-	$write->autoflush;
-	uas( $sock_uas, $write, $host );
-	exit(0);
+    close($read);
+    $write->autoflush;
+    uas( $sock_uas, $write, $host );
+    exit(0);
 }
 ok( $pid, "fork successful" );
 close( $sock_uas );
@@ -75,35 +75,35 @@ wait;
 ###############################################
 
 sub uac {
-	my ($peer_addr,$pipe) = @_;
-	Debug->set_prefix( "DEBUG(uac):" );
+    my ($peer_addr,$pipe) = @_;
+    Debug->set_prefix( "DEBUG(uac):" );
 
-	ok( <$pipe>, "UAS created" ); # wait until UAS is ready
-	my $uac = Simple->new(
-		from => 'me.uac@example.com',
-		leg => scalar(create_socket_to( $peer_addr )),
-		domain2proxy => { 'example.com' => $peer_addr },
-	);
-	ok( $uac, 'UAC created' );
+    ok( <$pipe>, "UAS created" ); # wait until UAS is ready
+    my $uac = Simple->new(
+	from => 'me.uac@example.com',
+	leg => scalar(create_socket_to( $peer_addr )),
+	domain2proxy => { 'example.com' => $peer_addr },
+    );
+    ok( $uac, 'UAC created' );
 
-	my $dropping;
-	my $call = $uac->invite( 
-		'you.uas@example.com',
-		cb_final => sub { $dropping++ }
-	);
+    my $dropping;
+    my $call = $uac->invite(
+	'you.uas@example.com',
+	cb_final => sub { $dropping++ }
+    );
 
-	ok( <$pipe>, "UAS ready" ); # wait until UAS is ready
+    ok( <$pipe>, "UAS ready" ); # wait until UAS is ready
 
-	ok( ! $uac->error, "UAC ready\nNow send INVITE for 5 seconds" );
+    ok( ! $uac->error, "UAC ready\nNow send INVITE for 5 seconds" );
 
-	# print UAC-port into tempfile
-	print $tfh $uac->{dispatcher}{legs}[0]{port}; # FIXME access interna
-	close($tfh);
+    # print UAC-port into tempfile
+    print $tfh $uac->{dispatcher}{legs}[0]{port}; # FIXME access interna
+    close($tfh);
 
-	$call->loop(\$dropping, 5);
+    $call->loop(\$dropping, 5);
 
-	# done
-	ok( ! $dropping,'UAC got no answer from UAS' );
+    # done
+    ok( ! $dropping,'UAC got no answer from UAS' );
 }
 
 
@@ -112,45 +112,45 @@ sub uac {
 ###############################################
 
 sub uas {
-	my ($sock,$pipe,$uac_ip) = @_;
-	Debug->set_prefix( "DEBUG(uas):" );
+    my ($sock,$pipe,$uac_ip) = @_;
+    Debug->set_prefix( "DEBUG(uas):" );
 
-	my $leg = Leg->new( sock => $sock );
-	my $loop = Dispatcher_Eventloop->new;
-	my $disp = Dispatcher->new( [ $leg ],$loop ) || die $!;
-	print $pipe "UAS created\n";
+    my $leg = Leg->new( sock => $sock );
+    my $loop = Dispatcher_Eventloop->new;
+    my $disp = Dispatcher->new( [ $leg ],$loop ) || die $!;
+    print $pipe "UAS created\n";
 
-	# Dropping
-	my $by_ipport = Net::SIP::Dropper::ByIPPort->new(
-		database => "$cwd/database.drop",
-		methods => [ 'INVITE' ], 
-		attempts => 10, 
-		interval => 60,
-	);
-	my $by_field = Net::SIP::Dropper::ByField->new(
-		'From' => 'uac.+xamp'
-	);
-	my $drop = Net::SIP::Dropper->new( cbs => [ $by_ipport,$by_field ]);
+    # Dropping
+    my $by_ipport = Net::SIP::Dropper::ByIPPort->new(
+	database => "$cwd/database.drop",
+	methods => [ 'INVITE' ],
+	attempts => 10,
+	interval => 60,
+    );
+    my $by_field = Net::SIP::Dropper::ByField->new(
+	'From' => 'uac.+xamp'
+    );
+    my $drop = Net::SIP::Dropper->new( cbs => [ $by_ipport,$by_field ]);
 
-	# Block (= send answer) if not droped
-	my $block = Net::SIP::Blocker->new(
-		block => { 'INVITE' => 405 },
-		dispatcher => $disp,
-	);
+    # Block (= send answer) if not droped
+    my $block = Net::SIP::Blocker->new(
+	block => { 'INVITE' => 405 },
+	dispatcher => $disp,
+    );
 
-	my $chain = Net::SIP::ReceiveChain->new( [ $drop, $block ] );
+    my $chain = Net::SIP::ReceiveChain->new( [ $drop, $block ] );
 
-	$disp->set_receiver( $chain );
+    $disp->set_receiver( $chain );
 
-	print $pipe "UAS ready\n";
+    print $pipe "UAS ready\n";
 
-	$loop->loop(2);
+    $loop->loop(2);
 
-	seek( $tfh,0,0);
-	my $uac_port = <$tfh>;
-	close($tfh);
+    seek( $tfh,0,0);
+    my $uac_port = <$tfh>;
+    close($tfh);
 
-	if ( $by_ipport->data->{$uac_ip}{$uac_port} ) { 
-		print $pipe "UAS got INVITE, dropped it and wrote database file\n";
-	}
+    if ( $by_ipport->data->{$uac_ip}{$uac_port} ) {
+	print $pipe "UAS got INVITE, dropped it and wrote database file\n";
+    }
 }

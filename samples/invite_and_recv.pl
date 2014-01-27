@@ -17,8 +17,8 @@ use Net::SIP::Util 'create_socket_to';
 use Net::SIP::Debug;
 
 sub usage {
-	print STDERR "ERROR: @_\n" if @_;
-	print STDERR <<EOS;
+    print STDERR "ERROR: @_\n" if @_;
+    print STDERR <<EOS;
 usage: $0 [ options ] FROM TO
 Makes SIP call from FROM to TO, optional record data
 and optional hang up after some time
@@ -41,7 +41,7 @@ Examples:
   $0 --username 30 --password secret --leg 192.168.178.4 sip:30\@example.com 31
 
 EOS
-	exit( @_ ? 1:0 );
+    exit( @_ ? 1:0 );
 }
 
 
@@ -52,17 +52,17 @@ EOS
 my ($proxy,$outfile,$registrar,$username,$password,$hangup,$local_leg,$contact);
 my (@routes,$debug);
 GetOptions(
-	'd|debug:i' => \$debug,
-	'h|help' => sub { usage() },
-	'P|proxy=s' => \$proxy,
-	'R|registrar=s' => \$registrar,
-	'O|outfile=s' => \$outfile,
-	'T|time=i' => \$hangup,
-	'L|leg=s' => \$local_leg,
-	'C|contact=s' => \$contact,
-	'username=s' =>\$username,
-	'password=s' =>\$password,
-	'route=s' => \@routes,
+    'd|debug:i' => \$debug,
+    'h|help' => sub { usage() },
+    'P|proxy=s' => \$proxy,
+    'R|registrar=s' => \$registrar,
+    'O|outfile=s' => \$outfile,
+    'T|time=i' => \$hangup,
+    'L|leg=s' => \$local_leg,
+    'C|contact=s' => \$contact,
+    'username=s' =>\$username,
+    'password=s' =>\$password,
+    'route=s' => \@routes,
 ) || usage( "bad option" );
 
 
@@ -78,36 +78,36 @@ $registrar ||= $proxy;
 ###################################################
 my ($local_host,$local_port);
 if ( $local_leg ) {
-	($local_host,$local_port) = split( m/:/,$local_leg,2 );
+    ($local_host,$local_port) = split( m/:/,$local_leg,2 );
 } elsif ( ! $proxy ) {
-	# if no proxy is given we need to find out
-	# about the leg using the IP given from FROM
-	($local_host,$local_port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
-		or die "cannot find SIP domain in '$from'";
+    # if no proxy is given we need to find out
+    # about the leg using the IP given from FROM
+    ($local_host,$local_port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
+	or die "cannot find SIP domain in '$from'";
 }
 
 my $leg;
 if ( $local_host ) {
-	my $addr = gethostbyname( $local_host )
-		|| die "cannot get IP from SIP domain '$local_host'";
-	$addr = inet_ntoa( $addr );
+    my $addr = gethostbyname( $local_host )
+	|| die "cannot get IP from SIP domain '$local_host'";
+    $addr = inet_ntoa( $addr );
 
+    $leg = IO::Socket::INET->new(
+	Proto => 'udp',
+	LocalAddr => $addr,
+	LocalPort => $local_port || 5060,
+    );
+
+    # if no port given and port 5060 is already used try another one
+    if ( !$leg && !$local_port ) {
 	$leg = IO::Socket::INET->new(
-		Proto => 'udp',
-		LocalAddr => $addr,
-		LocalPort => $local_port || 5060,
-	);
+	    Proto => 'udp',
+	    LocalAddr => $addr,
+	    LocalPort => 0
+	) || die "cannot create leg at $addr: $!";
+    }
 
-	# if no port given and port 5060 is already used try another one
-	if ( !$leg && !$local_port ) {
-		$leg = IO::Socket::INET->new(
-			Proto => 'udp',
-			LocalAddr => $addr,
-			LocalPort => 0
-		) || die "cannot create leg at $addr: $!";
-	}
-
-	$leg = Net::SIP::Leg->new( sock => $leg );
+    $leg = Net::SIP::Leg->new( sock => $leg );
 }
 
 ###################################################
@@ -120,35 +120,35 @@ if ( $local_host ) {
 my @legs;
 push @legs,$leg if $leg;
 foreach my $addr ( $proxy,$registrar) {
-	$addr || next;
-	if ( ! grep { $_->can_deliver_to( $addr ) } @legs ) {
-		my $sock = create_socket_to($addr) || die "cannot create socket to $addr";
-		push @legs, Net::SIP::Leg->new( sock => $sock );
-	}
+    $addr || next;
+    if ( ! grep { $_->can_deliver_to( $addr ) } @legs ) {
+	my $sock = create_socket_to($addr) || die "cannot create socket to $addr";
+	push @legs, Net::SIP::Leg->new( sock => $sock );
+    }
 }
 
 # create user agent
 my $ua = Net::SIP::Simple->new(
-	from => $from,
-	outgoing_proxy => $proxy,
-	route => \@routes,
-	legs => \@legs,
-	$contact ? ( contact => $contact ):(),
-	$username ? ( auth => [ $username,$password ] ):(),
+    from => $from,
+    outgoing_proxy => $proxy,
+    route => \@routes,
+    legs => \@legs,
+    $contact ? ( contact => $contact ):(),
+    $username ? ( auth => [ $username,$password ] ):(),
 );
 
 # optional registration
 if ( $registrar && $registrar ne '-' ) {
-	$ua->register( registrar => $registrar );
-	die "registration failed: ".$ua->error if $ua->error
+    $ua->register( registrar => $registrar );
+    die "registration failed: ".$ua->error if $ua->error
 }
 
 # invite peer
 my $peer_hangup; # did peer hang up?
 my $call = $ua->invite( $to,
-	# echo back, use -1 instead of 0 for not echoing back
-	init_media => $ua->rtp( 'recv_echo', $outfile,0 ),
-	recv_bye => \$peer_hangup,
+    # echo back, use -1 instead of 0 for not echoing back
+    init_media => $ua->rtp( 'recv_echo', $outfile,0 ),
+    recv_bye => \$peer_hangup,
 ) || die "invite failed: ".$ua->error;
 die "invite failed(call): ".$call->error if $call->error;
 
@@ -160,8 +160,7 @@ $ua->loop( \$stopvar,\$peer_hangup );
 
 # timeout, I need to hang up
 if ( $stopvar ) {
-	$stopvar = undef;
-	$call->bye( cb_final => \$stopvar );
-	$ua->loop( \$stopvar );
+    $stopvar = undef;
+    $call->bye( cb_final => \$stopvar );
+    $ua->loop( \$stopvar );
 }
-

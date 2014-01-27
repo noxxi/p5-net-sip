@@ -13,19 +13,19 @@ use warnings;
 
 package Net::SIP::Simple;
 use fields (
-	'endpoint',           # Net::SIP::Endpoint
-	'dispatcher',         # Net::SIP::Dispatcher
-	'loop',               # Net::SIP::Dispatcher::Eventloop or similar
-	'outgoing_proxy',     # optional outgoing proxy (addr:port)
-	'route',              # more routes
-	'registrar',          # optional registrar (addr:port)
-	'auth',               # Auth data, see Net::SIP::Endpoint
-	'from',               # SIP address of caller
-	'contact',            # optional local contact address
-	'domain',             # default domain for SIP addresses
-	'last_error',         # last error
-	'options',            # hash with field,values for response to OPTIONS request
-	'ua_cleanup',         # cleanup callbacks
+    'endpoint',           # Net::SIP::Endpoint
+    'dispatcher',         # Net::SIP::Dispatcher
+    'loop',               # Net::SIP::Dispatcher::Eventloop or similar
+    'outgoing_proxy',     # optional outgoing proxy (addr:port)
+    'route',              # more routes
+    'registrar',          # optional registrar (addr:port)
+    'auth',               # Auth data, see Net::SIP::Endpoint
+    'from',               # SIP address of caller
+    'contact',            # optional local contact address
+    'domain',             # default domain for SIP addresses
+    'last_error',         # last error
+    'options',            # hash with field,values for response to OPTIONS request
+    'ua_cleanup',         # cleanup callbacks
 );
 
 use Carp qw(croak);
@@ -79,112 +79,112 @@ use Net::SIP::Debug;
 # to provide a function to find out, which leg is used to send out a request
 ###########################################################################
 sub new {
-	my ($class,%args) = @_;
-	my $auth = delete $args{auth};
-	my $registrar = delete $args{registrar};
+    my ($class,%args) = @_;
+    my $auth = delete $args{auth};
+    my $registrar = delete $args{registrar};
 
-	my $from = delete $args{from};
-	my $contact = delete $args{contact};
-	my $domain = delete $args{domain};
-	if ($from) {
-		$domain = $1 if !defined($domain)
-			&& $from =~m{\bsips?:[^@]+\@([\w\-\.]+)};
-		$from = "$from <sip:$from\@$domain>"
-			if $from !~m{\s} && $from !~m{\@};
-	}
+    my $from = delete $args{from};
+    my $contact = delete $args{contact};
+    my $domain = delete $args{domain};
+    if ($from) {
+	$domain = $1 if !defined($domain)
+	    && $from =~m{\bsips?:[^@]+\@([\w\-\.]+)};
+	$from = "$from <sip:$from\@$domain>"
+	    if $from !~m{\s} && $from !~m{\@};
+    }
 
-	my $ua_cleanup = [];
-	my $self = fields::new( $class );
+    my $ua_cleanup = [];
+    my $self = fields::new( $class );
 
-	my $options = delete $args{options} || {};
-	{
-		@{$options}{ map { lc } keys(%$options) } = values(%$options); # lc keys
-		my %default_options = (
-			allow => 'INVITE, ACK, CANCEL, OPTIONS, BYE',
-			accept => 'application/sdp',
-			'accept-encoding' => '',
-			'accept-language' => 'en',
-			supported => '',
-		);
-		while ( my ($k,$v) = each %default_options ) {
-			$options->{$k} = $v if ! defined $options->{$k};
-		}
-	}
-
-
-	my $legs = delete $args{legs} || delete $args{leg};
-	$legs = [ $legs ] if $legs && ref($legs) ne 'ARRAY';
-	$legs ||= [];
-
-	foreach ($legs ? @$legs : ()) {
-		if ( UNIVERSAL::isa( $_, 'Net::SIP::Leg' )) {
-			# keep
-		} elsif ( UNIVERSAL::isa( $_, 'IO::Handle' )) {
-			# socket
-			$_ = Net::SIP::Leg->new( sock => $_ )
-		} elsif ( UNIVERSAL::isa( $_, 'HASH' )) {
-			# create leg from hash
-			$_ = Net::SIP::Leg->new( %$_ )
-		} elsif ( m{^(?:(udp|tcp):)?([\w\-\.]+)(?::(\d+))?$} ) {
-			# host|udp:host|udp:host:port|host:port
-			$_ = Net::SIP::Leg->new(
-				addr => $2, port => $3, proto => $1 );
-		}
-	}
-
-	my $ob = delete $args{outgoing_proxy}
-		|| delete $args{proxy};
-	if ( $ob && ! first { $_->can_deliver_to($ob) } @$legs ) {
-		my ($sock) = create_socket_to( $ob ) or die $!;
-		push @$legs, Net::SIP::Leg->new( sock => $sock );
-	}
-
-	if ( $registrar && ! first { $_->can_deliver_to($registrar) } @$legs ) {
-		my ($sock) = create_socket_to( $registrar ) or die $!;
-		push @$legs, Net::SIP::Leg->new( sock => $sock );
-	}
-
-
-	my $loop = delete $args{loop}
-		|| Net::SIP::Dispatcher::Eventloop->new;
-
-	my $d2p = delete $args{domain2proxy} || delete $args{d2p};
-	my $disp;
-	if ( $disp = delete $args{dispatcher} ) {
-		$disp->add_leg( @$legs );
-	} else {
-		$disp =  Net::SIP::Dispatcher->new(
-			$legs,
-			$loop,
-			outgoing_proxy => $ob,
-			domain2proxy => $d2p,
-		);
-	}
-	push @$ua_cleanup, [
-		sub {
-			my ($self,$legs) = @_;
-			$self->{dispatcher}->remove_leg(@$legs);
-		},
-		$self,$legs
-	] if @$legs;
-
-	my $endpoint = Net::SIP::Endpoint->new( $disp );
-
-	my $routes = delete $args{routes} || delete $args{route};
-	%$self = (
-		auth => $auth,
-		from => $from,
-		contact => $contact,
-		domain => $domain,
-		endpoint => $endpoint,
-		registrar => $registrar,
-		dispatcher => $disp,
-		loop => $loop,
-		route => $routes,
-		options => $options,
-		ua_cleanup => $ua_cleanup,
+    my $options = delete $args{options} || {};
+    {
+	@{$options}{ map { lc } keys(%$options) } = values(%$options); # lc keys
+	my %default_options = (
+	    allow => 'INVITE, ACK, CANCEL, OPTIONS, BYE',
+	    accept => 'application/sdp',
+	    'accept-encoding' => '',
+	    'accept-language' => 'en',
+	    supported => '',
 	);
-	return $self;
+	while ( my ($k,$v) = each %default_options ) {
+	    $options->{$k} = $v if ! defined $options->{$k};
+	}
+    }
+
+
+    my $legs = delete $args{legs} || delete $args{leg};
+    $legs = [ $legs ] if $legs && ref($legs) ne 'ARRAY';
+    $legs ||= [];
+
+    foreach ($legs ? @$legs : ()) {
+	if ( UNIVERSAL::isa( $_, 'Net::SIP::Leg' )) {
+	    # keep
+	} elsif ( UNIVERSAL::isa( $_, 'IO::Handle' )) {
+	    # socket
+	    $_ = Net::SIP::Leg->new( sock => $_ )
+	} elsif ( UNIVERSAL::isa( $_, 'HASH' )) {
+	    # create leg from hash
+	    $_ = Net::SIP::Leg->new( %$_ )
+	} elsif ( m{^(?:(udp|tcp):)?([\w\-\.]+)(?::(\d+))?$} ) {
+	    # host|udp:host|udp:host:port|host:port
+	    $_ = Net::SIP::Leg->new(
+		addr => $2, port => $3, proto => $1 );
+	}
+    }
+
+    my $ob = delete $args{outgoing_proxy}
+	|| delete $args{proxy};
+    if ( $ob && ! first { $_->can_deliver_to($ob) } @$legs ) {
+	my ($sock) = create_socket_to( $ob ) or die $!;
+	push @$legs, Net::SIP::Leg->new( sock => $sock );
+    }
+
+    if ( $registrar && ! first { $_->can_deliver_to($registrar) } @$legs ) {
+	my ($sock) = create_socket_to( $registrar ) or die $!;
+	push @$legs, Net::SIP::Leg->new( sock => $sock );
+    }
+
+
+    my $loop = delete $args{loop}
+	|| Net::SIP::Dispatcher::Eventloop->new;
+
+    my $d2p = delete $args{domain2proxy} || delete $args{d2p};
+    my $disp;
+    if ( $disp = delete $args{dispatcher} ) {
+	$disp->add_leg( @$legs );
+    } else {
+	$disp =  Net::SIP::Dispatcher->new(
+	    $legs,
+	    $loop,
+	    outgoing_proxy => $ob,
+	    domain2proxy => $d2p,
+	);
+    }
+    push @$ua_cleanup, [
+	sub {
+	    my ($self,$legs) = @_;
+	    $self->{dispatcher}->remove_leg(@$legs);
+	},
+	$self,$legs
+    ] if @$legs;
+
+    my $endpoint = Net::SIP::Endpoint->new( $disp );
+
+    my $routes = delete $args{routes} || delete $args{route};
+    %$self = (
+	auth => $auth,
+	from => $from,
+	contact => $contact,
+	domain => $domain,
+	endpoint => $endpoint,
+	registrar => $registrar,
+	dispatcher => $disp,
+	loop => $loop,
+	route => $routes,
+	options => $options,
+	ua_cleanup => $ua_cleanup,
+    );
+    return $self;
 }
 
 ###########################################################################
@@ -193,11 +193,11 @@ sub new {
 # Returns: NONE
 ###########################################################################
 sub cleanup {
-	my Net::SIP::Simple $self = shift;
-	while ( my $cb = shift @{ $self->{ua_cleanup} } ) {
-		invoke_callback($cb,$self)
-	}
-	%$self = ();
+    my Net::SIP::Simple $self = shift;
+    while ( my $cb = shift @{ $self->{ua_cleanup} } ) {
+	invoke_callback($cb,$self)
+    }
+    %$self = ();
 }
 
 ###########################################################################
@@ -207,12 +207,12 @@ sub cleanup {
 # Returns: $last_error
 ###########################################################################
 sub error {
-	my Net::SIP::Simple $self = shift;
-	if ( @_ ) {
-		$self->{last_error} = shift;
-		DEBUG( 100,Net::SIP::Debug::stacktrace( "set error to ".$self->{last_error}) );
-	}
-	return $self->{last_error};
+    my Net::SIP::Simple $self = shift;
+    if ( @_ ) {
+	$self->{last_error} = shift;
+	DEBUG( 100,Net::SIP::Debug::stacktrace( "set error to ".$self->{last_error}) );
+    }
+    return $self->{last_error};
 }
 
 
@@ -224,16 +224,16 @@ sub error {
 # Returns: NONE
 ###########################################################################
 sub loop {
-	my Net::SIP::Simple $self = shift;
-	my ($timeout,@stopvar);
-	foreach (@_) {
-		if ( ref($_) ) {
-			push @stopvar,$_
-		} elsif ( defined($_)) {
-			$timeout = $_
-		}
+    my Net::SIP::Simple $self = shift;
+    my ($timeout,@stopvar);
+    foreach (@_) {
+	if ( ref($_) ) {
+	    push @stopvar,$_
+	} elsif ( defined($_)) {
+	    $timeout = $_
 	}
-	return $self->{loop}->loop( $timeout,@stopvar );
+    }
+    return $self->{loop}->loop( $timeout,@stopvar );
 }
 
 ###########################################################################
@@ -244,8 +244,8 @@ sub loop {
 # Returns: $timer
 ###########################################################################
 sub add_timer {
-	my Net::SIP::Simple $self = shift;
-	$self->{dispatcher}->add_timer( @_ );
+    my Net::SIP::Simple $self = shift;
+    $self->{dispatcher}->add_timer( @_ );
 }
 
 ###########################################################################
@@ -257,12 +257,12 @@ sub add_timer {
 #  $cb: callback structure
 ###########################################################################
 sub rtp {
-	my Net::SIP::Simple $self = shift;
-	my ($method,@arg) = @_;
-	my $sub = UNIVERSAL::can( 'Net::SIP::Simple::RTP',$method )
-		|| UNIVERSAL::can( 'Net::SIP::Simple::RTP','media_'.$method )
-		|| croak( "no such method '$method' in Net::SIP::Simple::RTP" );
-	return $sub->( @arg );
+    my Net::SIP::Simple $self = shift;
+    my ($method,@arg) = @_;
+    my $sub = UNIVERSAL::can( 'Net::SIP::Simple::RTP',$method )
+	|| UNIVERSAL::can( 'Net::SIP::Simple::RTP','media_'.$method )
+	|| croak( "no such method '$method' in Net::SIP::Simple::RTP" );
+    return $sub->( @arg );
 }
 
 
@@ -281,82 +281,82 @@ sub rtp {
 #   otherwise it will be the expires value from the registrars response
 ###########################################################################
 sub register {
-	my Net::SIP::Simple $self = shift;
-	my %args = @_;
+    my Net::SIP::Simple $self = shift;
+    my %args = @_;
 
-	my $registrar = delete $args{registrar} || $self->{registrar}
-		|| croak( "no registrar" );
-	my $leg = delete $args{leg};
-	if ( !$leg ) {
-		# use first leg which can deliver to registrar
-		($leg) = $self->{dispatcher}->get_legs( sub => [
-			sub {
-				my ($addr,$leg) = @_;
-				return $leg->can_deliver_to($addr);
-			},
-			$registrar
-		]);
+    my $registrar = delete $args{registrar} || $self->{registrar}
+	|| croak( "no registrar" );
+    my $leg = delete $args{leg};
+    if ( !$leg ) {
+	# use first leg which can deliver to registrar
+	($leg) = $self->{dispatcher}->get_legs( sub => [
+	    sub {
+		my ($addr,$leg) = @_;
+		return $leg->can_deliver_to($addr);
+	    },
+	    $registrar
+	]);
+    }
+
+    my $from = delete $args{from} || $self->{from}
+	|| croak( "unknown from" );
+
+    my $contact = delete $args{contact} || $self->{contact};
+    if ( ! $contact) {
+	$contact = $from;
+	my $local = $leg->{addr}.':'.$leg->{port};
+	$contact.= '@'.$local unless $contact =~s{\@([\w\-\.:]+)}{\@$local};
+    }
+
+    my %rarg = (
+	from => $from,
+	registrar => $registrar,
+	contact => $contact,
+	auth => delete $args{auth} || $self->{auth},
+    );
+    %rarg = ( %rarg, %args ) if %args;
+
+    my $cb_final = delete $rarg{cb_final};
+    my $stopvar = 0;
+    $cb_final ||= \$stopvar;
+
+    my $cb = sub {
+	my ($self,$cb_final,$expires,$endpoint,$ctx,$errno,$code,$packet,$leg,$from) = @_;
+	if ( $code && $code =~m{^2\d\d} ) {
+	    # use expires info on contact
+	    # if none given use global expires header
+	    # see rfc3261 10.3.8,10.2.4
+	    my $exp;
+	    for my $c ( $packet->get_header( 'contact' ) ) {
+		my ($addr,$p) = sip_hdrval2parts( contact => $c );
+		defined( my $e = $p->{expires} ) or next;
+		sip_uri_eq($addr,$contact) or next; # not me
+		$exp = $e if ! defined($exp) || $e < $exp;
+	    }
+	    $exp = $packet->get_header( 'Expires' ) if ! defined $exp;
+	    $$expires = $exp;
+	    invoke_callback( $cb_final, 'OK', expires => $exp, packet => $packet );
+
+	} elsif ( $code ) {
+	    $self->error( "Failed with code $code" );
+	    invoke_callback( $cb_final, 'FAIL', code => $code, packet => $packet );
+	} elsif ( $errno ) {
+	    $self->error( "Failed with error $errno" );
+	    invoke_callback( $cb_final, 'FAIL', errno => $errno );
+	} else {
+	    $self->error( "Unknown failure" );
+	    invoke_callback( $cb_final, 'FAIL' );
 	}
+    };
 
-	my $from = delete $args{from} || $self->{from}
-		|| croak( "unknown from" );
+    my $expires;
+    $self->{endpoint}->register( %rarg, callback => [ $cb,$self,$cb_final,\$expires ] );
 
-	my $contact = delete $args{contact} || $self->{contact};
-	if ( ! $contact) {
-		$contact = $from;
-		my $local = $leg->{addr}.':'.$leg->{port};
-		$contact.= '@'.$local unless $contact =~s{\@([\w\-\.:]+)}{\@$local};
-	}
-
-	my %rarg = (
-		from => $from,
-		registrar => $registrar,
-		contact => $contact,
-		auth => delete $args{auth} || $self->{auth},
-	);
-	%rarg = ( %rarg, %args ) if %args;
-
-	my $cb_final = delete $rarg{cb_final};
-	my $stopvar = 0;
-	$cb_final ||= \$stopvar;
-
-	my $cb = sub {
-		my ($self,$cb_final,$expires,$endpoint,$ctx,$errno,$code,$packet,$leg,$from) = @_;
-		if ( $code && $code =~m{^2\d\d} ) {
-			# use expires info on contact
-			# if none given use global expires header
-			# see rfc3261 10.3.8,10.2.4
-			my $exp;
-			for my $c ( $packet->get_header( 'contact' ) ) {
-				my ($addr,$p) = sip_hdrval2parts( contact => $c );
-				defined( my $e = $p->{expires} ) or next;
-				sip_uri_eq($addr,$contact) or next; # not me
-				$exp = $e if ! defined($exp) || $e < $exp;
-			}
-			$exp = $packet->get_header( 'Expires' ) if ! defined $exp;
-			$$expires = $exp;
-			invoke_callback( $cb_final, 'OK', expires => $exp, packet => $packet );
-
-		} elsif ( $code ) {
-			$self->error( "Failed with code $code" );
-			invoke_callback( $cb_final, 'FAIL', code => $code, packet => $packet );
-		} elsif ( $errno ) {
-			$self->error( "Failed with error $errno" );
-			invoke_callback( $cb_final, 'FAIL', errno => $errno );
-		} else {
-			$self->error( "Unknown failure" );
-			invoke_callback( $cb_final, 'FAIL' );
-		}
-	};
-
-	my $expires;
-	$self->{endpoint}->register( %rarg, callback => [ $cb,$self,$cb_final,\$expires ] );
-
-	# if cb_final is local stopvar wait until it got set
-	if ( \$stopvar == $cb_final ) {
-		$self->loop( \$stopvar );
-		return $stopvar eq 'OK' ? $expires: undef;
-	}
+    # if cb_final is local stopvar wait until it got set
+    if ( \$stopvar == $cb_final ) {
+	$self->loop( \$stopvar );
+	return $stopvar eq 'OK' ? $expires: undef;
+    }
 }
 
 ###########################################################################
@@ -369,18 +369,18 @@ sub register {
 #   $call: Net::SIP::Simple::Call
 ###########################################################################
 sub invite {
-	my Net::SIP::Simple $self = shift;
-	my ($ctx,%args) = @_;
-	(my $to,$ctx) = ref($ctx) ? ($ctx->{to},$ctx) : ($ctx,undef);
-	$to || croak( "need peer of call" );
-	if ( $to !~m{\s} && $to !~m{\@} ) {;
-		croak( "no domain and no fully qualified to" ) if ! $self->{domain};
-		$to = "$to <sip:$to\@$self->{domain}>";
-		$ctx->{to} = $to if $ctx;
-	}
-	my $call = Net::SIP::Simple::Call->new( $self,$ctx||$to );
-	$call->reinvite(%args);
-	return $call;
+    my Net::SIP::Simple $self = shift;
+    my ($ctx,%args) = @_;
+    (my $to,$ctx) = ref($ctx) ? ($ctx->{to},$ctx) : ($ctx,undef);
+    $to || croak( "need peer of call" );
+    if ( $to !~m{\s} && $to !~m{\@} ) {;
+	croak( "no domain and no fully qualified to" ) if ! $self->{domain};
+	$to = "$to <sip:$to\@$self->{domain}>";
+	$ctx->{to} = $to if $ctx;
+    }
+    my $call = Net::SIP::Simple::Call->new( $self,$ctx||$to );
+    $call->reinvite(%args);
+    return $call;
 }
 
 ###########################################################################
@@ -402,63 +402,63 @@ sub invite {
 # Returns: NONE
 ###########################################################################
 sub listen {
-	my Net::SIP::Simple $self = shift;
-	my %args = @_;
+    my Net::SIP::Simple $self = shift;
+    my %args = @_;
 
-	# handle new requests
-	my $receive = sub {
-		my ($self,$args,$endpoint,$ctx,$request,$leg,$from) = @_;
-		my $method = $request->method;
-		if ( $method eq 'OPTIONS' ) {
-			my $response = $request->create_response( '200','OK',$self->{options} );
-			$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
-			$self->{endpoint}->close_context( $ctx );
-			return;
-		} elsif ( $method ne 'INVITE' ) {
-			DEBUG( 10,"drop non-INVITE request: ".$request->dump );
-			$self->{endpoint}->close_context( $ctx );
-			return;
-		}
-
-		if ( my $filter = $args->{filter} ) {
-			my $rv = invoke_callback( $filter, $ctx->{from},$request );
-			if ( !$rv ) {
-				DEBUG( 1, "call from '$ctx->{from}' rejected" );
-				$self->{endpoint}->close_context( $ctx );
-				return;
-			}
-		}
-
-		# new invite, create call
-		my $call = Net::SIP::Simple::Call->new( $self,$ctx,{ %$args });
-		my $cb = UNIVERSAL::can( $call,'receive' ) || die;
-
-		# notify caller about new call
-		if ( my $cbc = $args->{cb_create} ) {
-			my $cbx =invoke_callback( $cbc, $call, $request,$leg,$from );
-			if ( ! $cbx ) {
-				DEBUG( 1, "call from '$ctx->{from}' rejected in cb_create" );
-				$self->{endpoint}->close_context( $ctx );
-				return;
-			} elsif ( ref($cbx) ) {
-				$cb = $cbx
-			}
-		}
-		if ( my $ccb = $args->{cb_cleanup} ) {
-			push @{ $call->{call_cleanup}}, $ccb;
-		}
-
-		# setup callback on context and call it for this packet
-		$ctx->set_callback([ $cb,$call ]);
-		$cb->( $call,$endpoint,$ctx,undef,undef,$request,$leg,$from );
-	};
-
-	$self->{endpoint}->set_application( [ $receive,$self,\%args] );
-
-	# in case listener should provide authorization put Authorizer in between
-	if ( my $auth = _make_auth_from_args($self,\%args) ) {
-		$self->create_chain([$auth,$self->{endpoint}]);
+    # handle new requests
+    my $receive = sub {
+	my ($self,$args,$endpoint,$ctx,$request,$leg,$from) = @_;
+	my $method = $request->method;
+	if ( $method eq 'OPTIONS' ) {
+	    my $response = $request->create_response( '200','OK',$self->{options} );
+	    $self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+	    $self->{endpoint}->close_context( $ctx );
+	    return;
+	} elsif ( $method ne 'INVITE' ) {
+	    DEBUG( 10,"drop non-INVITE request: ".$request->dump );
+	    $self->{endpoint}->close_context( $ctx );
+	    return;
 	}
+
+	if ( my $filter = $args->{filter} ) {
+	    my $rv = invoke_callback( $filter, $ctx->{from},$request );
+	    if ( !$rv ) {
+		DEBUG( 1, "call from '$ctx->{from}' rejected" );
+		$self->{endpoint}->close_context( $ctx );
+		return;
+	    }
+	}
+
+	# new invite, create call
+	my $call = Net::SIP::Simple::Call->new( $self,$ctx,{ %$args });
+	my $cb = UNIVERSAL::can( $call,'receive' ) || die;
+
+	# notify caller about new call
+	if ( my $cbc = $args->{cb_create} ) {
+	    my $cbx =invoke_callback( $cbc, $call, $request,$leg,$from );
+	    if ( ! $cbx ) {
+		DEBUG( 1, "call from '$ctx->{from}' rejected in cb_create" );
+		$self->{endpoint}->close_context( $ctx );
+		return;
+	    } elsif ( ref($cbx) ) {
+		$cb = $cbx
+	    }
+	}
+	if ( my $ccb = $args->{cb_cleanup} ) {
+	    push @{ $call->{call_cleanup}}, $ccb;
+	}
+
+	# setup callback on context and call it for this packet
+	$ctx->set_callback([ $cb,$call ]);
+	$cb->( $call,$endpoint,$ctx,undef,undef,$request,$leg,$from );
+    };
+
+    $self->{endpoint}->set_application( [ $receive,$self,\%args] );
+
+    # in case listener should provide authorization put Authorizer in between
+    if ( my $auth = _make_auth_from_args($self,\%args) ) {
+	$self->create_chain([$auth,$self->{endpoint}]);
+    }
 }
 
 
@@ -466,21 +466,21 @@ sub listen {
 # create authorization if args say so
 # Args: ($self,$args)
 #   %$args:
-#     auth_user2pass: see user2pass in Net::SIP::Authorize 
-#     auth_user2a1:   see user2a1 in Net::SIP::Authorize 
-#     auth_realm:     see realm in Net::SIP::Authorize 
+#     auth_user2pass: see user2pass in Net::SIP::Authorize
+#     auth_user2a1:   see user2a1 in Net::SIP::Authorize
+#     auth_realm:     see realm in Net::SIP::Authorize
 #     auth_.... :     see Net::SIP::Authorize
 # Returns: authorizer if auth_* args given, removes auth_ args from hash
 ##########################################################################
 sub _make_auth_from_args {
-	my ($self,$args) = @_;
+    my ($self,$args) = @_;
 
-	my %auth = 
-		map { m{^auth_(.+)} ? ($1 => delete $args->{$_}):() } 
-		keys %$args;
-	my $i_am_proxy = delete $auth{i_am_proxy};
+    my %auth =
+	map { m{^auth_(.+)} ? ($1 => delete $args->{$_}):() }
+	keys %$args;
+    my $i_am_proxy = delete $auth{i_am_proxy};
 
-	return %auth && $self->create_auth(%auth);
+    return %auth && $self->create_auth(%auth);
 }
 
 ###########################################################################
@@ -490,11 +490,11 @@ sub _make_auth_from_args {
 # Returns: authorizer object
 ##########################################################################
 sub create_auth {
-	my ($self,%args) = @_;
-	return Net::SIP::Authorize->new(
-		dispatcher => $self->{dispatcher},
-		%args,
-	);
+    my ($self,%args) = @_;
+    return Net::SIP::Authorize->new(
+	dispatcher => $self->{dispatcher},
+	%args,
+    );
 }
 
 
@@ -510,49 +510,49 @@ sub create_auth {
 # Returns: $registrar
 ###########################################################################
 sub create_registrar {
-	my Net::SIP::Simple $self = shift;
-	my %args = @_;
-	my $auth = _make_auth_from_args($self,\%args);
+    my Net::SIP::Simple $self = shift;
+    my %args = @_;
+    my $auth = _make_auth_from_args($self,\%args);
 
-	my $registrar = Net::SIP::Registrar->new(
-		dispatcher => $self->{dispatcher},
-		%args
-	);
-	if ( $auth ) {
-		$registrar = $self->create_chain(
-			[$auth,$registrar], 
-			methods => ['REGISTER']
-		)
-	} else {
-		$self->{dispatcher}->set_receiver( $registrar );
-	}
-	return $registrar;
+    my $registrar = Net::SIP::Registrar->new(
+	dispatcher => $self->{dispatcher},
+	%args
+    );
+    if ( $auth ) {
+	$registrar = $self->create_chain(
+	    [$auth,$registrar],
+	    methods => ['REGISTER']
+	)
+    } else {
+	$self->{dispatcher}->set_receiver( $registrar );
+    }
+    return $registrar;
 }
 
 ###########################################################################
 # setup a stateless proxy
 # Args: ($self,%args)
-#   %args: see Net::SIP::StatelessProxy, for auth_whatever see whatever 
+#   %args: see Net::SIP::StatelessProxy, for auth_whatever see whatever
 #      in Net::SIP::Authorize
 # Returns: $proxy
 ###########################################################################
 sub create_stateless_proxy {
-	my Net::SIP::Simple $self = shift;
-	my %args = @_;
+    my Net::SIP::Simple $self = shift;
+    my %args = @_;
 
-	$args{auth_i_am_proxy} = 1;
-	my $auth = _make_auth_from_args($self,\%args);
+    $args{auth_i_am_proxy} = 1;
+    my $auth = _make_auth_from_args($self,\%args);
 
-	my $proxy = Net::SIP::StatelessProxy->new(
-		dispatcher => $self->{dispatcher},
-		%args
-	);
-	if ( $auth ) {
-		$proxy = $self->create_chain([$auth,$proxy])
-	} else {
-		$self->{dispatcher}->set_receiver($proxy);
-	}
-	return $proxy;
+    my $proxy = Net::SIP::StatelessProxy->new(
+	dispatcher => $self->{dispatcher},
+	%args
+    );
+    if ( $auth ) {
+	$proxy = $self->create_chain([$auth,$proxy])
+    } else {
+	$self->{dispatcher}->set_receiver($proxy);
+    }
+    return $proxy;
 }
 
 ###########################################################################
@@ -562,10 +562,10 @@ sub create_stateless_proxy {
 # Returns: $chain
 ###########################################################################
 sub create_chain {
-	my Net::SIP::Simple $self = shift;
-	my $chain = Net::SIP::ReceiveChain->new( @_ );
-	$self->{dispatcher}->set_receiver( $chain );
-	return $chain;
+    my Net::SIP::Simple $self = shift;
+    my $chain = Net::SIP::ReceiveChain->new( @_ );
+    $self->{dispatcher}->set_receiver( $chain );
+    return $chain;
 }
 
 1;

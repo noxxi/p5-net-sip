@@ -38,29 +38,29 @@ killall();
 #############################################################################
 
 sub uac {
-	my ($lsock,$laddr,$peer) = @_;
-	my $ua = Simple->new(
-		leg => $lsock,
-		from => "sip:me\@$laddr",
-		auth => [ 'me','secret' ],
-	);
+    my ($lsock,$laddr,$peer) = @_;
+    my $ua = Simple->new(
+	leg => $lsock,
+	from => "sip:me\@$laddr",
+	auth => [ 'me','secret' ],
+    );
 
-	print "Started\n";
-	my $call = $ua->invite( "sip:me\@$peer") or die;
+    print "Started\n";
+    my $call = $ua->invite( "sip:me\@$peer") or die;
 
-	sleep(1);
-	print "Starting ReInvite\n";
-	my $reinvite_ok;
-	$call->reinvite( cb_final => \$reinvite_ok ) or die;
-	$ua->loop( 10,\$reinvite_ok );
-	print "ReInvite done\n" if $reinvite_ok;
+    sleep(1);
+    print "Starting ReInvite\n";
+    my $reinvite_ok;
+    $call->reinvite( cb_final => \$reinvite_ok ) or die;
+    $ua->loop( 10,\$reinvite_ok );
+    print "ReInvite done\n" if $reinvite_ok;
 
-	sleep(1);
-	# and bye
-	print "Send BYE\n";
-	$call->bye( cb_final => \( my $bye_ok ));
-	$ua->loop( 10,\$bye_ok );
-	print "BYE done\n" if $bye_ok;
+    sleep(1);
+    # and bye
+    print "Send BYE\n";
+    $call->bye( cb_final => \( my $bye_ok ));
+    $ua->loop( 10,\$bye_ok );
+    print "BYE done\n" if $bye_ok;
 
 
 }
@@ -71,28 +71,27 @@ sub uac {
 #############################################################################
 
 sub uas {
-	my ($lsock,$laddr,$peer) = @_;
-	my $ua = Simple->new(
-		leg => $lsock,
-		from => "sip:me\@$laddr",
-	);
+    my ($lsock,$laddr,$peer) = @_;
+    my $ua = Simple->new(
+	leg => $lsock,
+	from => "sip:me\@$laddr",
+    );
 
-	# accept call
-	my $invite = my $reinvite = my $bye = 0;
-	$ua->listen( 
-		auth_user2pass => { 'me' => 'secret' },
-		cb_established => sub { $reinvite++ if $invite++ },
-		cb_cleanup     => \$bye,
-	);
-	print "Listening\n";
-	$ua->loop( \$invite );
-	print "Call accepted\n";
-	$ua->loop( \$reinvite );
-	print "ReInvite accepted\n";
+    # accept call
+    my $invite = my $reinvite = my $bye = 0;
+    $ua->listen(
+	auth_user2pass => { 'me' => 'secret' },
+	cb_established => sub { $reinvite++ if $invite++ },
+	cb_cleanup     => \$bye,
+    );
+    print "Listening\n";
+    $ua->loop( \$invite );
+    print "Call accepted\n";
+    $ua->loop( \$reinvite );
+    print "ReInvite accepted\n";
 
 
-	# wait until I got BYE
-	$ua->loop( 10, \$bye );
-	print "Received BYE\n" if $bye;
+    # wait until I got BYE
+    $ua->loop( 10, \$bye );
+    print "Received BYE\n" if $bye;
 }
-

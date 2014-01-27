@@ -16,16 +16,16 @@ use IO::Socket;
 
 # create leg for UAS on dynamic port
 my $sock_uas = IO::Socket::INET->new(
-	Proto => 'udp',
-	LocalAddr => '127.0.0.1',
-	LocalPort => 0, # let system pick one
+    Proto => 'udp',
+    LocalAddr => '127.0.0.1',
+    LocalPort => 0, # let system pick one
 );
 ok( $sock_uas, 'create UAS socket' );
 
 # get address for UAS
 my $uas_addr = do {
-	my ($port,$host) = unpack_sockaddr_in ( getsockname($sock_uas));
-	inet_ntoa( $host ).":$port"
+    my ($port,$host) = unpack_sockaddr_in ( getsockname($sock_uas));
+    inet_ntoa( $host ).":$port"
 };
 
 
@@ -33,10 +33,10 @@ my $uas_addr = do {
 pipe( my $read,my $write); # to sync UAC with UAS
 my $pid = fork();
 if ( defined($pid) && $pid == 0 ) {
-	close($read);
-	$write->autoflush;
-	uas( $sock_uas, $write );
-	exit(0);
+    close($read);
+    $write->autoflush;
+    uas( $sock_uas, $write );
+    exit(0);
 }
 
 ok( $pid, "fork successful" );
@@ -55,39 +55,39 @@ wait;
 ###############################################
 
 sub uac {
-	my ($peer_addr,$pipe) = @_;
-	Net::SIP::Debug->set_prefix( "DEBUG(uac):" );
+    my ($peer_addr,$pipe) = @_;
+    Net::SIP::Debug->set_prefix( "DEBUG(uac):" );
 
-	ok( <$pipe>, "UAS created\n" ); # wait until UAS is ready
-	my $uac = Net::SIP::Simple->new(
-		from => 'me.uac@example.com',
-		leg => scalar(create_socket_to( $peer_addr )),
-		domain2proxy => { 'example.com' => $peer_addr },
-	);
-	ok( $uac, 'UAC created' );
+    ok( <$pipe>, "UAS created\n" ); # wait until UAS is ready
+    my $uac = Net::SIP::Simple->new(
+	from => 'me.uac@example.com',
+	leg => scalar(create_socket_to( $peer_addr )),
+	domain2proxy => { 'example.com' => $peer_addr },
+    );
+    ok( $uac, 'UAC created' );
 
-	ok( <$pipe>, "UAS ready\n" ); # wait until UAS is ready
-	my $ringing = 0;
-	my $call = $uac->invite( 
-		'you.uas@example.com',
-		cb_preliminary => sub { 
-			my ($self,$code,$packet) = @_;
-			if ( $code == 180 ) {
-				diag( 'got ringing' );
-				$ringing ++
-			}
-		}
-	);
-	ok( $ringing,'got ringing' );
-	ok( ! $uac->error, 'no error on UAC' );
-	ok( $call, 'Call established' );
+    ok( <$pipe>, "UAS ready\n" ); # wait until UAS is ready
+    my $ringing = 0;
+    my $call = $uac->invite(
+	'you.uas@example.com',
+	cb_preliminary => sub {
+	    my ($self,$code,$packet) = @_;
+	    if ( $code == 180 ) {
+		diag( 'got ringing' );
+		$ringing ++
+	    }
+	}
+    );
+    ok( $ringing,'got ringing' );
+    ok( ! $uac->error, 'no error on UAC' );
+    ok( $call, 'Call established' );
 
-	$call->loop(1);
+    $call->loop(1);
 
-	my $stop;
-	$call->bye( cb_final => \$stop );
-	$call->loop( \$stop,10 );
-	ok( $stop, 'UAS down' );
+    my $stop;
+    $call->bye( cb_final => \$stop );
+    $call->loop( \$stop,10 );
+    ok( $stop, 'UAS down' );
 }
 
 ###############################################
@@ -95,41 +95,41 @@ sub uac {
 ###############################################
 
 sub uas {
-	my ($sock,$pipe) = @_;
-	Net::SIP::Debug->set_prefix( "DEBUG(uas):" );
-	my $uas = Net::SIP::Simple->new(
-		domain => 'example.com',
-		leg => $sock
-	) || die $!;
-	print $pipe "UAS created\n";
+    my ($sock,$pipe) = @_;
+    Net::SIP::Debug->set_prefix( "DEBUG(uas):" );
+    my $uas = Net::SIP::Simple->new(
+	domain => 'example.com',
+	leg => $sock
+    ) || die $!;
+    print $pipe "UAS created\n";
 
-	# Listen
-	my $call_closed;
-	$uas->listen(
-		cb_create      => sub { 
-			my ($call,$request,$leg,$from) = @_;
-			diag( 'call created' );
-			my $response = $request->create_response( '180','Ringing' );
-	        $call->{endpoint}->new_response( $call->{ctx},$response,$leg,$from );
-			1;
-		},
-		cb_established => sub { diag( 'call established' ) },
-		cb_cleanup     => sub {
-			diag( 'call cleaned up' );
-			$call_closed =1;
-		},
-	);
+    # Listen
+    my $call_closed;
+    $uas->listen(
+	cb_create      => sub {
+	    my ($call,$request,$leg,$from) = @_;
+	    diag( 'call created' );
+	    my $response = $request->create_response( '180','Ringing' );
+	    $call->{endpoint}->new_response( $call->{ctx},$response,$leg,$from );
+	    1;
+	},
+	cb_established => sub { diag( 'call established' ) },
+	cb_cleanup     => sub {
+	    diag( 'call cleaned up' );
+	    $call_closed =1;
+	},
+    );
 
-	# notify UAC process that I'm listening
-	print $pipe "UAS ready\n";
+    # notify UAC process that I'm listening
+    print $pipe "UAS ready\n";
 
-	# Loop until call is closed, at most 10 seconds
-	$uas->loop( \$call_closed, 10 );
+    # Loop until call is closed, at most 10 seconds
+    $uas->loop( \$call_closed, 10 );
 
-	# done
-	if ( $call_closed ) {
-		print $pipe "UAS finished\n";
-	} else {
-		print $pipe "call closed by timeout not stopvar\n";
-	}
+    # done
+    if ( $call_closed ) {
+	print $pipe "UAS finished\n";
+    } else {
+	print $pipe "call closed by timeout not stopvar\n";
+    }
 }

@@ -12,10 +12,10 @@ use Test::More tests => 1;
 
 use Net::SIP ':all';
 
-my $leg = myLeg->new( 
-	sock => \*STDOUT,
-	addr => '10.0.105.10',
-	port => '5062'
+my $leg = myLeg->new(
+    sock => \*STDOUT,
+    addr => '10.0.105.10',
+    port => '5062'
 );
 my $ua = Simple->new( legs => [ $leg ] );
 $ua->create_stateless_proxy;
@@ -47,7 +47,7 @@ use base 'Net::SIP::Leg';
 use Test::More;
 
 sub sendto {
-	my myLeg $self = shift;
-	my ($data,$host,$port,$callback) = @_;
-	ok( "$host:$port" eq "172.25.2.1:7070", "got target from maddr" );
+    my myLeg $self = shift;
+    my ($data,$host,$port,$callback) = @_;
+    ok( "$host:$port" eq "172.25.2.1:7070", "got target from maddr" );
 }

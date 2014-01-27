@@ -8,36 +8,36 @@ my $leg = '127.0.0.1:5070';
 my $registrar;
 
 GetOptions(
-	'd|debug:i' => \$debug,
-	'h|help' => sub { usage() },
-	'F|from=s' => \$from,
-	'L|leg=s' => \$leg,
-	'R|registrar=s' => \$registrar,
+    'd|debug:i' => \$debug,
+    'h|help' => sub { usage() },
+    'F|from=s' => \$from,
+    'L|leg=s' => \$leg,
+    'R|registrar=s' => \$registrar,
 ) || usage( 'bad options' );
 Debug->level( $debug || 1 ) if defined $debug;
 
 my $ua = Simple->new(
-	from => $from,
-	leg => $leg,
-	registrar => $registrar,
+    from => $from,
+    leg => $leg,
+    registrar => $registrar,
 );
 if ( $registrar ) {
-	die "Registration failed\n" if ! $ua->register;
-	print STDERR "Registered\n";
+    die "Registration failed\n" if ! $ua->register;
+    print STDERR "Registered\n";
 }
 
 
 $ua->listen(
-	# echo everything back
-	init_media => $ua->rtp( 'recv_echo' ),
+    # echo everything back
+    init_media => $ua->rtp( 'recv_echo' ),
 );
 print "Listening...\n";
 $ua->loop;
 
 
 sub usage {
-	print STDERR "ERROR: @_\n" if @_;
-	print STDERR <<USAGE;
+    print STDERR "ERROR: @_\n" if @_;
+    print STDERR <<USAGE;
 
 Listen on given address and receive calls, echo RTP back.
 Handles multiple calls in parallel.
@@ -50,6 +50,5 @@ Options:
  -R|--registrar   Optional Registrar
 
 USAGE
-	exit(2);
+    exit(2);
 }
-

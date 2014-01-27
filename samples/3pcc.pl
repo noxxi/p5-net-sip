@@ -14,8 +14,8 @@ use Net::SIP ':all';
 # Usage
 # -------------------------------------------------------------
 sub usage {
-	print STDERR "ERROR: @_\n" if @_;
-	print STDERR <<EOS;
+    print STDERR "ERROR: @_\n" if @_;
+    print STDERR <<EOS;
 
 Implements 3rd Party control according to RFC 3625,4.1 'Flow I'
 
@@ -30,15 +30,15 @@ Example:
     sip:me\@192.168.178.3:5080
 
 EOS
-	exit( @_ ? 1:0 );
+    exit( @_ ? 1:0 );
 }
 
 # get options
 # -------------------------------------------------------------
 my $debug;
 GetOptions(
-	'd|debug:i' => \$debug,
-	'h|help' => sub { usage() },
+    'd|debug:i' => \$debug,
+    'h|help' => sub { usage() },
 ) || usage( 'bad options' );
 Debug->level($debug || 1) if defined $debug;
 
@@ -49,10 +49,10 @@ $to || usage( "no TO given" );
 # -------------------------------------------------------------
 my $loop = Dispatcher_Eventloop->new;
 my $leg = Leg->new( addr => $laddr );
-my $disp = Dispatcher->new( 
-	[ $leg ], 
-	$loop,
-	do_retransmits => 0
+my $disp = Dispatcher->new(
+    [ $leg ],
+    $loop,
+    do_retransmits => 0
 ) || die;
 $disp->set_receiver( \&receive );
 my $me = ($disp->get_legs())[0]->{contact};
@@ -66,11 +66,11 @@ my $me = ($disp->get_legs())[0]->{contact};
 my $callid = "$from|$to|0|". sprintf( "%08x",rand(2**16));
 
 my $invite = Request->new( "INVITE",$from, {
-	from      => $to,
-	to        => $from,
-	contact   => $me,
-	'call-id' => $callid,
-	cseq      => '1 INVITE',
+    from      => $to,
+    to        => $from,
+    contact   => $me,
+    'call-id' => $callid,
+    cseq      => '1 INVITE',
 });
 $disp->deliver( $invite, do_retransmits => 1 );
 
@@ -100,216 +100,213 @@ $loop->loop(1) if $stop_loop; # some time to forward remaining stuff
 #
 ###############################################################
 sub receive {
-	my ($packet,$leg,$from_addr) = @_;
+    my ($packet,$leg,$from_addr) = @_;
 
-	# extract info from call-id
-	my $callid = $packet->callid() or do {
-		DEBUG( 1,"no callid in packet. DROP" );
-		return;
+    # extract info from call-id
+    my $callid = $packet->callid() or do {
+	DEBUG( 1,"no callid in packet. DROP" );
+	return;
+    };
+    my ($from,$to,$dir,$random) = split( qr{\|}, $callid );
+    my $new_callid = join( '|',$from,$to, $dir?0:1, $random );
+
+    my ( $request,$response ) = $packet->is_response
+	? ( undef,$packet )
+	: ( $packet, undef );
+
+    if ( $response ) {
+	# ------------------------------------------------------------------
+	# Handle Responses:
+	# - if it has only one via (and this is myself) it is a response
+	#   to a request which originated locally. In this case make
+	#   the appropriate request from it and forward it to the other side
+	# - if it has more than one via just forward it to the other side
+	# ------------------------------------------------------------------
+
+	# top via must be me
+	my @via = $response->get_header( 'via' );
+	$leg->check_via($response) or do {
+	    DEBUG( 5, "top via isn't me: $via[0]" );
+	    return;
 	};
-	my ($from,$to,$dir,$random) = split( qr{\|}, $callid );
-	my $new_callid = join( '|',$from,$to, $dir?0:1, $random );
 
-	my ( $request,$response ) = $packet->is_response
-		? ( undef,$packet )
-		: ( $packet, undef );
+	# exactly one via ?
+	my $cseq = $response->cseq;
+	my ($num,$method) = split( ' ',$cseq );
+	if ( @via == 1 ) {
 
-	if ( $response ) {
-		# ------------------------------------------------------------------
-		# Handle Responses:
-		# - if it has only one via (and this is myself) it is a response
-		#   to a request which originated locally. In this case make
-		#   the appropriate request from it and forward it to the other side
-		# - if it has more than one via just forward it to the other side
-		# ------------------------------------------------------------------
+	    # cancel retransmits
+	    $disp->cancel_delivery( $response->tid );
 
-		# top via must be me
-		my @via = $response->get_header( 'via' );
-		$leg->check_via($response) or do {
-			DEBUG( 5, "top via isn't me: $via[0]" );
-			return;
-		};
-
-		# exactly one via ?
-		my $cseq = $response->cseq;
-		my ($num,$method) = split( ' ',$cseq );
-		if ( @via == 1 ) {
-			
-			# cancel retransmits
-			$disp->cancel_delivery( $response->tid );
-		
-			if ( $method eq 'INVITE' && $dir == 0 ) {
-				# ---------------------------------------------------------
-				# response to initial INVITE  ME->FROM
-				# on success create INVITE ME->TO with SDP from response
-				# ---------------------------------------------------------
-				my $code = $response->code;
-				if ( $code < 200 ) {
-					# preliminary response, ignore and don't reply
-					DEBUG( 10,"ignoring preliminary reply to initial invite" );
-					return;
-				} elsif ( $code >= 300 ) {
-					# non successful response (we don't care about redirects)
-					# send ACK and ignore
-					$disp->deliver( Request->new( 'ACK',$from, {
-						'call-id' => $callid,
-						cseq      => "$num ACK",
-						to        => scalar($response->get_header('from')),
-						from      => scalar($response->get_header('to')),
-						contact   => $me,
-					}));
-				} else {
-					# success: extract SDP and forward in INVITE to
-					# other party
-					DEBUG( 10,"got success to initial INVITE" );
-					my $sdp = $response->sdp_body or do {
-						DEBUG( 1,"no SDP in response to INVITE from $from" );
-						return;
-					};
-					$disp->deliver( Request->new( 'INVITE', $to, 
-						{
-							from => scalar($response->get_header( 'to' )),
-							to => scalar($response->get_header( 'from' )),
-							'call-id' => $new_callid,
-							contact   => $me,
-							cseq => "$num INVITE",
-						},
-						$sdp,
-					));
-				}
-			} elsif ( $method eq 'INVITE' && $dir == 1 ) {
-				# ---------------------------------------------------------
-				# response from $to to the initial INVITE
-				# on success create ACK
-				# ---------------------------------------------------------
-				my $code = $response->code;
-				if ( $code < 200 ) {
-					# preliminary response, ignore and don't reply
-					DEBUG( 10,"ignoring preliminary reply from TO to initial invite" );
-					return;
-				}
-
-				# create ACK to TO
-				$disp->deliver( Request->new( 'ACK', $to, {
-					from => scalar($response->get_header( 'from' )),
-					to   => scalar($response->get_header( 'to' )),
-					'call-id' => $callid,
-					contact   => $me,
-					cseq => "$num ACK",
-				}));
-
-				if ( $code >= 300 ) {
-					# non successful response (we don't care about redirects)
-					# cancel initial call [ME,FROM]
-					DEBUG( 10,"got code $code on INVITE 'TO'" );
-					$disp->deliver( Request->new( 'CANCEL',$from, {
-						'call-id' => $new_callid,
-						cseq      => "$num INVITE",
-						from => scalar($response->get_header( 'to' )),
-						to   => scalar($response->get_header( 'from' )),
-						contact   => $me,
-					}));
-						
-				} else {
-					DEBUG( 10,"got success on INVITE 'TO'" );
-					# success: extract SDP and forward in ACK to FROM
-					my $sdp = $response->sdp_body or do {
-						DEBUG( 1,"no SDP in response to INVITE from $to" );
-						return;
-					};
-					$disp->deliver( Request->new( 'ACK', $from, 
-						{
-							from => scalar($response->get_header( 'to' )),
-							to   => scalar($response->get_header( 'from' )),
-							'call-id' => $new_callid,
-							contact   => $me,
-							cseq => "$num ACK",
-						},
-						$sdp,
-					));
-				}
-			}
+	    if ( $method eq 'INVITE' && $dir == 0 ) {
+		# ---------------------------------------------------------
+		# response to initial INVITE  ME->FROM
+		# on success create INVITE ME->TO with SDP from response
+		# ---------------------------------------------------------
+		my $code = $response->code;
+		if ( $code < 200 ) {
+		    # preliminary response, ignore and don't reply
+		    DEBUG( 10,"ignoring preliminary reply to initial invite" );
+		    return;
+		} elsif ( $code >= 300 ) {
+		    # non successful response (we don't care about redirects)
+		    # send ACK and ignore
+		    $disp->deliver( Request->new( 'ACK',$from, {
+			'call-id' => $callid,
+			cseq      => "$num ACK",
+			to        => scalar($response->get_header('from')),
+			from      => scalar($response->get_header('to')),
+			contact   => $me,
+		    }));
 		} else {
-			# ---------------------------------------------------------
-			# response for forwarded request
-			# change call-id and forward
-			# ---------------------------------------------------------
-
-			# get addr from next via
-			my ($data) = sip_hdrval2parts( via => $via[1] );
-			my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
-			$port ||= 5060; # FIXME: not for sips!
-
-			$response->set_header( contact => $me );
-			$leg->forward_incoming( $response );
-			$response->set_header( 'call-id' => $new_callid );
-
-			# check if the last via header had a cseq attribute.
-			# in this case forward the response with the given cseq
-			my ($via) = $response->get_header( 'via' );
-			my (undef,$param) = sip_hdrval2parts( via => $via );
-			if ( defined( my $num = $param->{cseq} )) {
-				my $cseq = $response->cseq;
-				$cseq =~s{^(\d+)}{$num};
-				$response->set_header( cseq => $cseq );
-			}
-
-			# if this was response to BYE end this program
-			$stop_loop = 1 if $method eq 'BYE';
-
-			$leg->forward_outgoing( $response,$leg );
-			$disp->deliver( $response, leg => $leg, dst_addr => "$addr:$port" );
-
+		    # success: extract SDP and forward in INVITE to
+		    # other party
+		    DEBUG( 10,"got success to initial INVITE" );
+		    my $sdp = $response->sdp_body or do {
+			DEBUG( 1,"no SDP in response to INVITE from $from" );
+			return;
+		    };
+		    $disp->deliver( Request->new( 'INVITE', $to,
+			{
+			    from => scalar($response->get_header( 'to' )),
+			    to => scalar($response->get_header( 'from' )),
+			    'call-id' => $new_callid,
+			    contact   => $me,
+			    cseq => "$num INVITE",
+			},
+			$sdp,
+		    ));
+		}
+	    } elsif ( $method eq 'INVITE' && $dir == 1 ) {
+		# ---------------------------------------------------------
+		# response from $to to the initial INVITE
+		# on success create ACK
+		# ---------------------------------------------------------
+		my $code = $response->code;
+		if ( $code < 200 ) {
+		    # preliminary response, ignore and don't reply
+		    DEBUG( 10,"ignoring preliminary reply from TO to initial invite" );
+		    return;
 		}
 
+		# create ACK to TO
+		$disp->deliver( Request->new( 'ACK', $to, {
+		    from => scalar($response->get_header( 'from' )),
+		    to   => scalar($response->get_header( 'to' )),
+		    'call-id' => $callid,
+		    contact   => $me,
+		    cseq => "$num ACK",
+		}));
+
+		if ( $code >= 300 ) {
+		    # non successful response (we don't care about redirects)
+		    # cancel initial call [ME,FROM]
+		    DEBUG( 10,"got code $code on INVITE 'TO'" );
+		    $disp->deliver( Request->new( 'CANCEL',$from, {
+			'call-id' => $new_callid,
+			cseq      => "$num INVITE",
+			from => scalar($response->get_header( 'to' )),
+			to   => scalar($response->get_header( 'from' )),
+			contact   => $me,
+		    }));
+
+		} else {
+		    DEBUG( 10,"got success on INVITE 'TO'" );
+		    # success: extract SDP and forward in ACK to FROM
+		    my $sdp = $response->sdp_body or do {
+			DEBUG( 1,"no SDP in response to INVITE from $to" );
+			return;
+		    };
+		    $disp->deliver( Request->new( 'ACK', $from,
+			{
+			    from => scalar($response->get_header( 'to' )),
+			    to   => scalar($response->get_header( 'from' )),
+			    'call-id' => $new_callid,
+			    contact   => $me,
+			    cseq => "$num ACK",
+			},
+			$sdp,
+		    ));
+		}
+	    }
 	} else {
-		# ------------------------------------------------------------------
-		# Handle requests from one of the parties
-		# change call-id and cseq (because I have to use one of my cseqs)
-		# and forward
-		# ------------------------------------------------------------------
+	    # ---------------------------------------------------------
+	    # response for forwarded request
+	    # change call-id and forward
+	    # ---------------------------------------------------------
 
-		if ( $request->uri eq $leg->{contact} ) {
-			# this is for me
-			# could be CANCEL or BYE
-			my $m = $request->method;
-			if ( $m ne 'BYE' and $m ne 'CANCEL' ) {
-				DEBUG( 10,"will not forward request to me with method $m" );
-				return;
-			}
+	    # get addr from next via
+	    my ($data) = sip_hdrval2parts( via => $via[1] );
+	    my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+	    $port ||= 5060; # FIXME: not for sips!
 
-			# set URI to other party
-			# if we were stateful we could store Contact infos from 
-			# older packets and use them here instead.
-			$request->set_uri( $dir ? $from : $to );
-		}
+	    $response->set_header( contact => $me );
+	    $leg->forward_incoming( $response );
+	    $response->set_header( 'call-id' => $new_callid );
 
-		my ($num,$method) = split( ' ',$request->cseq );
+	    # check if the last via header had a cseq attribute.
+	    # in this case forward the response with the given cseq
+	    my ($via) = $response->get_header( 'via' );
+	    my (undef,$param) = sip_hdrval2parts( via => $via );
+	    if ( defined( my $num = $param->{cseq} )) {
+		my $cseq = $response->cseq;
+		$cseq =~s{^(\d+)}{$num};
+		$response->set_header( cseq => $cseq );
+	    }
 
-		# we just add 20 to the cseq we got from the uac
-		# this is higher then every other locally generated cseq on
-		# this side (we only used "1" until now for the first INVITE)
-		$request->set_header( cseq => ( $num + 20 ).' '.$method );
+	    # if this was response to BYE end this program
+	    $stop_loop = 1 if $method eq 'BYE';
 
-		$request->set_header( contact => $me );
-		$leg->forward_incoming( $request );
-		$request->set_header( 'call-id' => $new_callid );
+	    $leg->forward_outgoing( $response,$leg );
+	    $disp->deliver( $response, leg => $leg, dst_addr => "$addr:$port" );
 
-		# add cseq param to last via header because both calls maintain
-		# different cseq spaces and we must know with which cseq we
-		# need to forward the response
-		if ( my @via = $request->get_header( 'via' ) ) {
-			my ($data,$param) = sip_hdrval2parts( via => $via[0] );
-			$param->{cseq} = $num;
-			$via[0] = sip_parts2hdrval( 'via',$data,$param );
-			$request->set_header( via => \@via );
-		}
-			
-		$leg->forward_outgoing( $request,$leg );
-		$disp->deliver( $request )
 	}
 
+    } else {
+	# ------------------------------------------------------------------
+	# Handle requests from one of the parties
+	# change call-id and cseq (because I have to use one of my cseqs)
+	# and forward
+	# ------------------------------------------------------------------
+
+	if ( $request->uri eq $leg->{contact} ) {
+	    # this is for me
+	    # could be CANCEL or BYE
+	    my $m = $request->method;
+	    if ( $m ne 'BYE' and $m ne 'CANCEL' ) {
+		DEBUG( 10,"will not forward request to me with method $m" );
+		return;
+	    }
+
+	    # set URI to other party
+	    # if we were stateful we could store Contact infos from
+	    # older packets and use them here instead.
+	    $request->set_uri( $dir ? $from : $to );
+	}
+
+	my ($num,$method) = split( ' ',$request->cseq );
+
+	# we just add 20 to the cseq we got from the uac
+	# this is higher then every other locally generated cseq on
+	# this side (we only used "1" until now for the first INVITE)
+	$request->set_header( cseq => ( $num + 20 ).' '.$method );
+
+	$request->set_header( contact => $me );
+	$leg->forward_incoming( $request );
+	$request->set_header( 'call-id' => $new_callid );
+
+	# add cseq param to last via header because both calls maintain
+	# different cseq spaces and we must know with which cseq we
+	# need to forward the response
+	if ( my @via = $request->get_header( 'via' ) ) {
+	    my ($data,$param) = sip_hdrval2parts( via => $via[0] );
+	    $param->{cseq} = $num;
+	    $via[0] = sip_parts2hdrval( 'via',$data,$param );
+	    $request->set_header( via => \@via );
+	}
+
+	$leg->forward_outgoing( $request,$leg );
+	$disp->deliver( $request )
+    }
+
 }
-
-
-

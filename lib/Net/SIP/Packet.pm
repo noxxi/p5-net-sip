@@ -34,10 +34,10 @@ use fields qw( code text header lines body as_string );
 # Returns: $self
 ###########################################################################
 sub new {
-	my $class = shift;
-	return @_>1
-		? $class->new_from_parts(@_)
-		: $class->new_from_string(@_);
+    my $class = shift;
+    return @_>1
+	? $class->new_from_parts(@_)
+	: $class->new_from_string(@_);
 }
 
 ###########################################################################
@@ -58,68 +58,68 @@ sub new {
 # if it is a request or response
 ###########################################################################
 sub new_from_parts {
-	my ($class,$code,$text,$header,$body) = @_;
+    my ($class,$code,$text,$header,$body) = @_;
 
-	# header can be hash-ref or array-ref
-	# if hash-ref convert it to array-ref sorted by key
-	# (sort just to make the result predictable)
-	if ( UNIVERSAL::isa( $header,'HASH' )) {
-		my @hnew;
-		foreach my $key ( sort keys %$header ) {
-			my $v = $header->{$key};
-			foreach my $value ( ref($v) ? @$v : ($v) ) {
-				push @hnew,[ $key,$value ];
-			}
-		}
-		$header = \@hnew;
-	}
-
-	if ( $code =~m{^\d} ) {
-		# Response
-		$class = 'Net::SIP::Response' if $class eq 'Net::SIP::Packet';
-	} else {
-		# Request
-		$code = uc($code);                             # uppercase method
-		$class = 'Net::SIP::Request' if $class eq 'Net::SIP::Packet';
-	}
-
-	my $self = fields::new($class);
-	$self->{code} = $code;
-	$self->{text} = defined($text) ? $text:'';
-
-	# $self->{header} is list of Net::SIP::HeaderPair which cares about normalized
-	# keys while maintaining the original key, so that one can restore header
-	# the elements from @$header can be either [ key,value ] or Net::SIP::HeaderPair's
-	# but have to be all from the same type
+    # header can be hash-ref or array-ref
+    # if hash-ref convert it to array-ref sorted by key
+    # (sort just to make the result predictable)
+    if ( UNIVERSAL::isa( $header,'HASH' )) {
 	my @hnew;
-	my $normalized = 0;
-	for( my $i=0;$i<@$header;$i++ ) {
-		my $h = $header->[$i];
-		if ( UNIVERSAL::isa($h,'Net::SIP::HeaderPair')) {
-			# already normalized
-			$normalized = 1;
-			push @hnew,$h;
-		} else {
-			my ($key,$value) = @$h;
-			defined($value) || next;
-			croak( "mix between normalized and not normalized data in header" ) if $normalized;
-			push @hnew, Net::SIP::HeaderPair->new( $key,$value ) ;
-		}
+	foreach my $key ( sort keys %$header ) {
+	    my $v = $header->{$key};
+	    foreach my $value ( ref($v) ? @$v : ($v) ) {
+		push @hnew,[ $key,$value ];
+	    }
 	}
+	$header = \@hnew;
+    }
 
-	$self->{header} = \@hnew;
-	# as_string is still undef, it will be evaluated once we call as_string()
+    if ( $code =~m{^\d} ) {
+	# Response
+	$class = 'Net::SIP::Response' if $class eq 'Net::SIP::Packet';
+    } else {
+	# Request
+	$code = uc($code);                             # uppercase method
+	$class = 'Net::SIP::Request' if $class eq 'Net::SIP::Packet';
+    }
 
-	if ( ref($body)) {
-		if ( !$self->get_header( 'content-type' )) {
-			my $sub = UNIVERSAL::can( $body, 'content_type' );
-			$self->set_header( 'content-type' => $sub->($body) ) if $sub;
-		}
-		$body = $body->as_string;
+    my $self = fields::new($class);
+    $self->{code} = $code;
+    $self->{text} = defined($text) ? $text:'';
+
+    # $self->{header} is list of Net::SIP::HeaderPair which cares about normalized
+    # keys while maintaining the original key, so that one can restore header
+    # the elements from @$header can be either [ key,value ] or Net::SIP::HeaderPair's
+    # but have to be all from the same type
+    my @hnew;
+    my $normalized = 0;
+    for( my $i=0;$i<@$header;$i++ ) {
+	my $h = $header->[$i];
+	if ( UNIVERSAL::isa($h,'Net::SIP::HeaderPair')) {
+	    # already normalized
+	    $normalized = 1;
+	    push @hnew,$h;
+	} else {
+	    my ($key,$value) = @$h;
+	    defined($value) || next;
+	    croak( "mix between normalized and not normalized data in header" ) if $normalized;
+	    push @hnew, Net::SIP::HeaderPair->new( $key,$value ) ;
 	}
-	$self->{body}   = $body;
+    }
 
-	return $self;
+    $self->{header} = \@hnew;
+    # as_string is still undef, it will be evaluated once we call as_string()
+
+    if ( ref($body)) {
+	if ( !$self->get_header( 'content-type' )) {
+	    my $sub = UNIVERSAL::can( $body, 'content_type' );
+	    $self->set_header( 'content-type' => $sub->($body) ) if $sub;
+	}
+	$body = $body->as_string;
+    }
+    $self->{body}   = $body;
+
+    return $self;
 }
 
 ###########################################################################
@@ -131,16 +131,16 @@ sub new_from_parts {
 #    for the class of $self see comment in new_from_parts above
 ###########################################################################
 sub new_from_string {
-	my ($class,$string) = @_;
-	my $data = _string2parts( $string );
-	if ( $class eq 'Net::SIP::Packet' ) {
-		$class = $data->{code} =~m{^\d}
-			? 'Net::SIP::Response'
-			:'Net::SIP::Request';
-	}
-	my $self = fields::new($class);
-	%$self = %$data;
-	return $self;
+    my ($class,$string) = @_;
+    my $data = _string2parts( $string );
+    if ( $class eq 'Net::SIP::Packet' ) {
+	$class = $data->{code} =~m{^\d}
+	    ? 'Net::SIP::Response'
+	    :'Net::SIP::Request';
+    }
+    my $self = fields::new($class);
+    %$self = %$data;
+    return $self;
 }
 
 ###########################################################################
@@ -149,9 +149,9 @@ sub new_from_string {
 # Returns: 1 if it's a request
 ###########################################################################
 sub is_request {
-	my $self = shift;
-	$self->{code} || $self->as_parts();
-	return $self->{code} !~m{^\d}
+    my $self = shift;
+    $self->{code} || $self->as_parts();
+    return $self->{code} !~m{^\d}
 }
 
 ###########################################################################
@@ -160,7 +160,7 @@ sub is_request {
 # Returns: 1 if it's a response
 ###########################################################################
 sub is_response {
-	return ! shift->is_request()
+    return ! shift->is_request()
 }
 
 
@@ -173,9 +173,9 @@ sub is_response {
 # Returns: $tid
 ###########################################################################
 sub tid {
-	my Net::SIP::Packet $self = shift;
-	$self->get_header( 'cseq' ) =~m{^(\d+)};
-	return $self->get_header( 'call-id' ).' '.$1;
+    my Net::SIP::Packet $self = shift;
+    $self->get_header( 'cseq' ) =~m{^(\d+)};
+    return $self->get_header( 'call-id' ).' '.$1;
 }
 
 ###########################################################################
@@ -207,31 +207,31 @@ sub callid { scalar( shift->get_header('call-id')) }
 #      { key1 => \@val1, key2 => \@val2,.. }
 ###########################################################################
 sub get_header {
-	my ($self,$key) = @_;
-	my $hdr = ($self->as_parts)[2];
-	if ( $key ) {
-		$key = _normalize_hdrkey($key);
-		my @v;
-		foreach my $h (@$hdr) {
-			push @v,$h->{value} if $h->{key} eq $key;
-		}
-		return @v if wantarray;
-		if (@v>1) {
-			# looks like we have multiple headers but expect only
-			# one. Because we've seen bad client which issue multiple
-			# content-length header we try if all in @v are the same
-			my %v = map { $_ => 1 } @v;
-			return $v[0] if keys(%v) == 1; # ok, only one
-			croak( "multiple values for $key in packet:\n".$self->as_string );
-		}
-		return $v[0];
-	} else {
-		my %result;
-		foreach my $h (@$hdr) {
-			push @{ $result{$h->{key}} }, $h->{value};
-		}
-		return \%result;
+    my ($self,$key) = @_;
+    my $hdr = ($self->as_parts)[2];
+    if ( $key ) {
+	$key = _normalize_hdrkey($key);
+	my @v;
+	foreach my $h (@$hdr) {
+	    push @v,$h->{value} if $h->{key} eq $key;
 	}
+	return @v if wantarray;
+	if (@v>1) {
+	    # looks like we have multiple headers but expect only
+	    # one. Because we've seen bad client which issue multiple
+	    # content-length header we try if all in @v are the same
+	    my %v = map { $_ => 1 } @v;
+	    return $v[0] if keys(%v) == 1; # ok, only one
+	    croak( "multiple values for $key in packet:\n".$self->as_string );
+	}
+	return $v[0];
+    } else {
+	my %result;
+	foreach my $h (@$hdr) {
+	    push @{ $result{$h->{key}} }, $h->{value};
+	}
+	return \%result;
+    }
 }
 
 ###########################################################################
@@ -247,26 +247,26 @@ sub get_header {
 #      { key1 => \@val1, key2 => \@val2,.. } where val are Net::SIP::HeaderVal
 ###########################################################################
 sub get_header_hashval {
-	my ($self,$key) = @_;
-	my $hdr = ($self->as_parts)[2];
-	if ( $key ) {
-		$key = _normalize_hdrkey($key);
-		my @v;
-		foreach my $h (@$hdr) {
-			push @v,Net::SIP::HeaderVal->new( $h )
-				if $h->{key} eq $key;
-		}
-		return @v if wantarray;
-		croak( "multiple values for $key" ) if @v>1;
-		return $v[0];
-	} else {
-		my %result;
-		foreach my $h (@$hdr) {
-			push @{ $result{$h->{key}} },
-				Net::SIP::HeaderVal->new( $h );
-		}
-		return \%result;
+    my ($self,$key) = @_;
+    my $hdr = ($self->as_parts)[2];
+    if ( $key ) {
+	$key = _normalize_hdrkey($key);
+	my @v;
+	foreach my $h (@$hdr) {
+	    push @v,Net::SIP::HeaderVal->new( $h )
+		if $h->{key} eq $key;
 	}
+	return @v if wantarray;
+	croak( "multiple values for $key" ) if @v>1;
+	return $v[0];
+    } else {
+	my %result;
+	foreach my $h (@$hdr) {
+	    push @{ $result{$h->{key}} },
+		Net::SIP::HeaderVal->new( $h );
+	}
+	return \%result;
+    }
 }
 
 ###########################################################################
@@ -276,13 +276,13 @@ sub get_header_hashval {
 #   $val: scalar or \@array which contains value(s)
 ###########################################################################
 sub add_header {
-	my ($self,$key,$val) = @_;
-	my $hdr = ($self->as_parts)[2];
-	foreach my $v ( ref($val) ? @$val:$val ) {
-		### TODO: should add quoting to $v if necessary
-		push @$hdr, Net::SIP::HeaderPair->new( $key,$v );
-	}
-	$self->_update_string();
+    my ($self,$key,$val) = @_;
+    my $hdr = ($self->as_parts)[2];
+    foreach my $v ( ref($val) ? @$val:$val ) {
+	### TODO: should add quoting to $v if necessary
+	push @$hdr, Net::SIP::HeaderPair->new( $key,$v );
+    }
+    $self->_update_string();
 }
 
 ###########################################################################
@@ -292,13 +292,13 @@ sub add_header {
 #   $val: scalar or \@array which contains value(s)
 ###########################################################################
 sub insert_header {
-	my ($self,$key,$val) = @_;
-	my $hdr = ($self->as_parts)[2];
-	foreach my $v ( ref($val) ? @$val:$val ) {
-		### TODO: should add quoting to $v if necessary
-		unshift @$hdr, Net::SIP::HeaderPair->new( $key,$v );
-	}
-	$self->_update_string();
+    my ($self,$key,$val) = @_;
+    my $hdr = ($self->as_parts)[2];
+    foreach my $v ( ref($val) ? @$val:$val ) {
+	### TODO: should add quoting to $v if necessary
+	unshift @$hdr, Net::SIP::HeaderPair->new( $key,$v );
+    }
+    $self->_update_string();
 }
 
 ###########################################################################
@@ -306,11 +306,11 @@ sub insert_header {
 # Args: ($self,$key)
 ###########################################################################
 sub del_header {
-	my ($self,$key) = @_;
-	$key = _normalize_hdrkey($key);
-	my $hdr = ($self->as_parts)[2];
-	@$hdr = grep { $_->{key} ne $key } @$hdr;
-	$self->_update_string();
+    my ($self,$key) = @_;
+    $key = _normalize_hdrkey($key);
+    my $hdr = ($self->as_parts)[2];
+    @$hdr = grep { $_->{key} ne $key } @$hdr;
+    $self->_update_string();
 }
 
 ###########################################################################
@@ -320,17 +320,17 @@ sub del_header {
 #   $val: scalar or \@array which contains value(s)
 ###########################################################################
 sub set_header {
-	my ($self,$key,$val) = @_;
-	$key = _normalize_hdrkey($key);
-	# del_header
-	my $hdr = ($self->as_parts)[2];
-	@$hdr = grep { $_->{key} ne $key } @$hdr;
-	# add_header
-	foreach my $v ( ref($val) ? @$val:$val ) {
-		### TODO: should add quoting to $v if necessary
-		push @$hdr, Net::SIP::HeaderPair->new( $key,$v );
-	}
-	$self->_update_string();
+    my ($self,$key,$val) = @_;
+    $key = _normalize_hdrkey($key);
+    # del_header
+    my $hdr = ($self->as_parts)[2];
+    @$hdr = grep { $_->{key} ne $key } @$hdr;
+    # add_header
+    foreach my $v ( ref($val) ? @$val:$val ) {
+	### TODO: should add quoting to $v if necessary
+	push @$hdr, Net::SIP::HeaderPair->new( $key,$v );
+    }
+    $self->_update_string();
 }
 
 ###########################################################################
@@ -340,17 +340,17 @@ sub set_header {
 # Returns: NONE
 ###########################################################################
 sub set_body {
-	my ($self,$body) = @_;
-	if ( ref($body)) {
-		if ( !$self->get_header( 'content-type' )) {
-			my $sub = UNIVERSAL::can( $body, 'content_type' );
-			$self->set_header( 'content-type' => $sub->($body) ) if $sub;
-		}
-		$body = $body->as_string;
+    my ($self,$body) = @_;
+    if ( ref($body)) {
+	if ( !$self->get_header( 'content-type' )) {
+	    my $sub = UNIVERSAL::can( $body, 'content_type' );
+	    $self->set_header( 'content-type' => $sub->($body) ) if $sub;
 	}
-	$self->as_parts;
-	$self->{body} = $body;
-	$self->_update_string();
+	$body = $body->as_string;
+    }
+    $self->as_parts;
+    $self->{body} = $body;
+    $self->_update_string();
 }
 
 ###########################################################################
@@ -364,21 +364,21 @@ sub set_body {
 #    header it should call $pair->set_modified
 ###########################################################################
 sub scan_header {
-	my Net::SIP::Packet $self = shift;
-	my $key = _normalize_hdrkey(shift) if @_>1;
-	my $sub = shift;
+    my Net::SIP::Packet $self = shift;
+    my $key = _normalize_hdrkey(shift) if @_>1;
+    my $sub = shift;
 
-	($sub, my @args) = ref($sub) eq 'CODE' ? ($sub):@$sub;
+    ($sub, my @args) = ref($sub) eq 'CODE' ? ($sub):@$sub;
 
-	my $hdr = ($self->as_parts)[2];
-	foreach my $h (@$hdr) {
-		next if $key && $h->{key} ne $key;
-		# in-place modify or delete (set key to undef)
-		$sub->(@args,$h);
-	}
-	# remove deleted entries ( !key ) from @$hdr
-	@$hdr = grep { $_->{key} } @$hdr;
-	$self->_update_string();
+    my $hdr = ($self->as_parts)[2];
+    foreach my $h (@$hdr) {
+	next if $key && $h->{key} ne $key;
+	# in-place modify or delete (set key to undef)
+	$sub->(@args,$h);
+    }
+    # remove deleted entries ( !key ) from @$hdr
+    @$hdr = grep { $_->{key} } @$hdr;
+    $self->_update_string();
 }
 
 ###########################################################################
@@ -389,71 +389,71 @@ sub scan_header {
 # Returns: $packet_as_string
 ###########################################################################
 sub as_string {
-	my $self = shift;
+    my $self = shift;
 
-	# check if content-length header is up-to-date
-	my $body = $self->{body} || '';
-	my $cl = $self->get_header( 'content-length' );
-	if ( defined($cl) && $cl != length($body) ) {
-		$self->set_header( 'content-length',length($body))
+    # check if content-length header is up-to-date
+    my $body = $self->{body} || '';
+    my $cl = $self->get_header( 'content-length' );
+    if ( defined($cl) && $cl != length($body) ) {
+	$self->set_header( 'content-length',length($body))
+    }
+
+    # return immediatly if request is up to date
+    return $self->{as_string} if $self->{as_string};
+
+    my $header = $self->{header};
+
+    # check if the lines from the original packet (if created
+    # from string, see as_parts) are up-to-date
+    my @result;
+    if ( my $lines = $self->{lines} ) {
+	for (my $i=0;$i<@$lines;$i++ ) {
+	    my ($line,$count) = @{ $lines->[$i] || next };
+
+	    # check if $count entries for line-index $i in headers
+	    my @hi = grep {
+		my $line = $header->[$_]{line};
+		( defined($line) && $line == $i ) ? 1:0;
+	    } (0..$#$header);
+	    if ( @hi == $count ) {
+		# assume that line wasn't changed because the count is right
+		$result[ $hi[0] ] = $line;
+	    } elsif ( @hi ) {
+		# some parts from this line have been modified
+		# place remaining parts back to same line
+		my $v = join( ", ", map { $header->[$_]{value} } @hi );
+		$v  =~s{\r?\n\s*}{\r\n }g; # \r?\n\s* -> \r\n + space for continuation lines
+		my $r = $result[ $hi[0] ] = $header->[ $hi[0] ]{orig_key}.": ".$v;
+		$lines->[$i] = [ $r,int(@hi) ]; # and update $lines
+	    } else {
+		# nothing remaining from line $i, update lines
+		delete $lines->[$i];
+	    }
 	}
+    }
 
-	# return immediatly if request is up to date
-	return $self->{as_string} if $self->{as_string};
+    # all lines from $header which had a defined line index should have been
+    # handled by the code above, now care about the lines w/o defined line
+    foreach my $hi ( grep { !defined( $header->[$_]{line} ) } (0..$#$header) ) {
 
-	my $header = $self->{header};
+	my $v = $header->[$hi]{value};
+	$v =~s{\r?\n\s*}{\r\n }g; # \r?\n\s* -> \r\n + space for continuation lines
+	$result[$hi] = ucfirst($header->[$hi]{key}).": ".$v;
+    }
 
-	# check if the lines from the original packet (if created
-	# from string, see as_parts) are up-to-date
-	my @result;
-	if ( my $lines = $self->{lines} ) {
-		for (my $i=0;$i<@$lines;$i++ ) {
-			my ($line,$count) = @{ $lines->[$i] || next };
+    # (re)build packet
+    my $hdr_string = $self->{code} =~m{^\d}
+	? "SIP/2.0 $self->{code} $self->{text}\r\n"   # Response
+	: "$self->{code} $self->{text} SIP/2.0\r\n"   # Request
+	;
 
-			# check if $count entries for line-index $i in headers
-			my @hi = grep {
-				my $line = $header->[$_]{line};
-				( defined($line) && $line == $i ) ? 1:0;
-			} (0..$#$header);
-			if ( @hi == $count ) {
-				# assume that line wasn't changed because the count is right
-				$result[ $hi[0] ] = $line;
-			} elsif ( @hi ) {
-				# some parts from this line have been modified
-				# place remaining parts back to same line
-				my $v = join( ", ", map { $header->[$_]{value} } @hi );
-				$v  =~s{\r?\n\s*}{\r\n }g; # \r?\n\s* -> \r\n + space for continuation lines
-				my $r = $result[ $hi[0] ] = $header->[ $hi[0] ]{orig_key}.": ".$v;
-				$lines->[$i] = [ $r,int(@hi) ]; # and update $lines
-			} else {
-				# nothing remaining from line $i, update lines
-				delete $lines->[$i];
-			}
-		}
-	}
+    $hdr_string .= join( "\r\n", grep { $_ } @result )."\r\n";
 
-	# all lines from $header which had a defined line index should have been
-	# handled by the code above, now care about the lines w/o defined line
-	foreach my $hi ( grep { !defined( $header->[$_]{line} ) } (0..$#$header) ) {
+    # add content-length header if there was none
+    $hdr_string .= sprintf( "Content-length: %d\r\n", length( $body ))
+	if !defined($cl);
 
-		my $v = $header->[$hi]{value};
-		$v =~s{\r?\n\s*}{\r\n }g; # \r?\n\s* -> \r\n + space for continuation lines
-		$result[$hi] = ucfirst($header->[$hi]{key}).": ".$v;
-	}
-
-	# (re)build packet
-	my $hdr_string = $self->{code} =~m{^\d}
-		? "SIP/2.0 $self->{code} $self->{text}\r\n"   # Response
-		: "$self->{code} $self->{text} SIP/2.0\r\n"   # Request
-		;
-
-	$hdr_string .= join( "\r\n", grep { $_ } @result )."\r\n";
-
-	# add content-length header if there was none
-	$hdr_string .= sprintf( "Content-length: %d\r\n", length( $body ))
-		if !defined($cl);
-
-	return ( $self->{as_string} = $hdr_string."\r\n".$body );
+    return ( $self->{as_string} = $hdr_string."\r\n".$body );
 }
 
 ###########################################################################
@@ -463,18 +463,18 @@ sub as_string {
 # Returns: $dump_as_string
 ###########################################################################
 sub dump {
-	my Net::SIP::Packet $self = shift;
-	my $level = shift;
-	if ( !$level ) {
-		my ($code,$text,$header,$body) = $self->as_parts;
-		if ( $self->is_request ) {
-			return "REQ  $code $text ".( $body ? 'with body' :'' );
-		} else {
-			return "RESP $code '$text' ".( $body ? 'with body' :'' );
-		}
+    my Net::SIP::Packet $self = shift;
+    my $level = shift;
+    if ( !$level ) {
+	my ($code,$text,$header,$body) = $self->as_parts;
+	if ( $self->is_request ) {
+	    return "REQ  $code $text ".( $body ? 'with body' :'' );
 	} else {
-		return $self->as_string
+	    return "RESP $code '$text' ".( $body ? 'with body' :'' );
 	}
+    } else {
+	return $self->as_string
+    }
 }
 
 
@@ -492,153 +492,153 @@ sub dump {
 # Output from this method is directly usable as input to new_from_parts
 ###########################################################################
 sub as_parts {
-	my $self = shift;
+    my $self = shift;
 
-	# if parts are up to date return immediatly#
-	if ( ! $self->{code} ) {
-		my $data = _string2parts( $self->{as_string} );
-		%$self = ( %$self,%$data );
-	}
-	return @{$self}{qw(code text header body)} if $self->{code};
+    # if parts are up to date return immediatly#
+    if ( ! $self->{code} ) {
+	my $data = _string2parts( $self->{as_string} );
+	%$self = ( %$self,%$data );
+    }
+    return @{$self}{qw(code text header body)} if $self->{code};
 }
 
 {
-	my $word_rx = qr{[\w\-\.!%\*+`'~()<>:"/?{}\x1c\x1b\x1d]+};
-	my $callid_rx = qr{^$word_rx(?:\@$word_rx)?$};
-	my %key2parser = (
+    my $word_rx = qr{[\w\-\.!%\*+`'~()<>:"/?{}\x1c\x1b\x1d]+};
+    my $callid_rx = qr{^$word_rx(?:\@$word_rx)?$};
+    my %key2parser = (
 
-		# FIXME: More of these should be more strict to filter out invalid values
-		# for now they are only given here to distinguish them from the keys, which
-		# can be given multiple times either on different lines or on the same delimited
-		# by comma
+	# FIXME: More of these should be more strict to filter out invalid values
+	# for now they are only given here to distinguish them from the keys, which
+	# can be given multiple times either on different lines or on the same delimited
+	# by comma
 
-		'www-authenticate' => \&_hdrkey_parse_keep,
-		'authorization' => \&_hdrkey_parse_keep,
-		'proxy-authenticate' => \&_hdrkey_parse_keep,
-		'proxy-authorization' => \&_hdrkey_parse_keep,
-		'date' => \&_hdrkey_parse_keep,
-		'content-disposition' => \&_hdrkey_parse_keep,
-		'content-type' => \&_hdrkey_parse_keep,
-		'mime-version' => \&_hdrkey_parse_keep,
-		'organization' => \&_hdrkey_parse_keep,
-		'priority' => \&_hdrkey_parse_keep,
-		'reply-to' => \&_hdrkey_parse_keep,
-		'retry-after' => \&_hdrkey_parse_keep,
-		'server' => \&_hdrkey_parse_keep,
-		'to' => \&_hdrkey_parse_keep,
-		'user-agent' => \&_hdrkey_parse_keep,
+	'www-authenticate' => \&_hdrkey_parse_keep,
+	'authorization' => \&_hdrkey_parse_keep,
+	'proxy-authenticate' => \&_hdrkey_parse_keep,
+	'proxy-authorization' => \&_hdrkey_parse_keep,
+	'date' => \&_hdrkey_parse_keep,
+	'content-disposition' => \&_hdrkey_parse_keep,
+	'content-type' => \&_hdrkey_parse_keep,
+	'mime-version' => \&_hdrkey_parse_keep,
+	'organization' => \&_hdrkey_parse_keep,
+	'priority' => \&_hdrkey_parse_keep,
+	'reply-to' => \&_hdrkey_parse_keep,
+	'retry-after' => \&_hdrkey_parse_keep,
+	'server' => \&_hdrkey_parse_keep,
+	'to' => \&_hdrkey_parse_keep,
+	'user-agent' => \&_hdrkey_parse_keep,
 
-		'content-length' => \&_hdrkey_parse_num,
-		'expires' => \&_hdrkey_parse_num,
-		'max-forwards' => \&_hdrkey_parse_num,
-		'min-expires' => \&_hdrkey_parse_num,
+	'content-length' => \&_hdrkey_parse_num,
+	'expires' => \&_hdrkey_parse_num,
+	'max-forwards' => \&_hdrkey_parse_num,
+	'min-expires' => \&_hdrkey_parse_num,
 
-		'call-id' => sub {
-			$_[0] =~ $callid_rx or die "invalid callid, should be 'word [@ word]'";
-			return $_[0];
-		},
-		'cseq' => sub {
-			$_[0] =~ m{^\d+\s+\w+\s*$} or die "invalid cseq, should be 'number method'";
-			return $_[0];
-		},
-	);
+	'call-id' => sub {
+	    $_[0] =~ $callid_rx or die "invalid callid, should be 'word [@ word]'";
+	    return $_[0];
+	},
+	'cseq' => sub {
+	    $_[0] =~ m{^\d+\s+\w+\s*$} or die "invalid cseq, should be 'number method'";
+	    return $_[0];
+	},
+    );
 
-	sub _hdrkey_parse_keep { return $_[0] };
-	sub _hdrkey_parse_num {
-		my ($v,$k) = @_;
-		$v =~m{^(\d+)\s*$} || die "invalid $k, should be number";
-		return $1;
-	};
+    sub _hdrkey_parse_keep { return $_[0] };
+    sub _hdrkey_parse_num {
+	my ($v,$k) = @_;
+	$v =~m{^(\d+)\s*$} || die "invalid $k, should be number";
+	return $1;
+    };
 
-	sub _hdrkey_parse_comma_seperated {
-		my ($v,$k) = @_;
-		my @v = ( '' );
-		my $quote = '';
-		# split on komma (but not if quoted)
-		while (1) {
-			if ( $quote ) {
-				if ( $v =~m{\G(.*?)(\\|$quote)}gc ) {
-					if ( $2 eq "\\" ) {
-						$v[-1].=$1.$2.substr( $v,pos($v),1 );
-						pos($v)++;
-					} else {
-						$v[-1].=$1.$2;
-						$quote = '';
-					}
-				}
-			} elsif ( $v =~m{\G(.*?)([\\"<,])}gc ) {
-				if ( $2 eq "\\" ) {
-					$v[-1].=$1.$2.substr( $v,pos($v),1 );
-					pos($v)++;
-				} elsif ( $2 eq ',' ) {
-					# next item if not quoted
-					( $v[-1].=$1 ) =~s{\s+$}{}; # strip trailing space
-					push @v,'' if !$quote;
-					$v =~m{\G\s+}gc; # skip space after ','
-				} else {
-					$v[-1].=$1.$2;
-					$quote = $2 eq '<' ? '>':$2;
-				}
-			} else {
-				# add rest to last from @v
-				$v[-1].= substr($v,pos($v)||0 );
-				last;
-			}
+    sub _hdrkey_parse_comma_seperated {
+	my ($v,$k) = @_;
+	my @v = ( '' );
+	my $quote = '';
+	# split on komma (but not if quoted)
+	while (1) {
+	    if ( $quote ) {
+		if ( $v =~m{\G(.*?)(\\|$quote)}gc ) {
+		    if ( $2 eq "\\" ) {
+			$v[-1].=$1.$2.substr( $v,pos($v),1 );
+			pos($v)++;
+		    } else {
+			$v[-1].=$1.$2;
+			$quote = '';
+		    }
 		}
-		return @v;
-	}
-
-	sub _string2parts {
-		my $string = shift;
-		my %result = ( as_string => $string );
-
-		# otherwise parse request
-		my ($header,$body) = split( m{\r?\n\r?\n}, $string,2 );
-		my @header = split( m{\r?\n}, $header );
-
-		if ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
-			# Response, e.g. SIP/2.0 407 Authorization required
-			$result{code} = $1;
-			$result{text} = $2;
-		} elsif ( $header[0] =~m{^(\w+)\s+(\S.*?)\s+SIP/2\.0\s*$} ) {
-			# Request, e.g. INVITE <sip:bla@fasel> SIP/2.0
-			$result{code} = $1;
-			$result{text} = $2;
+	    } elsif ( $v =~m{\G(.*?)([\\"<,])}gc ) {
+		if ( $2 eq "\\" ) {
+		    $v[-1].=$1.$2.substr( $v,pos($v),1 );
+		    pos($v)++;
+		} elsif ( $2 eq ',' ) {
+		    # next item if not quoted
+		    ( $v[-1].=$1 ) =~s{\s+$}{}; # strip trailing space
+		    push @v,'' if !$quote;
+		    $v =~m{\G\s+}gc; # skip space after ','
 		} else {
-			die "bad request: starts with '$header[0]'";
+		    $v[-1].=$1.$2;
+		    $quote = $2 eq '<' ? '>':$2;
 		}
-		shift(@header);
-
-		$result{body} = $body;
-
-		my @hdr;
-		my @lines;
-		while (@header) {
-			my ($k,$v) = $header[0] =~m{^([^\s:]+)\s*:\s*(.*)}
-				or die "bad header line $header[0]";
-			my $line = shift(@header);
-			while ( @header && $header[0] =~m{^\s+(.*)} ) {
-				# continuation line
-				$v .= "\n$1";
-				$line .= shift(@header);
-			}
-			my $nk = _normalize_hdrkey($k);
-
-			my $parse = $key2parser{$nk};
-			my @v = $parse ? $parse->($v,$nk) : _hdrkey_parse_comma_seperated($v,$nk);
-			if ( @v>1 ) {
-				for( my $i=0;$i<@v;$i++ ) {
-					push @hdr, Net::SIP::HeaderPair->new( $k,$v[$i],scalar(@lines),$i );
-				}
-			} else {
-				push @hdr, Net::SIP::HeaderPair->new( $k,$v[0],scalar(@lines) );
-			}
-			push @lines, [ $line, int(@v) ];
-		}
-		$result{header} = \@hdr;
-		$result{lines}  = \@lines;
-		return \%result;
+	    } else {
+		# add rest to last from @v
+		$v[-1].= substr($v,pos($v)||0 );
+		last;
+	    }
 	}
+	return @v;
+    }
+
+    sub _string2parts {
+	my $string = shift;
+	my %result = ( as_string => $string );
+
+	# otherwise parse request
+	my ($header,$body) = split( m{\r?\n\r?\n}, $string,2 );
+	my @header = split( m{\r?\n}, $header );
+
+	if ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
+	    # Response, e.g. SIP/2.0 407 Authorization required
+	    $result{code} = $1;
+	    $result{text} = $2;
+	} elsif ( $header[0] =~m{^(\w+)\s+(\S.*?)\s+SIP/2\.0\s*$} ) {
+	    # Request, e.g. INVITE <sip:bla@fasel> SIP/2.0
+	    $result{code} = $1;
+	    $result{text} = $2;
+	} else {
+	    die "bad request: starts with '$header[0]'";
+	}
+	shift(@header);
+
+	$result{body} = $body;
+
+	my @hdr;
+	my @lines;
+	while (@header) {
+	    my ($k,$v) = $header[0] =~m{^([^\s:]+)\s*:\s*(.*)}
+		or die "bad header line $header[0]";
+	    my $line = shift(@header);
+	    while ( @header && $header[0] =~m{^\s+(.*)} ) {
+		# continuation line
+		$v .= "\n$1";
+		$line .= shift(@header);
+	    }
+	    my $nk = _normalize_hdrkey($k);
+
+	    my $parse = $key2parser{$nk};
+	    my @v = $parse ? $parse->($v,$nk) : _hdrkey_parse_comma_seperated($v,$nk);
+	    if ( @v>1 ) {
+		for( my $i=0;$i<@v;$i++ ) {
+		    push @hdr, Net::SIP::HeaderPair->new( $k,$v[$i],scalar(@lines),$i );
+		}
+	    } else {
+		push @hdr, Net::SIP::HeaderPair->new( $k,$v[0],scalar(@lines) );
+	    }
+	    push @lines, [ $line, int(@v) ];
+	}
+	$result{header} = \@hdr;
+	$result{lines}  = \@lines;
+	return \%result;
+    }
 }
 
 ###########################################################################
@@ -649,11 +649,11 @@ sub as_parts {
 #     application/sdp (or not defined)
 ###########################################################################
 sub sdp_body {
-	my Net::SIP::Packet $self = shift;
-	my $ct = $self->get_header( 'content-type' );
-	return if $ct && lc($ct) ne 'application/sdp';
-	my $body = ($self->as_parts)[3] || return;
-	return Net::SIP::SDP->new( $body );
+    my Net::SIP::Packet $self = shift;
+    my $ct = $self->get_header( 'content-type' );
+    return if $ct && lc($ct) ne 'application/sdp';
+    my $body = ($self->as_parts)[3] || return;
+    return Net::SIP::SDP->new( $body );
 }
 
 ###########################################################################
@@ -662,7 +662,7 @@ sub sdp_body {
 # Returns: $clone
 ###########################################################################
 sub clone {
-	return Storable::dclone( shift );
+    return Storable::dclone( shift );
 }
 
 ###########################################################################
@@ -672,8 +672,8 @@ sub clone {
 # Args: $self
 ###########################################################################
 sub _update_parts {
-	my $self = shift;
-	$self->{code} = undef if $self->{as_string};
+    my $self = shift;
+    $self->{code} = undef if $self->{as_string};
 }
 
 ###########################################################################
@@ -683,8 +683,8 @@ sub _update_parts {
 # Args: $self
 ###########################################################################
 sub _update_string {
-	my $self = shift;
-	$self->{as_string} = undef if $self->{code};
+    my $self = shift;
+    $self->{as_string} = undef if $self->{code};
 }
 
 ###########################################################################
@@ -693,7 +693,7 @@ sub _update_string {
 # Returns: $key_normalized
 ###########################################################################
 sub _normalize_hdrkey {
-	goto &Net::SIP::HeaderPair::_normalize_hdrkey
+    goto &Net::SIP::HeaderPair::_normalize_hdrkey
 }
 
 ###########################################################################
@@ -722,14 +722,14 @@ use fields qw( key value orig_key line pos );
 # Returns: $self
 ###########################################################################
 sub new {
-	my ($class,$key,$value,$line,$pos) = @_;
-	my $self = fields::new( $class );
-	$self->{key} = _normalize_hdrkey( $key);
-	$self->{value} = $value;
-	$self->{orig_key} = $key;
-	$self->{line} = $line;
-	$self->{pos} = $pos;
-	return $self;
+    my ($class,$key,$value,$line,$pos) = @_;
+    my $self = fields::new( $class );
+    $self->{key} = _normalize_hdrkey( $key);
+    $self->{value} = $value;
+    $self->{orig_key} = $key;
+    $self->{line} = $line;
+    $self->{pos} = $pos;
+    return $self;
 }
 
 ###########################################################################
@@ -738,8 +738,8 @@ sub new {
 # Args: $self
 ###########################################################################
 sub remove {
-	# mark es removed
-	shift->{key} = undef
+    # mark es removed
+    shift->{key} = undef
 }
 
 ###########################################################################
@@ -748,29 +748,29 @@ sub remove {
 # Args: $self
 ###########################################################################
 sub set_modified {
-	# mark as modified
-	my $self = shift;
-	$self->{line} = $self->{pos} = undef;
+    # mark as modified
+    my $self = shift;
+    $self->{line} = $self->{pos} = undef;
 }
 
 
 {
-	my %alias = (
-		i => 'call-id',
-		m => 'contact',
-		e => 'content-encoding',
-		l => 'content-length',
-		c => 'content-type',
-		f => 'from',
-		s => 'subject',
-		k => 'supported',
-		t => 'to',
-		v => 'via',
-	);
-	sub _normalize_hdrkey {
-		my $key = lc(shift);
-		return $alias{$key} || $key;
-	}
+    my %alias = (
+	i => 'call-id',
+	m => 'contact',
+	e => 'content-encoding',
+	l => 'content-length',
+	c => 'content-type',
+	f => 'from',
+	s => 'subject',
+	k => 'supported',
+	t => 'to',
+	v => 'via',
+    );
+    sub _normalize_hdrkey {
+	my $key = lc(shift);
+	return $alias{$key} || $key;
+    }
 }
 
 
@@ -800,15 +800,15 @@ use fields qw( data parameter );
 # Returns: $self
 ###########################################################################
 sub new {
-	my $class = shift;
-	my Net::SIP::HeaderPair $pair = shift;
-	my $key = $pair->{key};
-	my $v = $pair->{value};
+    my $class = shift;
+    my Net::SIP::HeaderPair $pair = shift;
+    my $key = $pair->{key};
+    my $v = $pair->{value};
 
-	my $self = fields::new($class);
-	($self->{data}, $self->{parameter}) = sip_hdrval2parts( $key,$v );
+    my $self = fields::new($class);
+    ($self->{data}, $self->{parameter}) = sip_hdrval2parts( $key,$v );
 
-	return $self;
+    return $self;
 }
 
 

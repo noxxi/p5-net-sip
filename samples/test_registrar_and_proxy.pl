@@ -14,7 +14,7 @@ use Net::SIP;
 
 my $ua = Net::SIP::Simple->new( leg => '192.168.178.2:5060' );
 $ua->create_chain([
-	$ua->create_registrar,
-	$ua->create_stateless_proxy, 
+    $ua->create_registrar,
+    $ua->create_stateless_proxy,
 ]);
 $ua->loop;

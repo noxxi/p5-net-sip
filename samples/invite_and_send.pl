@@ -19,8 +19,8 @@ use Net::SIP::Util 'create_socket_to';
 use Net::SIP::Debug;
 
 sub usage {
-	print STDERR "ERROR: @_\n" if @_;
-	print STDERR <<EOS;
+    print STDERR "ERROR: @_\n" if @_;
+    print STDERR <<EOS;
 usage: $0 [ options ] FROM TO
 Makes SIP call from FROM to TO, sends voice from multiple
 files to peer. Content in files need to be PCMU/8000 and
@@ -43,7 +43,7 @@ Examples:
      -S holy_shit.data sip:30\@example.com 31
 
 EOS
-	exit( @_ ? 1:0 );
+    exit( @_ ? 1:0 );
 }
 
 
@@ -55,15 +55,15 @@ my $ring_time = 30;
 my ($proxy,@files,$registrar,$username,$password,$local_leg);
 my ($debug,$hangup);
 GetOptions(
-	'd|debug:i' => \$debug,
-	'h|help' => sub { usage() },
-	'P|proxy=s' => \$proxy,
-	'R|registrar=s' => \$registrar,
-	'S|send=s' => \@files,
-	'L|leg=s' => \$local_leg,
-	'T|timeout=s' => \$ring_time,
-	'username=s' =>\$username,
-	'password=s' =>\$password,
+    'd|debug:i' => \$debug,
+    'h|help' => sub { usage() },
+    'P|proxy=s' => \$proxy,
+    'R|registrar=s' => \$registrar,
+    'S|send=s' => \@files,
+    'L|leg=s' => \$local_leg,
+    'T|timeout=s' => \$ring_time,
+    'username=s' =>\$username,
+    'password=s' =>\$password,
 ) || usage( "bad option" );
 
 
@@ -79,36 +79,36 @@ $registrar ||= $proxy;
 ###################################################
 my ($local_host,$local_port);
 if ( $local_leg ) {
-	($local_host,$local_port) = split( m/:/,$local_leg,2 );
+    ($local_host,$local_port) = split( m/:/,$local_leg,2 );
 } elsif ( ! $proxy ) {
-	# if no proxy is given we need to find out
-	# about the leg using the IP given from FROM
-	($local_host,$local_port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
-		or die "cannot find SIP domain in '$from'";
+    # if no proxy is given we need to find out
+    # about the leg using the IP given from FROM
+    ($local_host,$local_port) = $from =~m{\@([\w\-\.]+)(?::(\d+))?}
+	or die "cannot find SIP domain in '$from'";
 }
 
 my $leg;
 if ( $local_host ) {
-	my $addr = gethostbyname( $local_host )
-		|| die "cannot get IP from SIP domain '$local_host'";
-	$addr = inet_ntoa( $addr );
+    my $addr = gethostbyname( $local_host )
+	|| die "cannot get IP from SIP domain '$local_host'";
+    $addr = inet_ntoa( $addr );
 
+    $leg = IO::Socket::INET->new(
+	Proto => 'udp',
+	LocalAddr => $addr,
+	LocalPort => $local_port || 5060,
+    );
+
+    # if no port given and port 5060 is already used try another one
+    if ( !$leg && !$local_port ) {
 	$leg = IO::Socket::INET->new(
-		Proto => 'udp',
-		LocalAddr => $addr,
-		LocalPort => $local_port || 5060,
-	);
+	    Proto => 'udp',
+	    LocalAddr => $addr,
+	    LocalPort => 0
+	) || die "cannot create leg at $addr: $!";
+    }
 
-	# if no port given and port 5060 is already used try another one
-	if ( !$leg && !$local_port ) {
-		$leg = IO::Socket::INET->new(
-			Proto => 'udp',
-			LocalAddr => $addr,
-			LocalPort => 0
-		) || die "cannot create leg at $addr: $!";
-	}
-
-	$leg = Net::SIP::Leg->new( sock => $leg );
+    $leg = Net::SIP::Leg->new( sock => $leg );
 }
 
 
@@ -122,25 +122,25 @@ if ( $local_host ) {
 my @legs;
 push @legs,$leg if $leg;
 foreach my $addr ( $proxy,$registrar) {
-	$addr || next;
-	if ( ! grep { $_->can_deliver_to( $addr ) } @legs ) {
-		my $sock = create_socket_to($addr) || die "cannot create socket to $addr";
-		push @legs, Net::SIP::Leg->new( sock => $sock );
-	}
+    $addr || next;
+    if ( ! grep { $_->can_deliver_to( $addr ) } @legs ) {
+	my $sock = create_socket_to($addr) || die "cannot create socket to $addr";
+	push @legs, Net::SIP::Leg->new( sock => $sock );
+    }
 }
 
 # create user agent
 my $ua = Net::SIP::Simple->new(
-	from => $from,
-	outgoing_proxy => $proxy,
-	legs => \@legs,
-	$username ? ( auth => [ $username,$password ] ):(),
+    from => $from,
+    outgoing_proxy => $proxy,
+    legs => \@legs,
+    $username ? ( auth => [ $username,$password ] ):(),
 );
 
 # optional registration
 if ( $registrar && $registrar ne '-' ) {
-	$ua->register( registrar => $registrar );
-	die "registration failed: ".$ua->error if $ua->error
+    $ua->register( registrar => $registrar );
+    die "registration failed: ".$ua->error if $ua->error
 }
 
 # invite peer, send first file
@@ -148,12 +148,12 @@ my $peer_hangup; # did peer hang up?
 my $no_answer; # or didn't it even answer?
 my $rtp_done; # was sending file completed?
 my $call = $ua->invite( $to,
-	# echo back, use -1 instead of 0 for not echoing back
-	init_media => $ua->rtp( 'send_recv', $files[0] ),
-	cb_rtp_done => \$rtp_done,
-	recv_bye => \$peer_hangup,
-	cb_noanswer => \$no_answer,
-	ring_time => $ring_time,
+    # echo back, use -1 instead of 0 for not echoing back
+    init_media => $ua->rtp( 'send_recv', $files[0] ),
+    cb_rtp_done => \$rtp_done,
+    recv_bye => \$peer_hangup,
+    cb_noanswer => \$no_answer,
+    ring_time => $ring_time,
 ) || die "invite failed: ".$ua->error;
 die "invite failed(call): ".$call->error if $call->error;
 
@@ -166,24 +166,24 @@ die "Ooops, no answer." if $no_answer;
 # send one file after the other using re-invites
 while ( ! $peer_hangup ) {
 
-	shift(@files); # done with file
-	@files || last;
+    shift(@files); # done with file
+    @files || last;
 
-	# re-invite on current call for next file
-	DEBUG( "rtp_done=$rtp_done" );
-	my $rtp_done;
-	$call->reinvite(
-		init_media => $ua->rtp( 'send_recv', $files[0] ),
-		cb_rtp_done => \$rtp_done,
-		recv_bye => \$peer_hangup, # FIXME: do we need to repeat this?
-	);
-	DEBUG( "sending next file $files[0]" );
-	$ua->loop( \$rtp_done,\$peer_hangup );
+    # re-invite on current call for next file
+    DEBUG( "rtp_done=$rtp_done" );
+    my $rtp_done;
+    $call->reinvite(
+	init_media => $ua->rtp( 'send_recv', $files[0] ),
+	cb_rtp_done => \$rtp_done,
+	recv_bye => \$peer_hangup, # FIXME: do we need to repeat this?
+    );
+    DEBUG( "sending next file $files[0]" );
+    $ua->loop( \$rtp_done,\$peer_hangup );
 }
 
 unless ( $peer_hangup ) {
-	# no more files: hangup
-	my $stopvar;
-	$call->bye( cb_final => \$stopvar );
-	$ua->loop( \$stopvar );
+    # no more files: hangup
+    my $stopvar;
+    $call->bye( cb_final => \$stopvar );
+    $ua->loop( \$stopvar );
 }

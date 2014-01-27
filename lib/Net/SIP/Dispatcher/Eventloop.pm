@@ -22,14 +22,14 @@ use Errno 'EINTR';
 # Returns: $self
 ###########################################################################
 sub new {
-	my $class = shift;
-	my $self = fields::new($class);
-	%$self = (
-		fd => [],
-		timer => [],
-		now => scalar(gettimeofday()),
-	);
-	return $self;
+    my $class = shift;
+    my $self = fields::new($class);
+    %$self = (
+	fd => [],
+	timer => [],
+	now => scalar(gettimeofday()),
+    );
+    return $self;
 }
 
 ###########################################################################
@@ -42,11 +42,11 @@ sub new {
 # Returns: NONE
 ###########################################################################
 sub addFD {
-	my Net::SIP::Dispatcher::Eventloop $self = shift;
-	my ($fd,$callback,$name) = @_;
-	defined( my $fn = fileno($fd)) || return;
-	#DEBUG( 100, "$self added fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
-	$self->{fd}[$fn] = [ $fd,$callback,$name ];
+    my Net::SIP::Dispatcher::Eventloop $self = shift;
+    my ($fd,$callback,$name) = @_;
+    defined( my $fn = fileno($fd)) || return;
+    #DEBUG( 100, "$self added fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
+    $self->{fd}[$fn] = [ $fd,$callback,$name ];
 }
 
 ###########################################################################
@@ -56,11 +56,11 @@ sub addFD {
 # Returns: NONE
 ###########################################################################
 sub delFD {
-	my Net::SIP::Dispatcher::Eventloop $self = shift;
-	my ($fd) = @_;
-	defined( my $fn = fileno($fd)) || return;
-	#DEBUG( 100, "$self delete fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
-	delete $self->{fd}[$fn];
+    my Net::SIP::Dispatcher::Eventloop $self = shift;
+    my ($fd) = @_;
+    defined( my $fn = fileno($fd)) || return;
+    #DEBUG( 100, "$self delete fn=$fn sock=".eval { my ($port,$addr) = unpack_sockaddr_in( getsockname($fd)); inet_ntoa($addr).':'.$port } );
+    delete $self->{fd}[$fn];
 }
 
 ###########################################################################
@@ -74,14 +74,14 @@ sub delFD {
 # Returns: $timer object
 ###########################################################################
 sub add_timer {
-	my Net::SIP::Dispatcher::Eventloop $self = shift;
-	my ($when,$callback,$repeat,$name ) = @_;
-	$when += $self->{now} if $when < 3600*24*365;
+    my Net::SIP::Dispatcher::Eventloop $self = shift;
+    my ($when,$callback,$repeat,$name ) = @_;
+    $when += $self->{now} if $when < 3600*24*365;
 
-	my $timer = Net::SIP::Dispatcher::Eventloop::TimerEvent->new(
-		$when, $repeat, $callback,$name );
-	push @{ $self->{timer}}, $timer;
-	return $timer;
+    my $timer = Net::SIP::Dispatcher::Eventloop::TimerEvent->new(
+	$when, $repeat, $callback,$name );
+    push @{ $self->{timer}}, $timer;
+    return $timer;
 }
 
 ###########################################################################
@@ -90,8 +90,8 @@ sub add_timer {
 # Returns: time
 ###########################################################################
 sub looptime {
-	my Net::SIP::Dispatcher::Eventloop $self = shift;
-	return $self->{now}
+    my Net::SIP::Dispatcher::Eventloop $self = shift;
+    return $self->{now}
 }
 
 
@@ -104,92 +104,92 @@ sub looptime {
 # Returns: NONE
 ###########################################################################
 sub loop {
-	my Net::SIP::Dispatcher::Eventloop $self = shift;
-	my ($timeout,@stop) = @_;
+    my Net::SIP::Dispatcher::Eventloop $self = shift;
+    my ($timeout,@stop) = @_;
 
-	# looptime for this run
-	my $looptime = $self->{now} = gettimeofday();
+    # looptime for this run
+    my $looptime = $self->{now} = gettimeofday();
 
-	# if timeout defined and != 0 set $end to now+timeout
-	# otherwise set end to undef|0 depending on timeout
-	my $end = $timeout ? $looptime + $timeout : $timeout;
-	my $to = $timeout;
+    # if timeout defined and != 0 set $end to now+timeout
+    # otherwise set end to undef|0 depending on timeout
+    my $end = $timeout ? $looptime + $timeout : $timeout;
+    my $to = $timeout;
 
-	while ( !$to || $to>0 ) {
+    while ( !$to || $to>0 ) {
 
-		DEBUG( 100, "timeout = ".( defined($to) ? $to: '<undef>' ));
-		# handle timers
-		my $timer = $self->{timer};
+	DEBUG( 100, "timeout = ".( defined($to) ? $to: '<undef>' ));
+	# handle timers
+	my $timer = $self->{timer};
 
-		my $do_timer = 1;
-		while ( @$timer && $do_timer ) {
-			$do_timer = 0;
-			@$timer = sort { $a->{expire} <=> $b->{expire} } @$timer;
+	my $do_timer = 1;
+	while ( @$timer && $do_timer ) {
+	    $do_timer = 0;
+	    @$timer = sort { $a->{expire} <=> $b->{expire} } @$timer;
 
-			# delete canceled timers
-			shift(@$timer) while ( @$timer && !$timer->[0]{expire} );
+	    # delete canceled timers
+	    shift(@$timer) while ( @$timer && !$timer->[0]{expire} );
 
-			# run expired timers
-			while ( @$timer && $timer->[0]{expire} <= $looptime ) {
-				my $t = shift(@$timer);
-				DEBUG( 50, "trigger timer(%s) %s repeat=%s",
-					$t->name,$t->{expire} || '<undef>', $t->{repeat} || '<undef>' );
-				invoke_callback( $t->{callback},$t );
-				if ( $t->{expire} && $t->{repeat} ) {
-					$t->{expire} += $t->{repeat};
-					DEBUG( 100, "timer(%s) gets repeated at %d",$t->name,$t->{expire} );
-					push @$timer,$t;
-					$do_timer = 1; # rerun loop
-				}
-			}
+	    # run expired timers
+	    while ( @$timer && $timer->[0]{expire} <= $looptime ) {
+		my $t = shift(@$timer);
+		DEBUG( 50, "trigger timer(%s) %s repeat=%s",
+		    $t->name,$t->{expire} || '<undef>', $t->{repeat} || '<undef>' );
+		invoke_callback( $t->{callback},$t );
+		if ( $t->{expire} && $t->{repeat} ) {
+		    $t->{expire} += $t->{repeat};
+		    DEBUG( 100, "timer(%s) gets repeated at %d",$t->name,$t->{expire} );
+		    push @$timer,$t;
+		    $do_timer = 1; # rerun loop
 		}
-
-		# adjust timeout for select based on when next timer expires
-		if ( @$timer ) {
-			my $next_timer = $timer->[0]{expire} - $looptime;
-			$to = $next_timer if !defined($to) || $to>$next_timer;
-		}
-		DEBUG( 100, "timeout = ".( defined($to) ? $to: '<undef>' ));
-
-		if ( grep { ${$_} } @stop ) {
-			DEBUG( 50, "stopvar triggered" );
-			return;
-		}
-
-		# wait for selected fds
-		my $fds = $self->{fd};
-		my $rin;
-		if ( my @to_read = grep { $_ } @$fds ) {
-
-			# Select which fds are readable or timeout
-			my $rin = '';
-			map { vec( $rin,fileno($_->[0]),1 ) = 1 } @to_read;
-			DEBUG( 100, "handles=".join( " ",map { fileno($_->[0]) } @to_read ));
-			select( my $rout = $rin,undef,undef,$to ) < 0 and do {
-				next if $! == EINTR;
-				die $!
-			};
-			# returned from select
-			$looptime = $self->{now} = gettimeofday();
-			DEBUG( 100, "can_read=".join( " ",map { $_ } grep { $fds->[$_] && vec($rout,$_,1) } (0..$#$fds)));
-			for( my $fn=0;$fn<@$fds;$fn++ ) {
-				vec($rout,$fn,1) or next;
-				my $fd_data = $fds->[$fn] or next;
-				DEBUG( 50,"call cb on fn=$fn ".( $fd_data->[2] || '') );
-				invoke_callback( $fd_data->[1],$fd_data->[0] );
-			}
-		} else {
-			DEBUG( 50, "no handles, sleeping for %s", defined($to) ? $to : '<endless>' );
-			select(undef,undef,undef,$to )
-		}
-
-		if ( defined($timeout)) {
-			last if !$timeout;
-			$to = $end - $looptime;
-		} else {
-			$to = undef
-		}
+	    }
 	}
+
+	# adjust timeout for select based on when next timer expires
+	if ( @$timer ) {
+	    my $next_timer = $timer->[0]{expire} - $looptime;
+	    $to = $next_timer if !defined($to) || $to>$next_timer;
+	}
+	DEBUG( 100, "timeout = ".( defined($to) ? $to: '<undef>' ));
+
+	if ( grep { ${$_} } @stop ) {
+	    DEBUG( 50, "stopvar triggered" );
+	    return;
+	}
+
+	# wait for selected fds
+	my $fds = $self->{fd};
+	my $rin;
+	if ( my @to_read = grep { $_ } @$fds ) {
+
+	    # Select which fds are readable or timeout
+	    my $rin = '';
+	    map { vec( $rin,fileno($_->[0]),1 ) = 1 } @to_read;
+	    DEBUG( 100, "handles=".join( " ",map { fileno($_->[0]) } @to_read ));
+	    select( my $rout = $rin,undef,undef,$to ) < 0 and do {
+		next if $! == EINTR;
+		die $!
+	    };
+	    # returned from select
+	    $looptime = $self->{now} = gettimeofday();
+	    DEBUG( 100, "can_read=".join( " ",map { $_ } grep { $fds->[$_] && vec($rout,$_,1) } (0..$#$fds)));
+	    for( my $fn=0;$fn<@$fds;$fn++ ) {
+		vec($rout,$fn,1) or next;
+		my $fd_data = $fds->[$fn] or next;
+		DEBUG( 50,"call cb on fn=$fn ".( $fd_data->[2] || '') );
+		invoke_callback( $fd_data->[1],$fd_data->[0] );
+	    }
+	} else {
+	    DEBUG( 50, "no handles, sleeping for %s", defined($to) ? $to : '<endless>' );
+	    select(undef,undef,undef,$to )
+	}
+
+	if ( defined($timeout)) {
+	    last if !$timeout;
+	    $to = $end - $looptime;
+	} else {
+	    $to = undef
+	}
+    }
 }
 
 
@@ -206,26 +206,26 @@ use fields qw( expire repeat callback name );
 # Returns: $self
 ##########################################################################
 sub new {
-	my ($class,$expire,$repeat,$callback,$name) = @_;
-	my $self = fields::new( $class );
-	unless ( $name ) {
-		# check with caller until I find a function which is not
-		# named 'add_timer'
-		for( my $i=1;1;$i++ ) {
-			my (undef,undef,undef,$sub) = caller($i) or last;
-			next if $sub =~m{::add_timer$};
-			my $line = (caller($i-1))[2];
-			$name = "${sub}[$line]";
-			last;
-		}
+    my ($class,$expire,$repeat,$callback,$name) = @_;
+    my $self = fields::new( $class );
+    unless ( $name ) {
+	# check with caller until I find a function which is not
+	# named 'add_timer'
+	for( my $i=1;1;$i++ ) {
+	    my (undef,undef,undef,$sub) = caller($i) or last;
+	    next if $sub =~m{::add_timer$};
+	    my $line = (caller($i-1))[2];
+	    $name = "${sub}[$line]";
+	    last;
 	}
-	%$self = (
-		expire => $expire,
-		repeat => $repeat,
-		callback => $callback,
-		name => $name
-	);
-	return $self;
+    }
+    %$self = (
+	expire => $expire,
+	repeat => $repeat,
+	callback => $callback,
+	name => $name
+    );
+    return $self;
 }
 
 ##########################################################################
@@ -235,9 +235,9 @@ sub new {
 # Returns: NONE
 ##########################################################################
 sub cancel {
-	my Net::SIP::Dispatcher::Eventloop::TimerEvent $self = shift;
-	$self->{expire} = 0;
-	$self->{callback} = undef;
+    my Net::SIP::Dispatcher::Eventloop::TimerEvent $self = shift;
+    $self->{expire} = 0;
+    $self->{callback} = undef;
 }
 
 ##########################################################################
@@ -246,8 +246,8 @@ sub cancel {
 # Returns: $name
 ##########################################################################
 sub name {
-	my Net::SIP::Dispatcher::Eventloop::TimerEvent $self = shift;
-	return $self->{name} || 'NONAME'
+    my Net::SIP::Dispatcher::Eventloop::TimerEvent $self = shift;
+    return $self->{name} || 'NONAME'
 }
 
 1;

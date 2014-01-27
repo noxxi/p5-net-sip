@@ -10,9 +10,9 @@ use strict;
 use warnings;
 package Net::SIP::Endpoint;
 use fields (
-	'dispatcher',   # lower layer, delivers and receives packets through the legs
-	'application',  # upper layer, e.g user interface..
-	'ctx'           # hash of ( callid => Net::SIP::Endpoint::Context )
+    'dispatcher',   # lower layer, delivers and receives packets through the legs
+    'application',  # upper layer, e.g user interface..
+    'ctx'           # hash of ( callid => Net::SIP::Endpoint::Context )
 );
 
 use Net::SIP::Debug;
@@ -27,19 +27,19 @@ use Scalar::Util 'weaken';
 # Returns: $self
 ############################################################################
 sub new {
-	my ($class,$dispatcher) = @_;
-	my $self = fields::new($class);
+    my ($class,$dispatcher) = @_;
+    my $self = fields::new($class);
 
-	$self->{dispatcher} = $dispatcher;
-	$self->{ctx} = {}; # \%hash with ( callid => $ctx )
+    $self->{dispatcher} = $dispatcher;
+    $self->{ctx} = {}; # \%hash with ( callid => $ctx )
 
-	# announce myself as upper layer for incoming packets to
-	# the dispatcher
-	my $cb = [ \&receive,$self ];
-	weaken( $cb->[1] );
-	$dispatcher->set_receiver( $cb );
+    # announce myself as upper layer for incoming packets to
+    # the dispatcher
+    my $cb = [ \&receive,$self ];
+    weaken( $cb->[1] );
+    $dispatcher->set_receiver( $cb );
 
-	return $self;
+    return $self;
 }
 
 ############################################################################
@@ -52,15 +52,15 @@ sub new {
 # Returns: NONE
 ############################################################################
 sub set_application {
-	my Net::SIP::Endpoint $self = shift;
-	my $app = shift;
-	my $cb;
-	if ( my $sub = UNIVERSAL::can( $app,'receive' )) {
-		$cb = [ $sub,$app ];
-	} else {
-		$cb = $app; # alreday callback
-	}
-	$self->{application} = $cb;
+    my Net::SIP::Endpoint $self = shift;
+    my $app = shift;
+    my $cb;
+    if ( my $sub = UNIVERSAL::can( $app,'receive' )) {
+	$cb = [ $sub,$app ];
+    } else {
+	$cb = $app; # alreday callback
+    }
+    $self->{application} = $cb;
 }
 
 ############################################################################
@@ -75,9 +75,9 @@ sub set_application {
 #   $ctx: see new_request()
 ############################################################################
 sub invite {
-	my Net::SIP::Endpoint $self = shift;
-	my ($ctx,$callback,$body,%args) = @_;
-	return $self->new_request( 'INVITE',$ctx,$callback,$body,%args );
+    my Net::SIP::Endpoint $self = shift;
+    my ($ctx,$callback,$body,%args) = @_;
+    return $self->new_request( 'INVITE',$ctx,$callback,$body,%args );
 }
 
 ############################################################################
@@ -95,31 +95,31 @@ sub invite {
 # Returns: NONE
 ############################################################################
 sub register {
-	my Net::SIP::Endpoint $self = shift;
-	my %args = @_;
+    my Net::SIP::Endpoint $self = shift;
+    my %args = @_;
 
-	my ($me,$registrar,$contact) =
-		delete @args{qw( from registrar contact )};
+    my ($me,$registrar,$contact) =
+	delete @args{qw( from registrar contact )};
 
-	my $expires = delete $args{expires};
-	$expires = 900 if !defined($expires);
+    my $expires = delete $args{expires};
+    $expires = 900 if !defined($expires);
 
-	my %ctx = (
-		to      => $me,
-		from    => $me,
-		contact => $contact,
-		auth    => delete $args{auth},
-		callid  => delete $args{callid},
-	);
-	return $self->new_request(
-		'REGISTER',
-		\%ctx,
-		delete($args{callback}),
-		undef,
-		uri => "sip:$registrar",
-		expires => $expires,
-		%args,
-	);
+    my %ctx = (
+	to      => $me,
+	from    => $me,
+	contact => $contact,
+	auth    => delete $args{auth},
+	callid  => delete $args{callid},
+    );
+    return $self->new_request(
+	'REGISTER',
+	\%ctx,
+	delete($args{callback}),
+	undef,
+	uri => "sip:$registrar",
+	expires => $expires,
+	%args,
+    );
 }
 
 
@@ -145,34 +145,34 @@ sub register {
 #   or something else fatal happens it will die()
 ############################################################################
 sub new_request {
-	my Net::SIP::Endpoint $self = shift;
-	my ($method,$ctx,$callback,$body,%args) = @_;
+    my Net::SIP::Endpoint $self = shift;
+    my ($method,$ctx,$callback,$body,%args) = @_;
 
-	die "cannot redefine call-id" if delete $args{ 'call-id' };
-	my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
+    die "cannot redefine call-id" if delete $args{ 'call-id' };
+    my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
 
-	if ( ! UNIVERSAL::isa( $ctx,'Net::SIP::Endpoint::Context' )) {
-		$ctx = Net::SIP::Endpoint::Context->new(%$ctx, method => $method);
-		$self->{ctx}{ $ctx->callid } = $ctx; # make sure we manage the context
-		DEBUG( 10,"create new request for $method within new call ".$ctx->callid );
-	} else {
-		DEBUG( 10,"create new request for $method within existing call ".$ctx->callid );
-	}
+    if ( ! UNIVERSAL::isa( $ctx,'Net::SIP::Endpoint::Context' )) {
+	$ctx = Net::SIP::Endpoint::Context->new(%$ctx, method => $method);
+	$self->{ctx}{ $ctx->callid } = $ctx; # make sure we manage the context
+	DEBUG( 10,"create new request for $method within new call ".$ctx->callid );
+    } else {
+	DEBUG( 10,"create new request for $method within existing call ".$ctx->callid );
+    }
 
-	$ctx->set_callback( $callback ) if $callback;
+    $ctx->set_callback( $callback ) if $callback;
 
-	my $request = $ctx->new_request( $method,$body,%args );
-	DEBUG( 50,"request=".$request->as_string );
+    my $request = $ctx->new_request( $method,$body,%args );
+    DEBUG( 50,"request=".$request->as_string );
 
-	my $tid = $request->tid;
-	$self->{dispatcher}->deliver( $request,
-		id => $tid,
-		callback => [ \&_request_delivery_callback, $self,$ctx ],
-		leg => $leg,
-		dst_addr => $dst_addr,
-	);
+    my $tid = $request->tid;
+    $self->{dispatcher}->deliver( $request,
+	id => $tid,
+	callback => [ \&_request_delivery_callback, $self,$ctx ],
+	leg => $leg,
+	dst_addr => $dst_addr,
+    );
 
-	return $ctx;
+    return $ctx;
 }
 
 ############################################################################
@@ -185,14 +185,14 @@ sub new_request {
 # Returns: number of requests canceled (e.g 0 if no outstanding INVITE)
 ############################################################################
 sub cancel_invite {
-	my Net::SIP::Endpoint $self = shift;
-	my Net::SIP::Endpoint::Context $ctx = shift;
-	my ($request,$callback) = @_;
-	my ($pkt) = $ctx->find_outstanding_requests(
-		$request ? ( request => $request ) : ( method => 'INVITE' )
-	) or return;
-	$self->new_request( $pkt->create_cancel, $ctx, $callback );
-	return 1;
+    my Net::SIP::Endpoint $self = shift;
+    my Net::SIP::Endpoint::Context $ctx = shift;
+    my ($request,$callback) = @_;
+    my ($pkt) = $ctx->find_outstanding_requests(
+	$request ? ( request => $request ) : ( method => 'INVITE' )
+    ) or return;
+    $self->new_request( $pkt->create_cancel, $ctx, $callback );
+    return 1;
 }
 
 ############################################################################
@@ -209,14 +209,14 @@ sub cancel_invite {
 # Returns: NONE
 ############################################################################
 sub _request_delivery_callback {
-	my Net::SIP::Endpoint $self = shift;
-	my ($ctx,$error,$delivery_packet) = @_;
+    my Net::SIP::Endpoint $self = shift;
+    my ($ctx,$error,$delivery_packet) = @_;
 
-	my $tid = $delivery_packet->tid;
+    my $tid = $delivery_packet->tid;
 
-	# either successfully send over reliable transport
-	# or permanently failed, e.g no (more) retries possible
-	$ctx->request_delivery_done( $self,$tid,$error )
+    # either successfully send over reliable transport
+    # or permanently failed, e.g no (more) retries possible
+    $ctx->request_delivery_done( $self,$tid,$error )
 }
 
 ############################################################################
@@ -227,17 +227,17 @@ sub _request_delivery_callback {
 #  $ctx: removed context object
 ############################################################################
 sub close_context {
-	my Net::SIP::Endpoint $self = shift;
-	my $id = shift;
-	$id = $id->callid if ref($id);
-	DEBUG( 10,"close context call-id $id " );
-	my $ctx = delete $self->{ctx}{$id} || do {
-		DEBUG( 50,"no context for call-id $id found" );
-		return;
-	};
-	# cancel all outstanding deliveries
-	$self->{dispatcher}->cancel_delivery( callid => $id );
-	return $ctx;
+    my Net::SIP::Endpoint $self = shift;
+    my $id = shift;
+    $id = $id->callid if ref($id);
+    DEBUG( 10,"close context call-id $id " );
+    my $ctx = delete $self->{ctx}{$id} || do {
+	DEBUG( 50,"no context for call-id $id found" );
+	return;
+    };
+    # cancel all outstanding deliveries
+    $self->{dispatcher}->cancel_delivery( callid => $id );
+    return $ctx;
 }
 
 
@@ -251,12 +251,12 @@ sub close_context {
 # Returns: NONE
 ############################################################################
 sub receive {
-	my Net::SIP::Endpoint $self = shift || return;
-	my ($packet,$leg,$from) = @_;
-	return $packet->is_response
-		? $self->receive_response( $packet,$leg,$from )
-		: $self->receive_request( $packet,$leg,$from )
-		;
+    my Net::SIP::Endpoint $self = shift || return;
+    my ($packet,$leg,$from) = @_;
+    return $packet->is_response
+	? $self->receive_response( $packet,$leg,$from )
+	: $self->receive_request( $packet,$leg,$from )
+	;
 }
 
 ############################################################################
@@ -268,19 +268,19 @@ sub receive {
 # Returns: NONE
 ############################################################################
 sub receive_response {
-	my Net::SIP::Endpoint $self = shift;
-	my ($response,$leg,$from) = @_;
+    my Net::SIP::Endpoint $self = shift;
+    my ($response,$leg,$from) = @_;
 
-	# find context for response or drop
-	my $callid = $response->get_header( 'call-id' );
-	my $ctx = $self->{ctx}{$callid} || do {
-		DEBUG( 50,"cannot find context for packet with callid=$callid. DROP");
-		return;
-	};
+    # find context for response or drop
+    my $callid = $response->get_header( 'call-id' );
+    my $ctx = $self->{ctx}{$callid} || do {
+	DEBUG( 50,"cannot find context for packet with callid=$callid. DROP");
+	return;
+    };
 
-	DEBUG( 10,"received reply for tid=".$response->tid );
-	$self->{dispatcher}->cancel_delivery( $response->tid );
-	$ctx->handle_response( $response,$leg,$from,$self );
+    DEBUG( 10,"received reply for tid=".$response->tid );
+    $self->{dispatcher}->cancel_delivery( $response->tid );
+    $ctx->handle_response( $response,$leg,$from,$self );
 }
 
 ############################################################################
@@ -292,54 +292,54 @@ sub receive_response {
 # Returns: NONE
 ############################################################################
 sub receive_request {
-	my Net::SIP::Endpoint $self = shift;
-	my ($request,$leg,$from) = @_;
+    my Net::SIP::Endpoint $self = shift;
+    my ($request,$leg,$from) = @_;
 
-	# this might be a request for an existing context or for a new context
-	my $callid = $request->get_header( 'call-id' );
-	my $ctx = $self->{ctx}{$callid};
+    # this might be a request for an existing context or for a new context
+    my $callid = $request->get_header( 'call-id' );
+    my $ctx = $self->{ctx}{$callid};
 
-	my $method = $request->method;
-	if ( ! $ctx ) {
-		if ( $method eq 'BYE' || $method eq 'CANCEL' ) {
-			# no context for this call, reply with 481 call does not exist
-			# (RFC3261 15.1.2)
-			$self->new_response(
-				undef,
-				$request->create_response( 481,'call does not exist' ),
-				$leg,  # send back thru same leg
-				$from, # and back to the sender
-			);
-			return;
-		} elsif ( $method eq 'ACK' ) {
-			# call not exists (maybe closed because of CANCEL)
-			DEBUG(99,'ignoring ACK for non-existing call');
-			return;
-		}
-
-		# create a new context;
-		$ctx = Net::SIP::Endpoint::Context->new(
-			incoming => 1,
-			method => $method,
-			from => scalar( $request->get_header( 'from' )),
-			to   => scalar( $request->get_header( 'to' )),
-			remote_contact => scalar( $request->get_header( 'contact' )),
-			callid => scalar( $request->get_header( 'call-id' )),
-			via  => [ $request->get_header( 'via' ) ],
-		);
-
-		$ctx->set_callback( sub {
-			my ($self,$ctx,undef,undef,$request,$leg,$from) = @_;
-			invoke_callback( $self->{application}, $self,$ctx,$request,$leg,$from );
-		});
+    my $method = $request->method;
+    if ( ! $ctx ) {
+	if ( $method eq 'BYE' || $method eq 'CANCEL' ) {
+	    # no context for this call, reply with 481 call does not exist
+	    # (RFC3261 15.1.2)
+	    $self->new_response(
+		undef,
+		$request->create_response( 481,'call does not exist' ),
+		$leg,  # send back thru same leg
+		$from, # and back to the sender
+	    );
+	    return;
+	} elsif ( $method eq 'ACK' ) {
+	    # call not exists (maybe closed because of CANCEL)
+	    DEBUG(99,'ignoring ACK for non-existing call');
+	    return;
 	}
 
-	# if I got an ACK cancel delivery of Response to INVITE
-	if ( $method eq 'ACK' ) {
-		$self->{dispatcher}->cancel_delivery( $request->tid );
-	}
+	# create a new context;
+	$ctx = Net::SIP::Endpoint::Context->new(
+	    incoming => 1,
+	    method => $method,
+	    from => scalar( $request->get_header( 'from' )),
+	    to   => scalar( $request->get_header( 'to' )),
+	    remote_contact => scalar( $request->get_header( 'contact' )),
+	    callid => scalar( $request->get_header( 'call-id' )),
+	    via  => [ $request->get_header( 'via' ) ],
+	);
 
-	$ctx->handle_request( $request,$leg,$from,$self );
+	$ctx->set_callback( sub {
+	    my ($self,$ctx,undef,undef,$request,$leg,$from) = @_;
+	    invoke_callback( $self->{application}, $self,$ctx,$request,$leg,$from );
+	});
+    }
+
+    # if I got an ACK cancel delivery of Response to INVITE
+    if ( $method eq 'ACK' ) {
+	$self->{dispatcher}->cancel_delivery( $request->tid );
+    }
+
+    $ctx->handle_request( $request,$leg,$from,$self );
 }
 
 ############################################################################
@@ -352,14 +352,14 @@ sub receive_request {
 # Returns: NONE
 ############################################################################
 sub new_response {
-	my Net::SIP::Endpoint $self = shift;
-	my ($ctx,$response,$leg,$addr) = @_;
+    my Net::SIP::Endpoint $self = shift;
+    my ($ctx,$response,$leg,$addr) = @_;
 
-	$self->{ctx}{ $ctx->callid } = $ctx if $ctx; # keep context
-	$self->{dispatcher}->deliver( $response,
-		leg      => $leg,
-		dst_addr => $addr,
-	);
+    $self->{ctx}{ $ctx->callid } = $ctx if $ctx; # keep context
+    $self->{dispatcher}->deliver( $response,
+	leg      => $leg,
+	dst_addr => $addr,
+    );
 }
 
 
