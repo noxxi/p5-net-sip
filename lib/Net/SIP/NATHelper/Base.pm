@@ -74,6 +74,16 @@ sub new {
     return $self;
 }
 
+############################################################################
+# create a new call - might be redefined in derived classes to use
+# other call classes
+# Args: ($self,$callid)
+#   $callid: call-id
+# Returns: $call object
+############################################################################
+sub create_call { 
+    Net::SIP::NATHelper::Call->new($_[1]) 
+}
 
 ############################################################################
 # allocate new sockets for RTP
@@ -100,9 +110,10 @@ sub allocate_sockets {
     my $callid = shift;
 
     my $call = $self->{calls}{$callid}
-	||= Net::SIP::NATHelper::Call->new( $callid );
+	||= $self->create_call($callid);
     return $call->allocate_sockets( $self,@_ );
 }
+
 
 ############################################################################
 # activate session
@@ -428,11 +439,23 @@ sub activate_session {
 	return;
     }
 
-    my $sess = $sessions->{$idto} =
-	Net::SIP::NATHelper::Session->new( $gfrom,$gto,$param );
+    my $sess = $sessions->{$idto} = $self->create_session( $gfrom,$gto,$param );
     DEBUG( 10,"new session {$sess->{id}} $self->{callid},$cseq $idfrom -> $idto" );
 
     return ( $sess->info_as_hash( $self->{callid},$cseq ), 0 );
+}
+
+############################################################################
+# create Session object
+# Args: ($self,$gfrom,$gto,$param)
+#   $gfrom: socket group on from-side
+#   $gto:   socket group on to-side
+#   $param: optional session parameter (see Base::activate_session)
+# Reuturns: $session object
+############################################################################
+sub create_session {
+    shift;
+    return Net::SIP::NATHelper::Session->new(@_)
 }
 
 ############################################################################
@@ -805,12 +828,14 @@ sub callbacks {
     my $sockets_to   = $sto->get_socks;
     my $targets_to   = $sto->get_targets;
 
+    my $fwd_data = $self->can('forward_data');
+
     my @cb;
     for( my $i=0;$i<@$sockets_from;$i++ ) {
 	push @cb, [
 	    $sockets_from->[$i],
 	    [
-		\&_forward_data,
+		$fwd_data,
 		$sockets_from->[$i],   # read data from socket FROM(nat)
 		$sockets_to->[$i],     # forward data using socket TO(nat)
 		$targets_from->[$i],   # to FROM(original)
@@ -824,7 +849,7 @@ sub callbacks {
 	push @cb, [
 	    $sockets_to->[$i],
 	    [
-		\&_forward_data,
+		$fwd_data,
 		$sockets_to->[$i],     # read data from socket TO(nat)
 		$sockets_from->[$i],   # forward data using socket FROM(nat)
 		$targets_to->[$i],     # to TO(original)
@@ -840,9 +865,9 @@ sub callbacks {
 }
 
 ############################################################################
-# internal function used for forwarding data in callbacks()
+# function used for forwarding data in callbacks()
 ############################################################################
-sub _forward_data {
+sub forward_data {
     my ($read_socket,$write_socket,$dstaddr,$group,$bytes,$id) = @_;
     recv( $read_socket, my $buf,2**16,0 ) || do {
 	DEBUG( 10,"recv data failed: $!" );

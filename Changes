@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.684 2014-01-27
+- add hooks into NATHelper::Base to make it easier to adapt
 0.683 2013-10-23
 - fix issue with comma inside <..>, thanks to ccjaph[AT]gmail[DOT]com
   https://rt.cpan.org/Ticket/Display.html?id=89712
