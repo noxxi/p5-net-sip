@@ -81,8 +81,8 @@ sub new {
 #   $callid: call-id
 # Returns: $call object
 ############################################################################
-sub create_call { 
-    Net::SIP::NATHelper::Call->new($_[1]) 
+sub create_call {
+    Net::SIP::NATHelper::Call->new($_[1])
 }
 
 ############################################################################
@@ -669,7 +669,7 @@ sub sessions {
     my @rv;
     foreach my $by_cseq ( values %$by_from ) {
 	foreach my $data ( values %$by_cseq ) {
-	    push @rv, map { invoke_callback($callback,$data) }
+	    push @rv, map { invoke_callback($callback,$_) }
 		values %{ $data->{sessions} };
 	}
     }
@@ -832,13 +832,19 @@ sub callbacks {
 
     my @cb;
     for( my $i=0;$i<@$sockets_from;$i++ ) {
+	# If we detect, that the peer does symmetric RTP we connect the
+	# socket and set the addr to undef to make sure that we use send
+	# and not sendto when forwarding the data
+	my $recvaddr = $targets_to->[$i];
+	my $dstaddr = $targets_from->[$i];
+
 	push @cb, [
 	    $sockets_from->[$i],
 	    [
 		$fwd_data,
 		$sockets_from->[$i],   # read data from socket FROM(nat)
-		$sockets_to->[$i],     # forward data using socket TO(nat)
-		$targets_from->[$i],   # to FROM(original)
+		$sockets_to->[$i],     # forward them using socket TO(nat)
+		\$recvaddr,\$dstaddr,  # will be set to undef once connected
 		$sfrom,                # call $sfrom->didit
 		\$self->{bytes_to},    # to count bytes coming from 'to'
 		$self->{id},           # for debug messages
@@ -852,7 +858,7 @@ sub callbacks {
 		$fwd_data,
 		$sockets_to->[$i],     # read data from socket TO(nat)
 		$sockets_from->[$i],   # forward data using socket FROM(nat)
-		$targets_to->[$i],     # to TO(original)
+		\$dstaddr,\$recvaddr,  # will be set to undef once connected
 		$sto,                  # call $sto->didit
 		\$self->{bytes_from},  # to count bytes coming from 'from'
 		$self->{id},           # for debug messages
@@ -868,29 +874,57 @@ sub callbacks {
 # function used for forwarding data in callbacks()
 ############################################################################
 sub forward_data {
-    my ($read_socket,$write_socket,$dstaddr,$group,$bytes,$id) = @_;
-    recv( $read_socket, my $buf,2**16,0 ) || do {
+    my ($read_socket,$write_socket,$rfrom,$rto,$group,$bytes,$id) = @_;
+    my $peer = recv( $read_socket, my $buf,2**16,0 ) || do {
 	DEBUG( 10,"recv data failed: $!" );
 	return;
     };
 
-    my $l = length($buf);
-    $$bytes += $l;
-    $group->didit($l);
-
-    send( $write_socket, $buf,0,$dstaddr ) || do {
-	DEBUG( 10,"send data failed: $!" );
-	return;
-    };
     my $name = sub {
 	my $bin = shift;
 	use Socket;
 	my ($port,$addr) = unpack_sockaddr_in( $bin );
 	return inet_ntoa($addr).':'.$port;
     };
-    DEBUG( 50,"{$id} transferred %d bytes on %s via %s to %s",
-	length($buf), $name->( getsockname($read_socket )),
-	$name->(getsockname( $write_socket )),$name->($dstaddr));
+
+    if ( ! $$bytes ) {
+	if ( $peer eq $$rfrom ) {
+	    DEBUG( 10,"peer ".$name->($peer).
+		" uses symmetric RTP, connecting sockets");
+	    $$rfrom = undef if connect($read_socket,$peer);
+	} else {
+	    # set rfrom to peer for later checks
+	    $$rfrom = $peer;
+	}
+    } elsif ( $$rfrom && $peer ne $$rfrom ) {
+	# the previous packet was from another peer, ignore this data
+	DEBUG( 10,"{$id} ignoring unexpected data from %s on %s, expecting data from %s instead",
+	    $name->($peer), $name->(getsockname($read_socket)),$name->($$rfrom));
+    }
+
+    my $l = length($buf);
+    $$bytes += $l;
+    $group->didit($l);
+
+    if ( $$rto ) {
+	send( $write_socket, $buf,0, $$rto ) || do {
+	    DEBUG( 10,"send data failed: $!" );
+	    return;
+	};
+	DEBUG( 50,"{$id} transferred %d bytes on %s via %s to %s",
+	    length($buf), $name->( getsockname($read_socket )),
+	    $name->(getsockname( $write_socket )),$name->($$rto));
+    } else {
+	# using connected socket
+	send( $write_socket, $buf,0 ) || do {
+	    DEBUG( 10,"send data failed: $!" );
+	    return;
+	};
+	DEBUG( 50,"{$id} transferred %d bytes on %s via %s to %s",
+	    length($buf), $name->( getsockname($read_socket )),
+	    $name->(getsockname( $write_socket )),
+	    $name->(getpeername( $write_socket )));
+    }
 }
 
 

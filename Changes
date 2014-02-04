@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.685 2014-02-04
+- fix NATHelper::Call::session (wrong argument for callback)
+- enhance NATHelper::Session to connect sockets if we detect that the peer
+  uses symmetric RTP. Make sure, that even with asymmetric RTP we get the
+  data from always the same peer
 0.684 2014-01-27
 - add hooks into NATHelper::Base to make it easier to adapt
 0.683 2013-10-23
