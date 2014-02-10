@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.686 2014-02-07
+- rewritung contact in StatelessProxy now contains information about
+  incoming and outgoing legs to restore the path if somebody uses the
+  rewritten contact for a new request
 0.685 2014-02-04
 - fix NATHelper::Call::session (wrong argument for callback)
 - enhance NATHelper::Session to connect sockets if we detect that the peer

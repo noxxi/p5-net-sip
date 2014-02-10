@@ -52,7 +52,16 @@ Callback which is used in rewriting B<Contact> headers.
 If one puts user@host in it should rewrite it and if one puts
 something without '@' it should try to rewrite it back
 (and return B<()> if it cannot rewrite it back).
+
 A working default implementation is provided.
+If you want to implement your own: the callbacks gets the arguments B<contact>,
+B<incoming_leg> and B<outgoing_leg>. For rewriting a contact of user@host the
+legs will be L<Net::SIP::Leg> objects. For rewriting the contact back
+B<outgoing_leg> can be either a leg object and you should check if it is the
+expected leg. Or it is a scalar reference which you should fill with the leg
+extracted from the contact.
+The function should return the new contact or nothing if there was nothing to
+rewrite or the rewrite failed.
 
 =item nathelper
 

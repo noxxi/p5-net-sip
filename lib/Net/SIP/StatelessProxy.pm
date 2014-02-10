@@ -12,7 +12,7 @@ package Net::SIP::StatelessProxy;
 use fields qw( dispatcher rewrite_contact nathelper force_rewrite );
 
 use Net::SIP::Util ':all';
-use Digest::MD5 'md5_hex';
+use Digest::MD5 qw(md5_hex md5);
 use Carp 'croak';
 use List::Util 'first';
 use Net::SIP::Debug;
@@ -39,8 +39,10 @@ sub new {
 
     my $disp = $self->{dispatcher} =
 	delete $args{dispatcher} || croak 'no dispatcher given';
-    $self->{rewrite_contact} = delete $args{rewrite_contact}
-	|| [ \&_default_rewrite_contact, $self ];
+    $self->{rewrite_contact} = delete $args{rewrite_contact} || do {
+	my $secret = md5( sort { $a cmp $b } map { $_->key } $disp->get_legs );
+	[ \&_default_rewrite_contact, $secret, $disp ];
+    };
     $self->{nathelper} = delete $args{nathelper};
     $self->{force_rewrite} = delete $args{force_rewrite};
 
@@ -50,35 +52,63 @@ sub new {
 # default handler for rewriting, does simple XOR only,
 # this is not enough if you need to hide internal addresses
 sub _default_rewrite_contact {
-    my ($self,$contact) = @_;
-    my $secret = md5_hex(
-	sort { $a cmp $b }
-	map { $_->{proto}.':'.$_->{addr}.':'.$_->{port} }
-	$self->{dispatcher}->get_legs
-    );
+    my ($secret,$disp,$contact,$leg_in,$leg_out) = @_;
 
-    my $new;
     if ( $contact =~m{\@} ) {
-	# needs to be rewritten
-	$contact .= "MARKER";
+	# needs to be rewritten - incorporate leg_in:leg_out
+	$contact = join("\0",
+	    (map { $_->key } ($leg_in,$leg_out)),
+	    $contact
+	);
+	$contact .= substr(md5($contact),0,8); # kind of checksum
 	my $lc = length($contact);
 	$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 	# add 'r' in front of hex so it does not look like phone number
-	$new = 'r'.unpack( 'H*',( $contact ^ $secret ));
+	my $new = 'r'.unpack( 'H*',( $contact ^ $secret ));
 	DEBUG( 100,"rewrite $contact -> $new" );
-    } elsif ( $contact =~m{^r([0-9a-f]+)$}i ) {
-	# needs to be written back
-	$new = pack( 'H*',$1 );
-	my $lc = length($new);
-	$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
-	$new = $new ^ $secret;
-	$new =~s{MARKER$}{} || return;
-	DEBUG( 100,"rewrite back $contact -> $new" );
-    } else {
-	# invalid format
-	DEBUG( 100,"no rewriting of $contact" );
+	return $new;
     }
-    return $new;
+
+    if ( $contact =~m{^r([0-9a-f]+)$} ) {
+	# needs to be written back
+	my $old = pack('H*',$1 );
+	my $lc = length($old);
+	$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
+	$old = $old ^ $secret;
+	my $chksum = substr($old,-8,8,'');
+	if ( substr(md5($old),0,8) ne $chksum ) {
+	    DEBUG(10,"no rewriting of $contact - bad checksum");
+	    return;
+	};
+	(my $old_in,my $old_out,$old) = split( m{\0},$old,3);
+	my $new_in = $leg_in->key;
+	if ( $new_in ne $old_out ) {
+	    DEBUG(10,"no rewriting of $contact - went out through $old_out, came in through $new_in");
+	    return;
+	}
+	if ( ref($leg_out) eq 'SCALAR' ) {
+	    # return the old_in as the new outgoing leg
+	    my @l = grep { $_->key eq $old_in } $disp->get_legs;
+	    if ( @l != 1 ) {
+		DEBUG(10,"no rewriting of $contact - cannot find leg $old_in");
+		return;
+	    }
+	    $$leg_out = $l[0];
+	} elsif ( $leg_out ) {
+	    # check that it is the expected leg
+	    my $new_out = $leg_out->key;
+	    if ( $new_out ne $old_in ) {
+		DEBUG(10,"no rewriting of $contact - went in through $old_in, should got out through $new_out");
+		return;
+	    }
+	}
+	DEBUG( 100,"rewrite back $contact -> $old" );
+	return $old;
+    }
+
+    # invalid format
+    DEBUG( 100,"no rewriting of $contact" );
+    return;
 }
 
 ###########################################################################
@@ -152,11 +182,15 @@ sub receive {
 
 	my ($to) = sip_hdrval2parts( uri => $packet->uri );
 	$to = $1 if $to =~m{<(\w+:\S+)>};
-	my ($pre,$name) = $to =~m{^(sips?:)(\S+)?\@};
-	if ( $name && ( my $back = invoke_callback( $rewrite_contact,$name ) )) {
-	    $to = $pre.$back;
-	    DEBUG( 10,"rewrote URI from '%s' back to '%s'", $packet->uri, $to );
-	    $packet->set_uri( $to )
+	if ( my ($pre,$name) = $to =~m{^(sips?:)(\S+)?\@} ) {
+	    my $outgoing_leg;
+	    if ( my $back = invoke_callback( 
+		$rewrite_contact,$name,$incoming_leg,\$outgoing_leg )) {
+		$to = $pre.$back;
+		DEBUG( 10,"rewrote URI from '%s' back to '%s'", $packet->uri, $to );
+		$packet->set_uri( $to );
+		$entry{outgoing_leg} = [ $outgoing_leg ] if $outgoing_leg;
+	    }
 	}
 
 	$self->__forward_request_getleg( \%entry );
@@ -229,6 +263,7 @@ sub __forward_response_1 {
 sub __forward_request_getleg {
     my Net::SIP::StatelessProxy $self = shift;
     my $entry = shift;
+
     return $self->__forward_request_getdaddr($entry)
 	if @{$entry->{outgoing_leg}};
 
@@ -240,7 +275,7 @@ sub __forward_request_getleg {
 	$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
 	my ($data,$param) = sip_hdrval2parts( route => $route[0] );
 	my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
-	$port ||= 5060; # FIXME sips
+	$port ||= 5060; # FIXMEsips
 	my @legs = $disp->get_legs( addr => $addr, port => $port );
 	if ( ! @legs ) {
 	    $addr = $param->{maddr} if $param->{maddr};
@@ -250,22 +285,9 @@ sub __forward_request_getleg {
 	    DEBUG( 50,"setting leg from our route header: $data -> ".$legs[0]->dump );
 	    $entry->{outgoing_leg} = \@legs;
 	    shift(@route);
+	    $packet->set_header( route => \@route );
 	} else {
 	    DEBUG( 50,"no legs which can deliver to $addr:$port (route)" );
-	}
-	if ( @route ) {
-	    # still routing infos. Use next route as dst_addr
-	    $route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
-	    my ($data,$param) = sip_hdrval2parts( route => $route[0] );
-	    my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
-	    $port ||= 5060; # FIXME sips
-	    if ( my $m = $param->{maddr} ) {
-		$addr = $m;
-		DEBUG( 50, "setting dst_addr from route $data;maddr=$m to $addr:$port" );
-	    } else {
-		DEBUG( 50, "setting dst_addr from route $data to $addr:$port" );
-	    }
-	    @{ $entry->{dst_addr} } = ( "$addr:$port" );
 	}
     } else {
 	DEBUG( 50,'no route header' );
@@ -287,12 +309,30 @@ sub __forward_request_getdaddr {
     return __forward_request_1( $self,$entry )
 	if @{ $entry->{dst_addr}};;
 
+    # get target from route
+    my $nexthop;
+    if ( my @route = $entry->{packet}->get_header('route')) {
+	$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
+	my ($data,$param) = sip_hdrval2parts( route => $route[0] );
+	if ( my $m = $param->{maddr} ) {
+	    my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+	    $addr = $m;
+	    $port ||= 5060; # FIXME sips
+	    DEBUG( 50, "setting nexthop from route $data;maddr=$m to $addr:$port" );
+	    $nexthop = "$addr:$port";
+	} else {
+	    DEBUG( 50, "setting nexthop from route to $data" );
+	    $nexthop = $data;
+	}
+    }
+    $nexthop ||= $entry->{packet}->uri,
+
     my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
     my $packet = $entry->{packet};
     my $disp = $self->{dispatcher};
-    DEBUG( 50,"need to resolve ".$packet->uri." proto=".( $proto ||'') );
+    DEBUG( 50,"need to resolve $nexthop proto=".( $proto ||'') );
     return $disp->resolve_uri(
-	$packet->uri,
+	$nexthop,
 	$entry->{dst_addr},
 	$entry->{outgoing_leg},
 	[ \&__forward_request_1,$self,$entry ],
@@ -418,16 +458,16 @@ sub __forward_packet_final {
 		next;
 
 	    # if contact was rewritten rewrite back
-	    if ( $addr =~m{^(\w+)(\@.*)} &&
-		( my $back = $1 && invoke_callback($rewrite_contact,$1))) {
-		$addr = $back;
-		my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
+	    if ( $addr =~m{^(\w+)(\@.*)} and my $newaddr = invoke_callback( 
+		$rewrite_contact,$1,$incoming_leg,$outgoing_leg)) {
+		my $cnew = sip_parts2hdrval( 'contact', $pre.$newaddr.$post, $p );
 		DEBUG( 50,"rewrote back '$c' to '$cnew'" );
 		$c = $cnew;
 
 	    # otherwise rewrite it
 	    } else {
-		$addr = invoke_callback( $rewrite_contact,$addr);
+		$addr = invoke_callback($rewrite_contact,$addr,$incoming_leg,
+		    $outgoing_leg);
 		$addr .= '@'.$outgoing_leg->{addr}.':'.$outgoing_leg->{port};
 		my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
 		DEBUG( 50,"rewrote '$c' to '$cnew'" );

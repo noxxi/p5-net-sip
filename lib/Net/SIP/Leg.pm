@@ -494,5 +494,14 @@ sub dump {
 }
 
 
+###########################################################################
+# returns key for leg
+# Args: $self
+# Returns: key (string)
+###########################################################################
+sub key {
+    my Net::SIP::Leg $self = shift;
+    return "$self->{proto}:$self->{addr}:$self->{port}";
+}
 
 1;
