@@ -143,6 +143,7 @@ sub receive {
 	from => $from,
 	outgoing_leg => [],
 	dst_addr => [],
+	nexthop => undef,
     );
 
     if ( $packet->is_response ) {
@@ -264,36 +265,54 @@ sub __forward_request_getleg {
     my Net::SIP::StatelessProxy $self = shift;
     my $entry = shift;
 
-    return $self->__forward_request_getdaddr($entry)
-	if @{$entry->{outgoing_leg}};
-
-    my $packet = $entry->{packet};
-    my $disp = $self->{dispatcher};
-
     # if the top route header points to a local leg we use this as outgoing leg
-    if ( my @route = $packet->get_header( 'route' ) ) {
-	$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
-	my ($data,$param) = sip_hdrval2parts( route => $route[0] );
+    my @route = $entry->{packet}->get_header('route');
+    if ( ! @route ) {
+	DEBUG(50,'no route header');
+	return $self->__forward_request_getdaddr($entry)
+    }
+
+    my $route = $route[0] =~m{<([^\s>]+)>} && $1 || $route[0];
+    my $ol = $entry->{outgoing_leg};
+    if ( $ol && @$ol ) {
+	if ( sip_uri_eq( $route,$ol->[0]{contact})) {
+	    DEBUG(50,"first route header matches choosen leg");
+	    shift(@route);
+	} else {
+	    DEBUG(50,"first route header differs from choosen leg");
+	}
+    } else {
+	my ($data,$param) = sip_hdrval2parts( route => $route );
 	my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
-	$port ||= 5060; # FIXMEsips
-	my @legs = $disp->get_legs( addr => $addr, port => $port );
-	if ( ! @legs ) {
-	    $addr = $param->{maddr} if $param->{maddr};
-	    @legs = $disp->get_legs( addr => $addr, port => $port );
+	$port ||= 5060; # FIXME sips
+	my @legs = $self->{dispatcher}->get_legs(addr => $addr, port => $port);
+	if ( ! @legs and $param->{maddr} ) {
+	    @legs = $self->{dispatcher}->get_legs( 
+		addr => $param->{maddr}, 
+		port => $port 
+	    );
 	}
 	if ( @legs ) {
 	    DEBUG( 50,"setting leg from our route header: $data -> ".$legs[0]->dump );
 	    $entry->{outgoing_leg} = \@legs;
 	    shift(@route);
-	    $packet->set_header( route => \@route );
 	} else {
 	    DEBUG( 50,"no legs which can deliver to $addr:$port (route)" );
 	}
-    } else {
-	DEBUG( 50,'no route header' );
+    }
+    if ( @route ) {
+	# still routing infos. Use next route as nexthop
+	my $route = $route[0] =~m{<([^\s>]+)>} && $1 || $route[0];
+	my ($data,$param) = sip_hdrval2parts( route => $route );
+	my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+	$port ||= 5060; # FIXME sips
+	$entry->{nexthop} = $param->{maddr} 
+	    ? "$param->{maddr}:$port"
+	    : "$addr:$port";
+	DEBUG( 50, "setting nexthop from route $route to $entry->{nexthop}" );
     }
 
-    $self->__forward_request_getdaddr($entry);
+    return $self->__forward_request_getdaddr($entry)
 }
 
 ###########################################################################
@@ -307,32 +326,13 @@ sub __forward_request_getdaddr {
     my $entry = shift;
 
     return __forward_request_1( $self,$entry )
-	if @{ $entry->{dst_addr}};;
-
-    # get target from route
-    my $nexthop;
-    if ( my @route = $entry->{packet}->get_header('route')) {
-	$route[0] =~s{.*<}{} && $route[0] =~s{>.*}{};
-	my ($data,$param) = sip_hdrval2parts( route => $route[0] );
-	if ( my $m = $param->{maddr} ) {
-	    my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
-	    $addr = $m;
-	    $port ||= 5060; # FIXME sips
-	    DEBUG( 50, "setting nexthop from route $data;maddr=$m to $addr:$port" );
-	    $nexthop = "$addr:$port";
-	} else {
-	    DEBUG( 50, "setting nexthop from route to $data" );
-	    $nexthop = $data;
-	}
-    }
-    $nexthop ||= $entry->{packet}->uri,
+	if @{ $entry->{dst_addr}};
 
     my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
-    my $packet = $entry->{packet};
-    my $disp = $self->{dispatcher};
-    DEBUG( 50,"need to resolve $nexthop proto=".( $proto ||'') );
-    return $disp->resolve_uri(
-	$nexthop,
+    $entry->{nexthop} ||= $entry->{packet}->uri,
+    DEBUG( 50,"need to resolve $entry->{nexthop} proto=".( $proto ||'') );
+    return $self->{dispatcher}->resolve_uri(
+	$entry->{nexthop},
 	$entry->{dst_addr},
 	$entry->{outgoing_leg},
 	[ \&__forward_request_1,$self,$entry ],

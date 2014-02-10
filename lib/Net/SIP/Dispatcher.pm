@@ -599,8 +599,6 @@ sub resolve_uri {
 	return invoke_callback($callback, EHOSTUNREACH );
     };
 
-    warn "XXXXXX resolve dom=$domain uri=$uri";
-
     my @proto;
     my $default_port = 5060;
     # XXXX hack, better would be to really parse URI, see *::Util::sip_hdrval2parts
@@ -734,10 +732,6 @@ sub __resolve_uri_final {
     DEBUG_DUMP( 100,$resp );
     return invoke_callback( $callback,EHOSTUNREACH )
 	unless $resp && @$resp;
-
-    for(@{ $legs || [] }) { warn "XXXXX leg=".$_->dump; }
-    for(@{ $allowed_legs || [] }) { warn "XXXXX allowed_leg=".$_->dump; }
-
 
     # for A records we got no port, use default_port
     $_->[3] ||= $default_port for(@$resp);
