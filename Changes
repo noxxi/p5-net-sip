@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.687 2014-02-11
+StatelessProxy:
+- better encryption for rewritten contact and way to define its own
+- fix loop detection
 0.686 2014-02-07
 - StatelessProxy: rewriting contact now contains information about incoming
   and outgoing legs to restore the path if somebody uses the rewritten

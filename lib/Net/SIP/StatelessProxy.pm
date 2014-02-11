@@ -40,8 +40,8 @@ sub new {
     my $disp = $self->{dispatcher} =
 	delete $args{dispatcher} || croak 'no dispatcher given';
     $self->{rewrite_contact} = delete $args{rewrite_contact} || do {
-	my $secret = md5( sort { $a cmp $b } map { $_->key } $disp->get_legs );
-	[ \&_default_rewrite_contact, $secret, $disp ];
+	my $crypt = $args{rewrite_crypt} || \&_stupid_crypt;
+	[ \&_default_rewrite_contact, $crypt, $disp ];
     };
     $self->{nathelper} = delete $args{nathelper};
     $self->{force_rewrite} = delete $args{force_rewrite};
@@ -49,38 +49,32 @@ sub new {
     return $self;
 }
 
+
 # default handler for rewriting, does simple XOR only,
 # this is not enough if you need to hide internal addresses
 sub _default_rewrite_contact {
-    my ($secret,$disp,$contact,$leg_in,$leg_out) = @_;
+    my ($crypt,$disp,$contact,$leg_in,$leg_out) = @_;
 
     if ( $contact =~m{\@} ) {
 	# needs to be rewritten - incorporate leg_in:leg_out
-	$contact = join("\0",
+	$contact = join("\|",
 	    (map { $_->key } ($leg_in,$leg_out)),
 	    $contact
 	);
-	$contact .= substr(md5($contact),0,8); # kind of checksum
-	my $lc = length($contact);
-	$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
 	# add 'r' in front of hex so it does not look like phone number
-	my $new = 'r'.unpack( 'H*',( $contact ^ $secret ));
+	my $new = 'r'.unpack( 'H*',$crypt->($contact,1));
 	DEBUG( 100,"rewrite $contact -> $new" );
 	return $new;
     }
 
     if ( $contact =~m{^r([0-9a-f]+)$} ) {
 	# needs to be written back
-	my $old = pack('H*',$1 );
-	my $lc = length($old);
-	$secret = substr( $secret x int( $lc/length($secret) +1 ), 0,$lc );
-	$old = $old ^ $secret;
-	my $chksum = substr($old,-8,8,'');
-	if ( substr(md5($old),0,8) ne $chksum ) {
-	    DEBUG(10,"no rewriting of $contact - bad checksum");
+	my $old = $crypt->(pack("H*",$1),-1) or do {
+	    DEBUG(10,"no rewriting of $contact - bad encryption");
 	    return;
 	};
-	(my $old_in,my $old_out,$old) = split( m{\0},$old,3);
+	DEBUG(100,"rewrote back $contact -> $old");
+	(my $old_in,my $old_out,$old) = split( m{\|},$old,3);
 	my $new_in = $leg_in->key;
 	if ( $new_in ne $old_out ) {
 	    DEBUG(10,"no rewriting of $contact - went out through $old_out, came in through $new_in");
@@ -109,6 +103,44 @@ sub _default_rewrite_contact {
     # invalid format
     DEBUG( 100,"no rewriting of $contact" );
     return;
+}
+
+{
+    # RC4 with seed + checksum, picks random key on first use
+    # dir: encrypt(1),decrypt(-1), otherwise symmetric w/o seed and checksum
+    my @k;
+    sub _stupid_crypt {
+	my ($in,$dir) = @_;
+	@k = map { rand(256) } (0..20) if ! @k; # create random key 
+
+	if ($dir>0) {
+	    $in = pack("N",rand(2**32)).$in;  # add seed
+	    $in .= substr(md5($in),0,4);      # add checksum
+	}
+
+	# RC4
+	my $out = '';
+	my @s = (0..255);
+	my $x = my $y = 0;
+	for(0..255) {
+	    $y = ( $k[$_%@k] + $s[$x=$_] + $y ) % 256;
+	    @s[$x,$y] = @s[$y,$x];
+	}
+	$x = $y = 0;
+	for(unpack('C*',$in)) {
+            $x++;
+	    $y = ( $s[$x%=256] + $y ) % 256;
+	    @s[$x,$y] = @s[$y,$x];
+	    $out .= pack('C',$_^=$s[($s[$x]+$s[$y])%256]);
+	}
+
+	if ( $dir<0 ) {
+	    my $cksum = substr($out,-4,4,'');           # remove checksum
+	    substr(md5($out),0,4) eq $cksum or return;  # verify it
+	    substr($out,0,4,'');                        # remove seed
+	}
+	return $out;
+    }
 }
 
 ###########################################################################
