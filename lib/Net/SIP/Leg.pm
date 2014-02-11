@@ -85,8 +85,8 @@ sub new {
 	( delete $args{branch} || md5_hex( @{$self}{qw( addr port proto )} ));
 
     $self->{contact} =~m{^\w+:(.*)};
-    $self->{via} =  sprintf( "SIP/2.0/%s %s;branch=%s",
-	uc($self->{proto}),$leg_addr, $self->{branch} );
+    $self->{via} =  sprintf( "SIP/2.0/%s %s;branch=",
+	uc($self->{proto}),$leg_addr );
 
     return $self;
 }
@@ -197,11 +197,10 @@ sub forward_outgoing {
 	# check if myself is already in Via-path
 	# in this case drop the packet, because a loop is detected
 	if ( my @via = $packet->get_header( 'via' )) {
-	    my $branch = $self->{branch};
-	    my $lbranch = length($branch);
+	    my $branch = $self->via_branch($packet,3);
 	    foreach my $via ( @via ) {
 		my (undef,$param) = sip_hdrval2parts( via => $via );
-		if ( substr( $param->{branch},0,$lbranch ) eq $branch ) {
+		if ( substr( $param->{branch},0,length($branch) ) eq $branch ) {
 		    DEBUG( 10,'loop detected because outgoing leg is in Via. DROP' );
 		    return [ undef,'loop detected on outgoing leg, dropping' ];
 		}
@@ -409,7 +408,8 @@ sub receive {
 }
 
 ###########################################################################
-# check if the top via header in the packet is from this Leg
+# check if the top via header matches the transport of this call through
+# this leg. Used to strip Via header in response.
 # Args: ($self,$packet)
 #  $packet: Net::SIP::Packet (usually Net::SIP::Response)
 # Returns: $bool
@@ -419,9 +419,8 @@ sub check_via {
     my ($self,$packet) = @_;
     my ($via) = $packet->get_header( 'via' );
     my ($data,$param) = sip_hdrval2parts( via => $via );
-    my $l_branch = $self->{branch};
-    my $p_branch = substr( $param->{branch},0,length($l_branch));
-    return $l_branch eq $p_branch;
+    my $cmp_branch = $self->via_branch($packet,2);
+    return substr( $param->{branch},0,length($cmp_branch)) eq $cmp_branch;
 }
 
 ###########################################################################
@@ -434,11 +433,31 @@ sub check_via {
 sub add_via {
     my Net::SIP::Leg $self = shift;
     my $packet = shift;
+    $packet->insert_header( via => $self->{via}.$self->via_branch($packet,3));
+}
 
-    # make Via based transaction id
-    my $via = $self->{via};
-    $via .= md5_hex( $packet->tid );
-    $packet->insert_header( via => $via );
+###########################################################################
+# computes branch tag for via header
+# Args: ($self,$packet,$level)
+#  $packet: Net::SIP::Packet (usually Net::SIP::Request)
+#  $level: level of detail: 1:leg, 2:call, 3:path
+# Returns: $value
+###########################################################################
+sub via_branch {
+    my Net::SIP::Leg $self = shift;
+    my ($packet,$level) = @_;
+    my $val = $self->{branch};
+    $val .= substr( md5_hex( $packet->tid ),0,15 ) if $level>1;
+    $val .= substr( md5_hex( 
+	( sort $packet->get_header( 'proxy-authorization' )),
+	( sort $packet->get_header( 'proxy-require' )),
+	$packet->get_header( 'route' ),
+	$packet->get_header( 'to' ),
+	$packet->get_header( 'from' ),
+	($packet->get_header( 'via' ))[0] || '',
+	($packet->as_parts())[1],
+    ),0,15 ) if $level>2;
+    return $val;
 }
 
 ###########################################################################
