@@ -6,6 +6,8 @@ Net::SIP::Packet - handling of SIP packets
 =head1 SYNOPSIS
 
   use Net::SIP::Packet;
+  use Net::SIP::Request;
+  use Net::SIP::Response;
   my $pkt = eval { Net::SIP::Packet->new( $sip_string ) }
     or die "invalid SIP packet";
   $pkt->get_header( 'call-id' ) || die "no call-id";
@@ -67,7 +69,8 @@ into B<new_from_string> or B<new_from_parts>.
 =item new_from_string ( STRING )
 
 Interprets STRING as a SIP request or response and creates L<Net::SIP::Request>
-or L<Net::SIP::Response> object accordingly.
+or L<Net::SIP::Response> object accordingly (these classes must have been
+loaded already).
 Will die() if it cannot parse the string as a SIP packet.
 
 =item new_from_parts ( CODE|METHOD, TEXT|URI, \%HEADER|\@HEADER, [ BODY ] )
@@ -76,6 +79,7 @@ If CODE|METHOD is numeric a L<Net::SIP::Response> object will be created with
 the response code CODE and the text TEXT.
 Otherwise a L<Net::SIP::Request> object will be created with the method METHOD
 and the uri URI.
+Note that the Request or Response class need to be loaded already.
 
 Header data can be given as a hash %HEADER or array @HEADER reference.
 In case of a hash the key is the SIP field name and the value as either a string

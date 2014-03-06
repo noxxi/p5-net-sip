@@ -79,7 +79,7 @@ sub new_from_parts {
 	$class = 'Net::SIP::Response' if $class eq 'Net::SIP::Packet';
     } else {
 	# Request
-	$code = uc($code);                             # uppercase method
+	$code = uc($code);  # uppercase method
 	$class = 'Net::SIP::Request' if $class eq 'Net::SIP::Packet';
     }
 
@@ -136,7 +136,7 @@ sub new_from_string {
     if ( $class eq 'Net::SIP::Packet' ) {
 	$class = $data->{code} =~m{^\d}
 	    ? 'Net::SIP::Response'
-	    :'Net::SIP::Request';
+	    : 'Net::SIP::Request';
     }
     my $self = fields::new($class);
     %$self = %$data;
