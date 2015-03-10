@@ -23,29 +23,29 @@ The following levels are used:
 
 =over 4
 
-=item 1
+=item
 
-Debug messages for users
+1 - Debug messages for users
 
-=item 2
+=item
 
-Includes short SIP packet dumps of incoming and outgoing data
+2 - Includes short SIP packet dumps of incoming and outgoing data
 
-=item 5
+=item
 
-Includes detailed SIP packet dumps for incoming and outgoing data
+5 - Includes detailed SIP packet dumps for incoming and outgoing data
 
-=item 10
+=item
 
-Includes information about call flow, e.g. why packets get dropped etc.
+10 - Includes information about call flow, e.g. why packets get dropped etc.
 
-=item 50
+=item
 
-Detailed debugging for programmers using L<Net::SIP>.
+50 - Detailed debugging for programmers using L<Net::SIP>.
 
-=item 100
+=item
 
-Detailed debugging for core developers of L<Net::SIP>.
+100 - Detailed debugging for core developers of L<Net::SIP>.
 
 =back
 
