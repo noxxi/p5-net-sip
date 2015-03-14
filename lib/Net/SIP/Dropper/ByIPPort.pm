@@ -249,7 +249,7 @@ sub data {
 
 =pod
 
-=back 4
+=back
 
 =cut
 
