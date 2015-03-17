@@ -34,6 +34,7 @@ Options:
   -S|--send filename           send content of file, can be given multiple times
   -L|--leg ip[:port]           use given local ip[:port] for outgoing leg
   -T|--timeout T               timeout and cancel invite after T seconds, default 30
+  -F|--failonhang              error out when remote hangs the call before finishing the playback
   --username name              username for authorization
   --password pass              password for authorization
 
@@ -52,7 +53,7 @@ EOS
 ###################################################
 
 my $ring_time = 30;
-my ($proxy,@files,$registrar,$username,$password,$local_leg);
+my ($proxy,@files,$registrar,$username,$password,$local_leg,$failonhang);
 my ($debug,$hangup);
 GetOptions(
     'd|debug:i' => \$debug,
@@ -62,6 +63,7 @@ GetOptions(
     'S|send=s' => \@files,
     'L|leg=s' => \$local_leg,
     'T|timeout=s' => \$ring_time,
+    'F|failonhang' => \$failonhang,
     'username=s' =>\$username,
     'password=s' =>\$password,
 ) || usage( "bad option" );
@@ -181,9 +183,12 @@ while ( ! $peer_hangup ) {
     $ua->loop( \$rtp_done,\$peer_hangup );
 }
 
-unless ( $peer_hangup ) {
+if ( !$peer_hangup ) {
     # no more files: hangup
     my $stopvar;
     $call->bye( cb_final => \$stopvar );
     $ua->loop( \$stopvar );
+} elsif ( $failonhang ) {
+    die "Remote hanged";
 }
+
