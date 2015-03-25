@@ -18,7 +18,7 @@ e.g. (re-)invites on existing context etc.
 
 =over 4
 
-=item new ( CONTROL, CTX, \%ARGS )
+=item new ( CONTROL, CTX, %ARGS )
 
 Creates a new L<Net::SIP::Simple::Call> object to control a call.
 Usually called from B<invite> in L<Net::SIP::Simple>.
