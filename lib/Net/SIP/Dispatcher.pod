@@ -139,7 +139,7 @@ be decided based on the value of WHEN). Absolute times will be
 specified in time_t (seconds since 1970-01-01 00:00:00) and
 relative time will be specified in seconds.
 WHEN can be floating point to specifiy subseconds.
-WHEN can be C<0> to trigger the timer immediatly.
+WHEN can be C<0> to trigger the timer immediately.
 
 CALLBACK is a callback usable by B<invoke_callback> in L<Net::SIP::Util>.
 

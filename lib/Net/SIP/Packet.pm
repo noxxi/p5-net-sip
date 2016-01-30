@@ -398,7 +398,7 @@ sub as_string {
 	$self->set_header( 'content-length',length($body))
     }
 
-    # return immediatly if request is up to date
+    # return immediately if request is up to date
     return $self->{as_string} if $self->{as_string};
 
     my $header = $self->{header};
@@ -494,7 +494,7 @@ sub dump {
 sub as_parts {
     my $self = shift;
 
-    # if parts are up to date return immediatly#
+    # if parts are up to date return immediately#
     if ( ! $self->{code} ) {
 	my $data = _string2parts( $self->{as_string} );
 	%$self = ( %$self,%$data );

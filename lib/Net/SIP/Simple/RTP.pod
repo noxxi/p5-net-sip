@@ -22,7 +22,7 @@ It's used from method B<rtp> in L<Net::SIP::Simple>.
 
 =item media_recv_echo ( [ OUTPUT, DELAY ] )
 
-Receives RTP data and echos them back to the sender.
+Receives RTP data and echoes them back to the sender.
 If OUTPUT is given it will be used as the file for saving the
 received data without the RTP header.
 
@@ -30,12 +30,12 @@ OUTPUT might also be a callback which gets the payload
 as argument.
 
 If DELAY is >0 the data will not be echoed
-back immediatly but with an delay of DELAY packets (e.g.
+back immediately but with a delay of DELAY packets (e.g.
 with DELAY 10 it will send back the first packet after it
 received the 10th packet).
 If DELAY is <0 the data will not be echoed back.
 If DELAY is not given or equal 0 the data will be echoed
-back immediatly.
+back immediately.
 
 If no traffic comes in for more then 10 seconds it will
 hang up the call because of inactivity.
@@ -64,7 +64,7 @@ file like in B<media_recv_echo>. The content from OUTPUT
 has the same format as INPUT or OUTPUT from B<media_recv_echo>.
 
 OUTPUT might also be a callback which gets the payload
-as argument.
+as an argument.
 
 If no traffic comes in for more then 10 seconds it will
 hang up the call because of inactivity.

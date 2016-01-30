@@ -1,21 +1,21 @@
 This is a module for handling SIP, the IETF standard for VOIP
 (RFC3261).
-It is written completly in perl.
+It is written completely in perl.
 
 With the help of this module you can write SIP endpoints (e.g
 phones, answer machines), SIP proxies and registrars.
 It contains no GUI and no real code for working with video or
-audio, but is has some support for RTP (no RTCP) and working
+audio, but has some support for RTP (no RTCP) and working
 with PCMU/8000 data, enough for sending PCMU/8000 encoded
 audio to a SIP peer and for receiving and saving PCMU/8000
-audio data. 
+audio data.
 
-The module is designed to be completly asynchronous, e.g. you
-either integrate it in your own event handling or you can use 
+The module is designed to be completely asynchronous, e.g. you
+either integrate it in your own event handling or you can use
 the simple event handling which is included.
 
 It was tested on Linux (Ubuntu 6.10,7.04,7.10), MacOSX 10.3+10.4,
-OpenBSD3.9+4.1 with various perl versions starting with 
+OpenBSD3.9+4.1 with various perl versions starting with
 perl5.8.7, including 5.10
 
 Sample Code was tested with Snom 300 Phones, Asterisk 1.2,

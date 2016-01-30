@@ -15,9 +15,9 @@ and on top of all that a simplified layer for common tasks.
 
 Addionally L<Net::SIP::Util> provides utility functions
 and L<Net::SIP::Debug> provides a debugging layer used
-by all these packets. Especially it provides the function
-B<invoke_callback> which is used for all callback unless
-otherwise in the documentation specified. This function
+by all these packages. Especially it provides the function
+B<invoke_callback> which is used for all callbacks unless
+documentation specifies otherwise. This function
 supports a variety of different callback styles.
 
 For first and simple applications you best start with L<Net::SIP::Simple>.
@@ -26,7 +26,7 @@ L<Net::SIP::Dispatcher>, L<Net::SIP::Endpoint>,
 L<Net::SIP::Register> and L<Net::SIP::StatelessProxy>.
 Although these packages are in itself well documented the functionality
 and the design is best understandable if you look how it gets used
-in tghe source of L<Net::SIP::Simple>.
+in the source of L<Net::SIP::Simple>.
 
 =head2 SIP packet handling
 
@@ -34,19 +34,19 @@ in tghe source of L<Net::SIP::Simple>.
 
 =item L<SIP::Net::Packet>
 
-Is the base class for handling SIP packets and provides ways to
+The base class for handling SIP packets and provides ways to
 parse, construct and manipulate SIP packets.
 
 =item L<SIP::Net::Request>
 
-Is derived from L<SIP::Net::Packet> and handles the request packets.
+Derived from L<SIP::Net::Packet> and handles the request packets.
 Provides ways to create special requests like ACK or CANCEL based
 on previous requests and responses, for creating responses based
 on requests, for authorization of requests.
 
 =item L<SIP::Net::Response>
 
-Is derived from L<SIP::Net::Packet> and handles the response packets.
+Derived from L<SIP::Net::Packet> and handles the response packets.
 
 =item L<SIP::Net::SDP>
 
@@ -90,7 +90,7 @@ L<Lib::Event> or L<POE>.
 =item L<Net::SIP::Endpoint>
 
 Implements a SIP endpoint (UAC,UAS). Provides ways to INVITE or BYE
-calls or to handle incoming calls. Calls itself will be handled by
+calls or to handle incoming calls. Calls themselves will be handled by
 L<Net::SIP::Endpoint::Context>.
 
 =item L<Net::SIP::Registrar>
@@ -142,8 +142,8 @@ is possible to handle simple RTP data (PCMU/8000).
 Unless otherwise documented the common way to propagate errors is to
 raise an exception, e.g. call die(). This might especially happen
 when parsing packets from strings, so unless you want to crash your
-application on bad input you should catch these exceptions with 
-eval. 
+application on bad input you should catch these exceptions with
+eval.
 
 =head1 EXPORTS
 

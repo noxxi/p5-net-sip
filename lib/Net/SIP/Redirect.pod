@@ -28,7 +28,7 @@ This creates a new redirect object, %ARGS can have the following keys:
 
 =item dispatcher
 
-L<Net::SIP::Dispatcher> object manging the registar. Mandatory.
+L<Net::SIP::Dispatcher> object managing the registar. Mandatory.
 
 =item registrar
 
@@ -56,7 +56,7 @@ an REGISTER request.
 
 For Requests it will query the registrar and return either
 C<< 302 Moved Temporarily >> with the list of contacts or
-C<< 404 Not found >> if the address is not registered.
+C<< 404 Not Found >> if the address is not registered.
 
 
 

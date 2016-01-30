@@ -180,7 +180,7 @@ sub media_send_recv {
 	    if ( $addr ) {
 		my $cb_done = $args->{cb_rtp_done} || sub { shift->bye };
 		my $timer = $call->{dispatcher}->add_timer(
-		    0, # start immediatly
+		    0, # start immediately
 		    [ \&_send_rtp,$s_sock,$call->{loop},$addr,$readfrom, {
 			repeat => $repeat || 1,
 			cb_done => [ sub { invoke_callback(@_) }, $cb_done, $call ],
