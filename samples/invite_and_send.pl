@@ -53,7 +53,7 @@ EOS
 
 my $ring_time = 30;
 my ($proxy,@files,$registrar,$username,$password,$local_leg);
-my ($debug,$hangup);
+my $debug;
 GetOptions(
     'd|debug:i' => \$debug,
     'h|help' => sub { usage() },

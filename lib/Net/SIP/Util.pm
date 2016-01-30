@@ -282,7 +282,7 @@ sub create_rtp_sockets {
     while ( $tries-- >0 ) {
 
 	last if @socks == $range;
-	map { close($_) } @socks;
+	close $_ for @socks;
 	@socks = ();
 
 	$port = 2*int(rand($diff2)) + $min;

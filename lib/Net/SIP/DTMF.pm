@@ -36,7 +36,7 @@ sub dtmf_generator {
     my ($event,$duration,%pargs) = @_;
 
     # empty or invalid stuff will cause pause/silence
-    $event = '' if ! defined $event or $event !~m{(\d)|([A-D])|(\*)|(\#)}i;
+    $event = '' if ! defined $event or $event !~ m{[\dA-D\*\#]}i;
 
     if ( defined( my $type = $pargs{rfc2833_type} )) {
 	# create RFC2833 payload

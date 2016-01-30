@@ -365,7 +365,7 @@ sub set_body {
 ###########################################################################
 sub scan_header {
     my Net::SIP::Packet $self = shift;
-    my $key = _normalize_hdrkey(shift) if @_>1;
+    my $key = @_>1 ? _normalize_hdrkey(shift) : undef;
     my $sub = shift;
 
     ($sub, my @args) = ref($sub) eq 'CODE' ? ($sub):@$sub;
