@@ -115,7 +115,7 @@ foreach my $spec ( qw( no-nat inline-nat remote-nat )) {
 sub proxy {
     my ($lsock_c,$lsock_s,$proxy_addr,$natcb) = @_;
 
-    # need loop seperatly
+    # need loop separately
     my $loop = Dispatcher_Eventloop->new;
     my $nathelper = invoke_callback( $natcb,$loop );
 

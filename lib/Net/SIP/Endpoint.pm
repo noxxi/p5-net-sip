@@ -197,7 +197,7 @@ sub cancel_invite {
 
 ############################################################################
 # internal callback used for delivery
-# will be called from dispatcher if the request was definitly successfully
+# will be called from dispatcher if the request was definitely successfully
 # delivered (tcp only) or an error occurred
 # Args: ($self,$ctx,$error,$delivery_packet)
 #   $ctx: Net::SIP::Endpoint::Context

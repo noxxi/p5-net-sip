@@ -169,7 +169,7 @@ sub get_param {
 # Returns: Net::SIP::Endpoint::Context
 # Comment:
 # If cb_final callback was not given it will loop until it got a final
-# response, otherwise it will return immediatly
+# response, otherwise it will return immediately
 ###########################################################################
 sub reinvite {
     my Net::SIP::Simple::Call $self = shift;

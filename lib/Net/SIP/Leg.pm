@@ -250,7 +250,7 @@ sub forward_outgoing {
 #   $callback: optional callback, if an error occured the callback will
 #      be called with $! as argument. If no error occured and the
 #      proto is tcp the callback will be called with error=0 to show
-#      that the packet was definitly delivered (and need not retried)
+#      that the packet was definitely delivered (and there's no need to retry)
 ###########################################################################
 sub deliver {
     my Net::SIP::Leg $self = shift;

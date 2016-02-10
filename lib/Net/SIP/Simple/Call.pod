@@ -40,7 +40,7 @@ in %ARGS:
 
 =item leg
 
-Which leg should be used for the call (default is first leg in dispatcher).
+Specifies which leg should be used for the call (default is first leg in dispatcher).
 
 =item sdp_on_ack
 

@@ -11,7 +11,7 @@
 - it's udp, so it easy to spoof
 - endpoint usually simple and buggy, need to be protected, e.g
   should maybe rewrite complete message while forwarding
-  so that it's definitly correctly formatted
+  so that it's definitely correctly formatted
 
 special:
 - SIP header is UTF-8, should be checked for invalid UTF-8 char

@@ -256,7 +256,7 @@ DetlefPilzecker[AT]web[DOT]de
   Thanks to <vitspec[AT]gmail[DOT]com> for pointing out the problem.
 
 0.56 2010-02-02
-- fix CANCEL handling: instead of closing the context immediatly:
+- fix CANCEL handling: instead of closing the context immediately:
   - server should return 487 to client before closing the context
   - server should ignore ACKs for unknown contexts instead of 
     replying with 481

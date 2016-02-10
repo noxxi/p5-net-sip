@@ -365,7 +365,7 @@ sub set_body {
 ###########################################################################
 sub scan_header {
     my Net::SIP::Packet $self = shift;
-    my $key = _normalize_hdrkey(shift) if @_>1;
+    my $key = @_>1 ? _normalize_hdrkey(shift) : undef;
     my $sub = shift;
 
     ($sub, my @args) = ref($sub) eq 'CODE' ? ($sub):@$sub;
@@ -398,7 +398,7 @@ sub as_string {
 	$self->set_header( 'content-length',length($body))
     }
 
-    # return immediatly if request is up to date
+    # return immediately if request is up to date
     return $self->{as_string} if $self->{as_string};
 
     my $header = $self->{header};
@@ -494,7 +494,7 @@ sub dump {
 sub as_parts {
     my $self = shift;
 
-    # if parts are up to date return immediatly#
+    # if parts are up to date return immediately#
     if ( ! $self->{code} ) {
 	my $data = _string2parts( $self->{as_string} );
 	%$self = ( %$self,%$data );

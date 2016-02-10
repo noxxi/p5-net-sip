@@ -23,29 +23,29 @@ The following levels are used:
 
 =over 4
 
-=item 1
+=item
 
-Debug messages for users
+1 - Debug messages for users.
 
-=item 2
+=item
 
-Includes short SIP packet dumps of incoming and outgoing data
+2 - Includes short SIP packet dumps of incoming and outgoing data.
 
-=item 5
+=item
 
-Includes detailed SIP packet dumps for incoming and outgoing data
+5 - Includes detailed SIP packet dumps for incoming and outgoing data.
 
-=item 10
+=item
 
-Includes information about call flow, e.g. why packets get dropped etc.
+10 - Includes information about call flow, e.g. why packets get dropped etc.
 
-=item 50
+=item
 
-Detailed debugging for programmers using L<Net::SIP>.
+50 - Detailed debugging for programmers using L<Net::SIP>.
 
-=item 100
+=item
 
-Detailed debugging for core developers of L<Net::SIP>.
+100 - Detailed debugging for core developers of L<Net::SIP>.
 
 =back
 
@@ -89,7 +89,7 @@ L<Net::SIP::Endpoint::Context> too.
 
 Similar to the previous item, but this sets debugging level to
 NUMBER for the specified packages and thus can also be used to
-selectivly disable debugging for some packages.
+selectively disable debugging for some packages.
 
 =back
 
@@ -112,7 +112,7 @@ be useful to change this to "DEBUG($$):" or similar.
 
 =item DEBUG|debug ( [ LEVEL ],( MESSAGE | FMT,@ARG ))
 
-If debugging is enabled it will print to STDERR debugging info.
+If debugging is enabled it will print debugging info to STDERR.
 If multiple arguments are given to the function they will be
 fed into B<sprintf> to create a single message.
 
@@ -122,7 +122,7 @@ for this message, e.g. if it is higher than the user specified
 debug level the message will not be printed.
 
 The MESSAGE (or the result from C<< sprintf(FMT,@ARG) >>) will be
-prefixed by the callers package, the callers function and the line
+prefixed by the caller package, the caller function and the line
 from which DEBUG was called. In front of the prefix the current time
 (as float time_t) and the string "DEBUG:" will be added.
 

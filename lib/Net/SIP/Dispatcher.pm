@@ -451,7 +451,7 @@ sub queue_expire {
 	    }
 
 	    if ( !@$retransmits ) {
-		# completly expired
+		# completely expired
 		DEBUG( 50,"entry %s expired because expire=%.2f but now=%d", $qe->tid,$retransmit,$now );
 		$changed++;
 		$qe->trigger_callback( ETIMEDOUT );

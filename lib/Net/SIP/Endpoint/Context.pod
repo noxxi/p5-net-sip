@@ -234,8 +234,8 @@ If the response is a successful final response to a request
 other then INVITE it will invoke callback which should fully
 handle the response.
 
-If the response code is 401 (Authorization required) or
-407 (Proxy Authorization required) and if the context has
+If the response code is 401 (Unauthorized) or
+407 (Proxy Authentication Required) and if the context has
 authorization info (key B<auth> in the constructor)) it
 will try to authorize the request based on the realms
 given in the response and if it can find authorization info
@@ -243,14 +243,14 @@ for at least parts of the required realms it will
 redeliver the request. Otherwise it will invoke the callback
 with an error of EPERM.
 
-If the response code is 300 (multiple choice) or 301
+If the response code is 300 (Multiple Choices) or 301
 (moved permanently) it will invoke the callback because
 it cannot resolve the issue automatically.
-But if it's 302 (moved temporally) it will rewrite the
+But if it's 302 (Moved Temporarily) it will rewrite the
 request based on the B<Contact> header in the response
 and redeliver it automatically.
 
-If the response is 305 (use proxy) it will take the information
+If the response is 305 (Use Proxy) it will take the information
 from B<Contact> as the upstream proxy and insert it into
 the routes, so that it will use it as the next hop.
 Then it rewrites the request for the new routes and redelivers it.
