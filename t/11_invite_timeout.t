@@ -9,47 +9,49 @@
 
 use strict;
 use warnings;
-use Test::More tests => 8;
+use Test::More tests => 8*2;
+
+do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP;
 use Net::SIP::Util ':all';
 use IO::Socket;
 
-# create leg for UAS on dynamic port
-my $sock_uas = IO::Socket::INET->new(
-    Proto => 'udp',
-    LocalAddr => '127.0.0.1',
-    LocalPort => 0, # let system pick one
-);
-ok( $sock_uas, 'create UAS socket' );
+for my $proto (qw(ip4 ip6)) {
+    SKIP: {
+	if ($proto eq 'ip6' && !do_ipv6()) {
+	    skip "no IPv6 support",8;
+	    next;
+	}
 
-# get address for UAS
-my $uas_addr = do {
-    my ($port,$host) = unpack_sockaddr_in ( getsockname($sock_uas));
-    inet_ntoa( $host ).":$port"
-};
+	note("------- test with proto $proto");
 
+	# create leg for UAS on dynamic port
+	my ($sock_uas,$uas_addr) = create_socket();
+	ok( $sock_uas, 'create UAS socket' );
 
-# fork UAS and make call from UAC to UAS
-pipe( my $read,my $write); # to sync UAC with UAS
-my $pid = fork();
-if ( defined($pid) && $pid == 0 ) {
-    close($read);
-    $write->autoflush;
-    uas( $sock_uas, $write );
-    exit(0);
+	# fork UAS and make call from UAC to UAS
+	pipe( my $read,my $write); # to sync UAC with UAS
+	my $pid = fork();
+	if ( defined($pid) && $pid == 0 ) {
+	    close($read);
+	    $write->autoflush;
+	    uas( $sock_uas, $write );
+	    exit(0);
+	}
+
+	ok( $pid, "fork successful" );
+	close( $sock_uas );
+	close($write);
+
+	alarm(15);
+	$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
+
+	uac( $uas_addr,$read );
+	ok( <$read>, "done" );
+	wait;
+    }
 }
-
-ok( $pid, "fork successful" );
-close( $sock_uas );
-close($write);
-
-alarm(15);
-$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
-
-uac( $uas_addr,$read );
-ok( <$read>, "done" );
-wait;
 
 ###############################################
 # UAC

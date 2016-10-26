@@ -2,33 +2,43 @@
 
 use strict;
 use warnings;
-use Test::More tests => 11;
+use Test::More tests => 22;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 
-my ($csock,$caddr) = create_socket();
-my ($ssock,$saddr) = create_socket();
+for my $proto (qw(ip4 ip6)) {
+    SKIP: {
+	if ($proto eq 'ip6' && !do_ipv6()) {
+	    skip "no IPv6 support",11;
+	    next;
+	}
 
-# start UAS
-my $uas = fork_sub( 'uas',$ssock,$caddr,$saddr );
-fd_grep_ok( 'Listening',$uas );
+	note("------ testing with $proto");
 
-# start UAC once UAS is ready
-my $uac = fork_sub( 'uac',$csock,$caddr,$saddr );
-fd_grep_ok( 'Started',$uac );
-fd_grep_ok( 'Call accepted',$uas );
+	my ($csock,$caddr) = create_socket();
+	my ($ssock,$saddr) = create_socket();
 
-# then re-invite
-fd_grep_ok( 'Starting ReInvite', $uac );
-fd_grep_ok( 'ReInvite accepted',$uas );
-fd_grep_ok( 'ReInvite done', $uac );
+	# start UAS
+	my $uas = fork_sub( 'uas',$ssock,$caddr,$saddr );
+	fd_grep_ok( 'Listening',$uas );
 
-# BYE from UAC
-fd_grep_ok( 'Send BYE',$uac );
-fd_grep_ok( 'Received BYE',$uas );
-fd_grep_ok( 'BYE done',$uac );
+	# start UAC once UAS is ready
+	my $uac = fork_sub( 'uac',$csock,$caddr,$saddr );
+	fd_grep_ok( 'Started',$uac );
+	fd_grep_ok( 'Call accepted',$uas );
 
+	# then re-invite
+	fd_grep_ok( 'Starting ReInvite', $uac );
+	fd_grep_ok( 'ReInvite accepted',$uas );
+	fd_grep_ok( 'ReInvite done', $uac );
+
+	# BYE from UAC
+	fd_grep_ok( 'Send BYE',$uac );
+	fd_grep_ok( 'Received BYE',$uas );
+	fd_grep_ok( 'BYE done',$uac );
+    }
+}
 
 killall();
 

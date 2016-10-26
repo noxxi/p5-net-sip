@@ -304,8 +304,8 @@ sub register {
     my $contact = delete $args{contact} || $self->{contact};
     if ( ! $contact) {
 	$contact = $from;
-	my $local = $leg->{addr}.':'.$leg->{port};
-	$contact.= '@'.$local unless $contact =~s{\@([\w\-\.:]+)}{\@$local};
+	my $local = ip_parts2string($leg->{addr},$leg->{port});
+	$contact.= '@'.$local unless $contact =~s{\@([^\s;,]+)}{\@$local};
     }
 
     my %rarg = (

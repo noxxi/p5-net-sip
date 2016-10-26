@@ -12,7 +12,7 @@ use warnings;
 
 package Net::SIP::Simple::RTP;
 
-use Net::SIP::Util qw(invoke_callback);
+use Net::SIP::Util qw(invoke_callback ip_sockaddr2parts ip_parts2string);
 use Socket;
 use Net::SIP::Debug;
 use Net::SIP::DTMF;
@@ -242,12 +242,9 @@ sub _receive_rtp {
     DEBUG( 50,"received %d bytes from RTP", length($buf));
 
     if(0) {
-	use Socket;
-	my ($lport,$laddr) = unpack_sockaddr_in( getsockname($sock));
-	$laddr = inet_ntoa( $laddr ).":$lport";
-	my ($pport,$paddr) = unpack_sockaddr_in( $from );
-	$paddr = inet_ntoa( $paddr ).":$pport";
-	DEBUG( "got data on socket %d %s from %s",fileno($sock),$laddr,$paddr );
+	DEBUG( "got data on socket %d %s from %s",fileno($sock),
+	    ip_parts2string(ip_sockaddr2parts(getsockname($sock))),
+	    ip_parts2string(ip_sockaddr2parts($from)));
     }
 
     $$didit = 1;
@@ -378,11 +375,11 @@ sub _send_rtp {
 
     die $! if ! defined $buf or $buf eq '';
     if (0) {
-	my ($fp,$fa) = unpack_sockaddr_in( getsockname($sock) );
-	$fa = inet_ntoa($fa);
-	my ($tp,$ta) = unpack_sockaddr_in( $addr );
-	$ta = inet_ntoa($ta);
-	DEBUG( 50, "$fa:$fp -> $ta:$tp seq=$seq ts=%x",$timestamp );
+	DEBUG(50, "%s -> %s seq=%d ts=%x",
+	    ip_parts2string(ip_sockaddr2parts(getsockname($sock))),
+	    ip_parts2string(ip_sockaddr2parts($addr)),
+	    $seq, $timestamp
+	);
     }
 
     # add RTP header

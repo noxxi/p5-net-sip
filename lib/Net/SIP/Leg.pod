@@ -30,7 +30,7 @@ The following keys are used from %ARGS:
 
 =item sock
 
-The socket as IO::Socket::INET object. C<addr>, C<port> and C<proto>
+The socket as IO::Socket object. C<addr>, C<port> and C<proto>
 will be determined from this object and not from %ARGS.
 
 =item addr

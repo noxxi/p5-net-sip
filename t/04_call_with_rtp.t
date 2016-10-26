@@ -8,40 +8,54 @@
 
 use strict;
 use warnings;
-use Test::More tests => 8;
+use Test::More tests => 8*2;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 use IO::Socket;
 use File::Temp;
 
-
-# create leg for UAS on dynamic port
-my ($sock_uas,$uas_addr) = create_socket();
-diag( "UAS on $uas_addr" );
-
-# fork UAS and make call from UAC to UAS
-pipe( my $read,my $write); # for status updates
-defined( my $pid = fork() ) || die $!;
-
-if ( $pid == 0 ) {
-    # CHILD = UAS
-    close($read);
-    $write->autoflush;
-    uas( $sock_uas, $write );
-    exit(0);
+for my $proto (qw(ip4 ip6)) {
+    SKIP: {
+	if ($proto eq 'ip6' && !do_ipv6()) {
+	    skip "no IPv6 support",8;
+	    next;
+	}
+	note("------ test with $proto - ". DEFAULT_LADDR());
+	alarm(15);
+	do_test();
+	alarm(0);
+    }
 }
 
-# PARENT = UAC
-close( $sock_uas );
-close($write);
 
-alarm(15);
-$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
+sub do_test {
+    # create leg for UAS on dynamic port
+    my ($sock_uas,$uas_addr) = create_socket();
+    note( "UAS on $uas_addr" );
 
-uac( $uas_addr,$read );
-ok( <$read>, "UAS finished" );
-wait;
+    # fork UAS and make call from UAC to UAS
+    pipe( my $read,my $write); # for status updates
+    defined( my $pid = fork() ) || die $!;
+    $SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid if $pid; ok( 0,'died' ) };
+
+    if ( $pid == 0 ) {
+	# CHILD = UAS
+	close($read);
+	$write->autoflush;
+	uas( $sock_uas, $write );
+	exit(0);
+    }
+
+    # PARENT = UAC
+    close( $sock_uas );
+    close($write);
+
+
+    uac( $uas_addr,$read );
+    ok( <$read>, "UAS finished" );
+    wait;
+}
 
 ###############################################
 # UAC
@@ -62,7 +76,7 @@ sub uac {
     # create Net::SIP::Simple object
     my $rtp_done;
     my ($lsock,$laddr) = create_socket_to( $peer_addr );
-    diag( "UAC on $laddr" );
+    note( "UAC on $laddr" );
     my $uac = Simple->new(
 	from         => 'me.uac@example.com',
 	leg          => $lsock,
@@ -116,10 +130,10 @@ sub uas {
     # Listen
     my $call_closed;
     $uas->listen(
-	cb_create      => sub { diag( 'call created' );1 },
-	cb_established => sub { diag( 'call established' ) },
+	cb_create      => sub { note( 'call created' );1 },
+	cb_established => sub { note( 'call established' ) },
 	cb_cleanup     => sub {
-	    diag( 'call cleaned up' );
+	    note( 'call cleaned up' );
 	    $call_closed =1;
 	},
 	init_media     => $uas->rtp( 'recv_echo', $save_rtp ),
@@ -131,7 +145,7 @@ sub uas {
     # Loop until call is closed, at most 10 seconds
     $uas->loop( \$call_closed, 10 );
 
-    diag( "received ".int(@received)."/100 packets" );
+    note( "received ".int(@received)."/100 packets" );
 
     # at least 20% of all RTP packets should come through
     if ( @received > 20 ) {

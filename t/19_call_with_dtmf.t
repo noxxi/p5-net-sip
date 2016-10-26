@@ -8,41 +8,51 @@
 
 use strict;
 use warnings;
-use Test::More tests => 9;
+use Test::More tests => 9*2;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 use IO::Socket;
 use File::Temp;
 
+for my $proto (qw(ip4 ip6)) {
+    SKIP: {
+	if ($proto eq 'ip6' && !do_ipv6()) {
+	    skip "no IPv6 support",9;
+	    next;
+	}
 
-# create leg for UAS on dynamic port
-my ($sock_uas,$uas_addr) = create_socket();
-diag( "UAS on $uas_addr" );
+	note("------ testing with $proto");
 
-# fork UAS and make call from UAC to UAS
-pipe( my $from_uas,my $to_uac); # for status updates
-defined( my $pid = fork() ) || die $!;
+	# create leg for UAS on dynamic port
+	my ($sock_uas,$uas_addr) = create_socket();
+	diag( "UAS on $uas_addr" );
 
-if ( $pid == 0 ) {
-    # CHILD = UAS
-    close($from_uas);
-    $to_uac->autoflush;
-    uas( $sock_uas, $to_uac );
-    exit(0);
+	# fork UAS and make call from UAC to UAS
+	pipe( my $from_uas,my $to_uac); # for status updates
+	defined( my $pid = fork() ) || die $!;
+
+	if ( $pid == 0 ) {
+	    # CHILD = UAS
+	    close($from_uas);
+	    $to_uac->autoflush;
+	    uas( $sock_uas, $to_uac );
+	    exit(0);
+	}
+
+	# PARENT = UAC
+	close($sock_uas);
+	close($to_uac);
+
+	alarm(40);
+	$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
+
+	uac( $uas_addr,$from_uas );
+	my $uas = <$from_uas>;
+	is( $uas, "UAS finished events=1 2 D # 3 4 B *\n", "UAS finished with DTMF" );
+	wait;
+    }
 }
-
-# PARENT = UAC
-close($sock_uas);
-close($to_uac);
-
-alarm(40);
-$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
-
-uac( $uas_addr,$from_uas );
-my $uas = <$from_uas>;
-is( $uas, "UAS finished events=1 2 D # 3 4 B *\n", "UAS finished with DTMF" );
-wait;
 
 ###############################################
 # UAC

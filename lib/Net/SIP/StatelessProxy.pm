@@ -248,12 +248,13 @@ sub __forward_response {
 	return;
     };
     my ($first,$param) = sip_hdrval2parts( via => $via );
-    my ($addr,$port) = $first =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+    $first =~s{^SIP/\d\.\d(?:/\S+)?\s+}{};
+    my ($addr,$port) = ip_string2parts($first);
     $port ||= 5060; # FIXME default for sip, not sips!
     $addr = $param->{maddr} if $param->{maddr};
     $addr = $param->{received} if $param->{received}; # where it came from
     $port = $param->{rport} if $param->{rport}; # where it came from
-    @{ $entry->{dst_addr}} = ( "$addr:$port" );
+    @{ $entry->{dst_addr}} = ( ip_parts2string($addr,$port) );
     DEBUG( 50,"get dst_addr from via header: $first -> $addr:$port" );
 
     if ( $addr !~m{^[0-9\.]+$} ) {
@@ -281,7 +282,9 @@ sub __forward_response_1 {
 	    return;
 	}
 	# replace host part in dst_addr with ip
-	$entry->{dst_addr}[0] =~s{^(udp:|tcp:)?([^:]+)}{$1$ip};
+	my ($proto,$addr) = $entry->{dst_addr}[0] =~m{^(udp:|tcp:|)(\S+)$};
+	($addr,my $port,my $fam) = ip_string2parts($addr);
+	$entry->{dst_addr}[0] = $proto . ip_parts2string($ip,$port,$fam);
     }
 
     __forward_packet_final( $self,$entry );
@@ -315,7 +318,7 @@ sub __forward_request_getleg {
 	}
     } else {
 	my ($data,$param) = sip_hdrval2parts( route => $route );
-	my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+	my ($addr,$port) = ip_string2parts((sip_uri2parts($data))[0]);
 	$port ||= 5060; # FIXME sips
 	my @legs = $self->{dispatcher}->get_legs(addr => $addr, port => $port);
 	if ( ! @legs and $param->{maddr} ) {
@@ -336,11 +339,9 @@ sub __forward_request_getleg {
 	# still routing infos. Use next route as nexthop
 	my $route = $route[0] =~m{<([^\s>]+)>} && $1 || $route[0];
 	my ($data,$param) = sip_hdrval2parts( route => $route );
-	my ($addr,$port) = $data =~m{([\w\-\.]+)(?::(\d+))?\s*$};
+	my ($addr,$port) = ip_string2parts((sip_uri2parts($data))[0]);
 	$port ||= 5060; # FIXME sips
-	$entry->{nexthop} = $param->{maddr} 
-	    ? "$param->{maddr}:$port"
-	    : "$addr:$port";
+	$entry->{nexthop} = ip_parts2string($param->{maddr} || $addr,$port);
 	DEBUG( 50, "setting nexthop from route $route to $entry->{nexthop}" );
     }
 
@@ -387,8 +388,9 @@ sub __forward_request_1 {
     }
     my %hostnames;
     foreach (@$dst_addr) {
-	my ($addr) = m{^(?:udp:|tcp:)?([^:]+)};
-	$hostnames{$addr} = undef if $addr !~m{^[0-9\.]+$};
+	my ($addr) = m{^(?:udp:|tcp:)?(\S+)};
+	($addr,undef,my $fam) = ip_string2parts($addr);
+	$hostnames{$addr} = undef if ! $fam;
     }
     if ( %hostnames ) {
 	$self->{dispatcher}->dns_host2ip(

@@ -297,10 +297,9 @@ sub get_rtp_sockets {
 	}
 
 	# determine target for sock, e.g. original address
-	my $addr_bin = inet_aton($addr);
 	my @targets;
 	for( my $i=0;$i<@socks;$i++ ) {
-	    my $dst = sockaddr_in( $port+$i,$addr_bin );
+	    my $dst = ip_parts2sockaddr($addr,$port+$i);
 	    push @targets,$dst;
 	}
 
@@ -720,6 +719,7 @@ package Net::SIP::NATHelper::Session;
 use fields qw( sfrom sto created bytes_from bytes_to callbacks id param );
 use Net::SIP::Debug;
 use List::Util 'max';
+use Net::SIP::Util ':all';
 use Time::HiRes 'gettimeofday';
 
 # increased for each new session
@@ -880,12 +880,7 @@ sub forward_data {
 	return;
     };
 
-    my $name = sub {
-	my $bin = shift;
-	use Socket;
-	my ($port,$addr) = unpack_sockaddr_in( $bin );
-	return inet_ntoa($addr).':'.$port;
-    };
+    my $name = sub { ip_parts2string(ip_sockaddr2parts(shift)) };
 
     if ( ! $$bytes ) {
 	if ( $peer eq $$rfrom ) {

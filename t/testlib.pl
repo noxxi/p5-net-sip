@@ -1,6 +1,7 @@
 use strict;
 use warnings;
 use IO::Socket;
+use Net::SIP::Util qw(CAN_IPV6 INETSOCK ip_parts2string);
 
 ############################################################################
 #
@@ -16,6 +17,7 @@ if ( ! defined &ok ) {
 	print $bool ? "ok ":"not ok ", '# ',$desc || '',"\n";
     };
     *{'diag'} = sub { print "# @_\n"; };
+    *{'note'} = sub { print "# @_\n"; };
     *{'like'} = sub {
 	my ( $data,$rx,$desc ) = @_;
 	ok( $data =~ $rx ? 1:0, $desc );
@@ -29,6 +31,14 @@ $SIG{ __DIE__ } = sub {
 };
 
 ############################################################################
+# return the default LADDR, usually 127.0.0.1 or ::1 (if do_ipv6)
+############################################################################
+my $DEFAULT_LADDR = '127.0.0.1';
+sub DEFAULT_LADDR {
+    return $DEFAULT_LADDR
+}
+
+############################################################################
 # kill all process collected by fork_sub
 # Args: ?$signal
 #  $signal: signal to use, default 9
@@ -38,7 +48,7 @@ my @pids;
 sub killall {
     my $sig = shift || 9;
     kill $sig, @pids;
-    #diag( "killed @pids with $sig" );
+    #note( "killed @pids with $sig" );
     while ( wait() >= 0 ) {} # collect all
     @pids = ();
 }
@@ -95,7 +105,7 @@ sub fd_grep {
     my @fd = @_;
     $pattern = qr{\Q$pattern} if ! UNIVERSAL::isa( $pattern,'Regexp' );
     my $name = join( "|", map { $fd2name{$_} || "$_" } @fd );
-    #diag( "look for $pattern in $name" );
+    #note( "look for $pattern in $name" );
     my @bad = wantarray ? ( undef,$name ):(undef);
     @fd || return @bad;
     my $rin = '';
@@ -109,7 +119,7 @@ sub fd_grep {
 	    my $buf = \$fd2buf{$fd};
 	    $$buf || next;
 	    if ( $$buf =~s{\A(?:.*?)($pattern)(.*)}{$2}s ) {
-		#diag( "found" );
+		#note( "found" );
 		return wantarray ? ( $1,$name ) : $1;
 	    }
 	}
@@ -130,13 +140,13 @@ sub fd_grep {
 		$n = sysread( $fd,$$buf,8192,$l );
 	    }
 	    if ( ! $n ) {
-		#diag( "$name >CLOSED<" );
+		#note( "$name >CLOSED<" );
 		delete $fd2buf{$fd};
 		@fd = grep { $_ != $fd } @fd;
 		close($fd);
 		next;
 	    }
-	    diag( "$name >> ".substr( $$buf,-$n ). "<<" );
+	    note( "$name >> ".substr( $$buf,-$n ). "<<" );
 	}
     }
     return @bad;
@@ -176,7 +186,8 @@ sub sip_dump_media {
     if ( my $sdp = $packet->sdp_body ) {
 	$dump .= "SDP:";
 	foreach my $m ( $sdp->get_media ) {
-	    $dump .= sprintf " %s=%s:%d/%d", @{$m}{qw( media addr port range )};
+	    $dump .= sprintf(" %s=%s/%d", $m->{media},
+		ip_parts2string($m->{addr},$m->{port}), $m->{range});
 	}
     } else {
 	$dump .= "NO SDP";
@@ -190,17 +201,30 @@ sub sip_dump_media {
 ############################################################################
 sub create_socket {
     my ($addr,$port,$proto) = @_;
-    $addr ||= '127.0.0.1';
+    $addr ||= $DEFAULT_LADDR;
     $proto ||= 'udp';
     $port ||= 0;
-    my $sock = IO::Socket::INET->new(
+    my $sock = INETSOCK(
 	Proto => $proto,
 	$proto eq 'tcp' ? ( Listen => 10 ):(),
 	LocalAddr => $addr,
 	LocalPort => $port,
     ) || die $!;
-    ($port,$addr) = unpack_sockaddr_in( getsockname($sock) );
-    return wantarray ? ( $sock, inet_ntoa($addr).':'.$port ) : $sock;
+    return $sock if ! wantarray;
+    return ($sock,
+	ip_parts2string($sock->sockhost,$sock->sockport,$sock->sockdomain));
+}
+
+
+############################################################################
+# do we support IPv6
+############################################################################
+sub do_ipv6 {
+    $DEFAULT_LADDR = '127.0.0.1';
+    return if ! CAN_IPV6;
+    return if ! INETSOCK(LocalAddr => '::1', Proto => 'udp');
+    $DEFAULT_LADDR = '::1';
+    return 1;
 }
 
 ############################################################################
@@ -212,6 +236,7 @@ package TestLeg;
 use base 'Net::SIP::Leg';
 use fields qw( can_deliver_to dump_incoming dump_outgoing );
 use Net::SIP 'invoke_callback';
+use Net::SIP::Util qw(ip_string2parts);
 
 sub new {
     my ($class,%args) = @_;
@@ -224,6 +249,7 @@ sub new {
     %$self = ( %$self, %largs );
     return $self;
 }
+
 sub can_deliver_to {
     my $self = shift;
     my $spec = @_ == 1 ? _parse_addr( $_[0] ) : { @_ };
@@ -239,8 +265,11 @@ sub can_deliver_to {
 
 sub _parse_addr {
     my $addr = shift;
-    $addr =~m{^(?:(udp|tcp):)?([\w\.-]+)(?::(\d+))?$} || die $addr;
-    return { proto => $1, addr => $2, port => $3 }
+    $addr =~m{^(?:(udp|tcp):)?(\S+)$} || die $addr;
+    my %rv = (proto => $1);
+    @rv{qw(host port family)} = ip_string2parts($2)
+	or die $addr;
+    return \%rv;
 }
 
 sub receive {
@@ -255,7 +284,5 @@ sub deliver {
     invoke_callback( $self->{dump_outgoing},$packet,$to );
     return $self->SUPER::deliver( $packet,$to,$callback );
 }
-
-
 
 1;

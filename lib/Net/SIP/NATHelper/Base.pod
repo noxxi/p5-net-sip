@@ -180,7 +180,7 @@ the format given by B<get_media> in L<Net::SIP::SDP>.
 Returns reference to array of allocated media, each item in the
 array is C<< [ ADDR,BASE_PORT,\@SOCKS,\@TARGETS ] >>, where ADDR
 is NEW_ADDR, BASE_PORT the base port for the allocated sockets,
-@SOCKS the allocated sockets and @TARGETS the C<sockaddr_in> of
+@SOCKS the allocated sockets and @TARGETS the C<sockaddr> of
 the original targets, e.g. where it needs to forward the data
 received on the sockets.
 

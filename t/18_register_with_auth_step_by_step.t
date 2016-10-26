@@ -7,26 +7,37 @@
 
 use strict;
 use warnings;
-use Test::More tests => 8;
+use Test::More tests => 8*2;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 use Digest::MD5 'md5_hex';
 
-my ($csock,$caddr) = create_socket();
-my ($ssock,$saddr) = create_socket();
+for my $proto (qw(ip4 ip6)) {
+    SKIP: {
+	if ($proto eq 'ip6' && !do_ipv6()) {
+	    skip "no IPv6 support",8;
+	    next;
+	}
 
-# start Registrar
-my $registrar = fork_sub( 'registrar',$ssock,$saddr );
-fd_grep_ok( 'Listening',$registrar );
+	note("------ testing with $proto");
 
-# start UAC once Registrar is ready
-my $uac = fork_sub( 'uac',$csock,$caddr,$saddr );
-fd_grep_ok( 'Started',$uac );
-fd_grep_ok( 'got 401 response',$uac );
-fd_grep_ok( 'Registered wolf (REALM.example.com)',$uac );
-fd_grep_ok( 'Registered 007 (REALM.example.com)',$uac );
-fd_grep_ok( 'Registered noauth ()',$uac );
+	my ($csock,$caddr) = create_socket();
+	my ($ssock,$saddr) = create_socket();
+
+	# start Registrar
+	my $registrar = fork_sub( 'registrar',$ssock,$saddr );
+	fd_grep_ok( 'Listening',$registrar );
+
+	# start UAC once Registrar is ready
+	my $uac = fork_sub( 'uac',$csock,$caddr,$saddr );
+	fd_grep_ok( 'Started',$uac );
+	fd_grep_ok( 'got 401 response',$uac );
+	fd_grep_ok( 'Registered wolf (REALM.example.com)',$uac );
+	fd_grep_ok( 'Registered 007 (REALM.example.com)',$uac );
+	fd_grep_ok( 'Registered noauth ()',$uac );
+    }
+}
 
 killall();
 

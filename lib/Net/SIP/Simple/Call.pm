@@ -57,7 +57,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       SDP, e.g. [ 97,240,0.03,'iLBC/8000' ]
 ###########################################################################
 
-use Net::SIP::Util qw(create_rtp_sockets invoke_callback);
+use Net::SIP::Util qw(create_rtp_sockets invoke_callback ip_parts2sockaddr);
 use Net::SIP::Debug;
 use Net::SIP::DTMF 'dtmf_extractor';
 use Socket;
@@ -604,16 +604,14 @@ sub _setup_peer_rtp_socks {
 
     my $raddr = $param->{media_raddr} = [];
     my @media_dtmfxtract;
-    my $null_address = pack( 'CCCC',0,0,0,0 ); # c=0.0.0.0 => call on hold
     for( my $i=0;$i<@media;$i++) {
 	my $m = $media[$i];
 	my $range = $m->{range} || 1;
-	my $paddr = inet_aton( $m->{addr} );
-	if ( $paddr eq $null_address ) {
+	if ( $m->{addr} eq '0.0.0.0' or  $m->{addr} eq '::') {
 	    # on-hold for this media
 	    push @$raddr, undef;
 	} else {
-	    my @socks = map { scalar(sockaddr_in( $m->{port}+$_ , $paddr )) }
+	    my @socks = map { ip_parts2sockaddr($m->{addr},$m->{port}+$_) }
 		(0..$range-1);
 	    push @$raddr, @socks == 1 ? $socks[0] : \@socks;
 
@@ -728,10 +726,10 @@ sub _setup_local_rtp_socks {
 	    if ( UNIVERSAL::isa( $m,'ARRAY' )) {
 		$socks = [];
 		foreach my $sock (@$m) {
-		    push @$socks, IO::Socket::INET->new(@arg) || die $!;
+		    push @$socks, INETSOCK(@arg) || die $!;
 		}
 	    } else {
-		$socks = IO::Socket::INET->new(@arg) || die $!;
+		$socks = INETSOCK(@arg) || die $!;
 	    }
 	    push @$msocks,$socks;
 	}

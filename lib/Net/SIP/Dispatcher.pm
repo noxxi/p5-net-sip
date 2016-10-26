@@ -68,10 +68,10 @@ sub new {
     $domain2proxy ||= {};
     foreach ( values %$domain2proxy ) {
 	if ( ref($_) ) { # should be \@list of [ prio,proto,ip,port ]
-	} elsif ( m{^(?:(udp|tcp):)?([^:]+)(?::(\d+))?$} ) {
+	} elsif (m{^(?:(udp|tcp):)?(.+)}) {
 	    my @proto = $1 ? ( $1 ) : ( 'udp','tcp' );
-	    my $host = $2;
-	    my $port = $3 || 5060;
+	    my ($host,$port) = ip_string2parts($2);
+	    $port ||= 5060;
 	    $_ = [ map { [ -1, $_, $host, $port ] } @proto ];
 	} else {
 	    croak( "invalid entry in domain2proxy: $_" );
@@ -193,9 +193,9 @@ sub add_leg {
 			    my ($vref,$hdr) = @_;
 			    return if $$vref++;
 			    my ($d,$h) = sip_hdrval2parts(via => $hdr->{value});
-			    # FIXME: not IPv6 save
-			    my ($host,$port) = $d =~m{^\S+\s+(\S+?)(?::(\d+))?$};
-			    my ($addr,$rport) = $from =~m{^(\S+)(?::(\d+))$};
+			    my ($host,$port) = $d =~m{^\S+\s+(\S+)$}
+				? ip_string2parts($1):();
+			    my ($addr,$rport) = ip_string2parts($from);
 			    my %nh;
 			    if ( exists $h->{rport} and ! defined $h->{rport}) {
 				$nh{rport} = $rport;
@@ -641,15 +641,15 @@ sub resolve_uri {
     };
 
     my $ip_addr;
-    if ( $domain =~m{^(\d+\.\d+\.\d+\.\d+)(?::(\d+))?$} ) {
-	# if domain part of URI is IPv4[:port]
-	$default_port = $2 if defined $2;
-	$ip_addr = $1;
-	# e.g. 10.0.3.4 should match *.3.0.10.in-addr.arpa
-	$domain = join( '.', reverse split( m{\.},$ip_addr )).'.in-addr.arpa';
-    } else {
-	$domain =~s{\.*(?::(\d+))?$}{}; # remove trailing dots + port
-	$default_port = $1 if defined $1;
+    {
+	($ip_addr,my $port,my $family) = ip_string2parts($domain);
+	$default_port = $port if defined $port;
+	if ($family) {
+	    $domain = ip_ptr($ip_addr,$family);
+	} else {
+	    $domain = $ip_addr;
+	    $ip_addr = undef; # not an IP address but hostname
+	}
     }
     DEBUG( 100,"domain=$domain" );
 
@@ -687,8 +687,7 @@ sub resolve_uri {
 
     # is param maddr set?
     if ( my $ip = $param->{maddr} ) {
-	@$dst_addr = ( $ip )
-	    if $ip =~m{^[\d\.]+$} && eval { inet_aton($ip) };
+	@$dst_addr = ($ip) if ip_is_v4($ip) || ip_is_v6($ip);
     }
 
     # entries in form [ prio,proto,ip,port ]
@@ -696,12 +695,13 @@ sub resolve_uri {
     foreach my $addr ( @$dst_addr ) {
 	if ( ref($addr)) {
 	    push @resp,$addr; # right format: see domain2proxy
+	} elsif ($addr =~ m{^(?:(udp|tcp):)?(.+)}) {
+	    my @proto = $1 ? ( $1 ) : ( 'udp','tcp' );
+	    my ($host,$port) = ip_string2parts($2);
+	    $port ||= $default_port;
+	    push @resp, map { [ -1, $_, $host, $port ] } @proto;
 	} else {
-	    $addr =~m{^(?:(udp|tcp):)?([^:]+)(?::(\d+))?$} || next;
-	    my $host = $2;
-	    my $proto = $1 ? [ $1 ] : \@proto;
-	    my $port = $3 ? $3 : $default_port;
-	    push @resp, map { [ -1,$_,$host,$port ] } @$proto;
+	    next;
 	}
     }
 
@@ -750,10 +750,10 @@ sub __resolve_uri_final {
 	)} @$allowed_legs;
 
 	if ( $leg ) {
-	    push @$dst_addr, "$r->[1]:$r->[2]:$r->[3]";
+	    push @$dst_addr, "$r->[1]:".ip_parts2string($r->[2],$r->[3]);
 	    push @$legs,$leg;
 	} else {
-	    DEBUG( 50,"no leg for $r->[1]:$r->[2]:$r->[3]" );
+	    DEBUG( 50,"no leg for $r->[1]:".ip_parts2string($r->[2],$r->[3]));
 	}
     }
 
@@ -765,7 +765,8 @@ sub __resolve_uri_final {
 sub _find_leg4addr {
     my Net::SIP::Dispatcher $self = shift;
     my $dst_addr = shift;
-    my ($proto,$ip) = $dst_addr =~m{^(?:(tcp|udp):)?([^:]+)};
+    my ($proto,$ip) = $dst_addr =~m{^(?:(tcp|udp):)?(\S+)};
+    ($ip) = ip_string2parts($ip);
     my @legs;
     foreach my $leg (@{ $self->{legs} }) {
 	push @legs,$leg if $leg->can_deliver_to( addr => $ip, proto => $proto );
@@ -789,16 +790,19 @@ sub dns_host2ip {
     if ( ref($host)) {
 	my $err;
 	foreach ( keys %$host ) {
-	    if ( my $addr = gethostbyname( $_ )) {
-		$host->{$_} = inet_ntoa($addr);
+	    if ( my $addr = hostname2ip($_)) {
+		$host->{$_} = $addr;
 	    } else {
 		$err = EINVAL;
 	    }
 	}
 	invoke_callback( $callback, $err,$host );
     } else {
-	my $addr = gethostbyname( $host );
-	invoke_callback( $callback, $addr ? ( undef,inet_ntoa($addr) ) : ( $? ));
+	my $addr = hostname2ip($host);
+	invoke_callback(
+	    $callback,
+	    $addr ? ( undef,$addr ) : ( $? )
+	);
     }
 }
 
@@ -825,7 +829,7 @@ sub dns_domain2srv {
     foreach my $proto ( @$protos ) {
 	if ( my $q = $dns->query( '_'.$sip_proto.'._'.$proto.'.'.$domain,'SRV' )) {
 	    foreach my $rr ( $q->answer ) {
-		if ( $rr->type eq 'A' ) {
+		if ( $rr->type eq 'A' or CAN_IPV6 && $rr->type eq 'AAAA' ) {
 		    push @{ $addr2ip{$rr->name} }, $rr->address;
 		} elsif ( $rr->type eq 'SRV' ) {
 		    push @resp,[ $rr->priority, $proto,$rr->target,$rr->port ]
@@ -847,11 +851,11 @@ sub dns_domain2srv {
 	    # either already IP or no additional data for resolving -> later
 	    my @cp = @$r;
 	    # XXX fixme blocking DNS lookup
-	    my $ipn = gethostbyname( $r->[2] ) or do {
+	    my $ip = hostname2ip($r->[2]) or do {
 		DEBUG( 1,"cannot resolve $r->[2]" );
 		next;
 	    };
-	    $cp[2] = inet_ntoa($ipn);
+	    $cp[2] = $ip;
 	    push @resp_resolved, \@cp;
 	}
     }
@@ -861,6 +865,16 @@ sub dns_domain2srv {
     unless (@resp) {
 	# try addr directly
 	my $default_port = $sip_proto eq 'sips' ? 5061:5060;
+	if ( CAN_IPV6 and my $q = $dns->query( $domain,'AAAA' )) {
+	    foreach my $rr ($q->answer ) {
+		$rr->type eq 'AAAA' || next;
+		# XXX fixme, check that name in response corresponds to query
+		# (beware of CNAMEs!)
+		push @resp,map {
+		    [ -1, $_ , $rr->address,$default_port ]
+		} @$protos;
+	    }
+	}
 	if ( my $q = $dns->query( $domain,'A' )) {
 	    foreach my $rr ($q->answer ) {
 		$rr->type eq 'A' || next;

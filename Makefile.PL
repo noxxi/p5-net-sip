@@ -6,6 +6,7 @@ WriteMakefile(
 	VERSION_FROM => 'lib/Net/SIP.pm',
 	PREREQ_PM => {
 		'Net::DNS' => 0.56,
+		'Socket' => 1.95,
 	},
     $ExtUtils::MakeMaker::VERSION >= 6.46 ? (
         'META_MERGE' => {

@@ -168,4 +168,54 @@ This compares user part case sensitive, domain part case insensitive (does
 no DNS resolution) protocol and ports in domain (assumes default ports
 for protocol if no port is given).
 
+=item ip_string2parts(STR) -> (HOST, PORT, FAMILY)
+
+This will parse the given string STR and split it into the parts as follows:
+
+  IPv4, [IPv4]               -> (IPv4, undef, AF_INET)
+  IPv4:port, [IPv4]:port     -> (IPv4, port,  AF_INET)
+  IPv6, [IPv6]               -> (IPv6, undef, AF_INET6)
+  [IPv6]:port                -> (IPv6, port,  AF_INET6)
+  host, [host]               -> (host, undef, undef)
+  host:port, [host]:port     -> (host, port,  undef)
+
+=item ip_parts2string(HOST, [ PORT, FAMILY, IPv6_BRCKT]) -> STR
+
+This is the reverse to ip_string2parts. If family is not given it will be
+determined by checking if ip_or_host contains ':' (i.e IPv6 address):
+
+  (ip_or_host)              -> ip_or_host
+  (ipv4_or_host,port)       -> ipv4_or_host:port
+  (ipv6,port)               -> [ipv6]:port
+  (ipv6,undef,*,true)       -> [ipv6]
+
+=item ip_parts2sockaddr(IP, PORT, [FAMILY]) -> SOCKADDR
+
+This will create a sockaddr_in or sockaddr_in6 from IP and PORT. FAMILY will be
+determined by checking the IP if not given.
+
+=item ip_sockaddr2parts(SOCKADDR, [FAMILY]) -> (IP, PORT, FAMILY)
+
+This will return the IP, PORT and FAMILY from a sockaddr_in or sockaddr_in6.
+If FAMILY is not given it will be determined based on the size of SOCKADDR.
+
+=item ip_ptr(IP, [FAMILY]) -> PTR_NAME
+
+This will create the hostname used in reverse lookup of an IP address, i.e.
+C<*.in-addr.arpa> or C<*.ip6.arpa>.
+If FAMILY is not given it will be determined based on the syntax of IP.
+
+=item hostname2ip(host, [FAMILY]) -> @IP
+
+This will lookup the given name using getaddrinfo and return the IP addresses.
+If FAMILY is given only addresses matching the family will be returned.
+
+=item ip_is_v4(IP) -> true|false
+
+This checks if the given IP address is a valid IPv4 address.
+
+=item ip_is_v6(IP) -> true|false
+
+This checks if the given IP address is a valid IPv6 address.
+
 =back

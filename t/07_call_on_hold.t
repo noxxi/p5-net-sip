@@ -19,42 +19,52 @@
 
 use strict;
 use warnings;
-use Test::More tests => 16;
+use Test::More tests => 16*2;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 
-my ($csock,$caddr) = create_socket();
-my ($ssock,$saddr) = create_socket();
+for my $proto (qw(ip4 ip6)) {
+    SKIP: {
+	if ($proto eq 'ip6' && !do_ipv6()) {
+	    skip "no IPv6 support",16;
+	    next;
+	}
+	note("----- test with $proto");
 
-# start UAS
-my $uas = fork_sub( 'uas',$ssock,$caddr,$saddr );
-fd_grep_ok( 'Listening',$uas );
+	my ($csock,$caddr) = create_socket();
+	my ($ssock,$saddr) = create_socket();
 
-# start UAC once UAS is ready
-my $uac = fork_sub( 'uac',$csock,$caddr,$saddr );
-fd_grep_ok( 'Started',$uac );
-fd_grep_ok( 'Call accepted',$uas );
+	# start UAS
+	my $uas = fork_sub( 'uas',$ssock,$caddr,$saddr );
+	fd_grep_ok( 'Listening',$uas );
 
-# first RTP from UAC to UAS
-fd_grep_ok( 'Start RTP', $uac );
-fd_grep_ok( 'RTP#50#', $uac );
-fd_grep_ok( 'got rtp packet#50', $uas );
+	# start UAC once UAS is ready
+	my $uac = fork_sub( 'uac',$csock,$caddr,$saddr );
+	fd_grep_ok( 'Started',$uac );
+	fd_grep_ok( 'Call accepted',$uas );
 
-# then re-invite
-fd_grep_ok( 'Starting ReInvite', $uas );
-fd_grep_ok( 'Got ReInvite', $uac );
+	# first RTP from UAC to UAS
+	fd_grep_ok( 'Start RTP', $uac );
+	fd_grep_ok( 'RTP#50#', $uac );
+	fd_grep_ok( 'got rtp packet#50', $uas );
 
-# RTP from UAS to UAC
-fd_grep_ok( 'Start RTP', $uas );
-fd_grep_ok( 'RTP#50#', $uas );
-fd_grep_ok( 'got rtp packet#50', $uac );
+	# then re-invite
+	fd_grep_ok( 'Starting ReInvite', $uas );
+	fd_grep_ok( 'Got ReInvite', $uac );
 
-# BYE from UAC
-# UAS should not receive anything
-fd_grep_ok( 'Send BYE',$uac );
-fd_grep_ok( 'Received BYE after 0 bytes read',$uas );
-fd_grep_ok( 'BYE done',$uac );
+	# RTP from UAS to UAC
+	fd_grep_ok( 'Start RTP', $uas );
+	fd_grep_ok( 'RTP#50#', $uas );
+	fd_grep_ok( 'got rtp packet#50', $uac );
+
+	# BYE from UAC
+	# UAS should not receive anything
+	fd_grep_ok( 'Send BYE',$uac );
+	fd_grep_ok( 'Received BYE after 0 bytes read',$uas );
+	fd_grep_ok( 'BYE done',$uac );
+    }
+}
 
 
 killall();

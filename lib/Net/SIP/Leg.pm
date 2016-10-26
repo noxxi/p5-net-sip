@@ -11,7 +11,12 @@ package Net::SIP::Leg;
 use Digest::MD5 'md5_hex';
 use Socket;
 use Net::SIP::Debug;
-use Net::SIP::Util qw( sip_hdrval2parts invoke_callback sip_uri_eq );
+use Net::SIP::Util qw(
+    sip_hdrval2parts sip_uri_eq
+    ip_parts2string ip_string2parts ip_parts2sockaddr ip_sockaddr2parts
+    invoke_callback
+    INETSOCK
+);
 use Net::SIP::Packet;
 use Net::SIP::Request;
 use Net::SIP::Response;
@@ -43,42 +48,45 @@ sub new {
     my ($class,%args) = @_;
     my $self = fields::new($class);
 
+    my $family;
     if ( my $addr = delete $args{addr} ) {
 	my $port = delete $args{port};
-	# port = 0 -> get port from system
 	if ( ! defined $port ) {
-	    $port = $1 if $addr =~s{:(\d+)$}{};
-	    $port ||= 5060;
+	    ($addr,$port,$family) = ip_string2parts($addr);
+	} else {
+	    $family = (ip_string2parts($addr))[2];
+	    # port = 0 -> get port from system
+	    $port = 5060 if ! defined $port;
 	}
 	my $proto = $self->{proto} = delete $args{proto} || 'udp';
 	if ( ! ( $self->{sock} = delete $args{sock} ) ) {
-	    $self->{sock} = IO::Socket::INET->new(
+	    $self->{sock} = INETSOCK(
 		Proto => $proto,
+		Family => $family,
 		LocalPort => $port,
 		LocalAddr => $addr,
-	    ) || die "failed $proto $addr:$port $!";
+	    ) or die "failed $proto "
+		. ip_parts2string($addr,$port,$family).": $!";
 	}
-	if ( ! $port ) {
-	    # get the assigned port
-	    ($port) = unpack_sockaddr_in( getsockname( $self->{sock} ));
-	}
-
+	$port ||= $self->{sock}->sockport; # use the assigned port
 	$self->{port} = $port;
 	$self->{addr} = $addr;
 
     } elsif ( my $sock = $self->{sock} = delete $args{sock} ) {
 	# get data from socket
-	($self->{port}, my $addr) = unpack_sockaddr_in( $sock->sockname );
-	$self->{addr}  = inet_ntoa( $addr );
-	$self->{proto} = ( $sock->socktype == SOCK_STREAM ) ? 'tcp':'udp'
+	$self->{port} = $sock->sockport;
+	$self->{addr} = $sock->sockhost;
+	$self->{proto} = ( $sock->socktype == SOCK_STREAM ) ? 'tcp':'udp';
+	$family = $sock->sockdomain;
     }
 
     my ($port,$sip_proto) =
-	$self->{port} == 5060 ? ( '','sip' ) :
-	( $self->{port} == 5061 and $self->{proto} eq 'tcp' ) ? ( '','sips' ) :
-	( ":$self->{port}",'sip' )
+	$self->{port} == 5060 ? ( 0,'sip' ) :
+	( $self->{port} == 5061 and $self->{proto} eq 'tcp' ) ? ( 0,'sips' ) :
+	( $self->{port},'sip' )
 	;
-    my $leg_addr = $self->{addr}.$port;
+
+    my $leg_addr = ip_parts2string($self->{addr},$port,$family,1);
     $self->{contact}  = delete $args{contact} || "$sip_proto:$leg_addr";
 
     $self->{branch} = 'z9hG4bK'.
@@ -302,15 +310,16 @@ sub deliver {
     }
 
 
-    my ($proto,$host,$port) =
-	$addr =~m{^(?:(\w+):)?([\w\-\.]+)(?::(\d+))?$};
+    $addr =~m{^(?:(sips?|udp|tcp):)?(.+)};
+    my $proto = $1 || 'sip';
+    my ($host,$port) = ip_string2parts($2);
+    $port ||= $proto eq 'sips' ? 5061 : 5060;
     #DEBUG( "%s -> %s %s %s",$addr,$proto||'',$host, $port||'' );
-    $port ||= $proto eq 'sips' ? 5061: 5060;
-
 
     $self->sendto( $packet->as_string, $host,$port,$callback )
 	|| return;
-    DEBUG( 2, "delivery from $self->{addr}:$self->{port} to $addr OK:\n%s",
+    DEBUG( 2, "delivery from %s to %s  OK:\n%s",
+	ip_parts2string($self->{addr},$self->{port}), $addr,
 	$packet->dump( Net::SIP::Debug->level -2 ) );
 }
 
@@ -345,14 +354,13 @@ sub sendto {
 	invoke_callback( $callback, EINVAL );
     }
 
-    my $host4 = inet_aton( $host ) or do {
+    my $target = ip_parts2sockaddr($host,$port) or do {
 	# this should not happen because host should better be IP
 	DEBUG( 1, "lookup problems of $host?" );
 	invoke_callback( $callback, EINVAL );
 	return;
     };
 
-    my $target = sockaddr_in( $port,$host4 );
     unless ( $self->{sock}->send( $data,0,$target )) {
 	DEBUG( 1,"send failed: callback=$callback error=$!" );
 	invoke_callback( $callback, $! );
@@ -399,12 +407,14 @@ sub receive {
 	return;
     };
 
-    my ($port,$host) = unpack_sockaddr_in( $from );
-    $host = inet_ntoa($host);
-    DEBUG( 2,"received on $self->{addr}:$self->{port} from $host:$port packet\n%s",
-	$packet->dump( Net::SIP::Debug->level -2 ));
+    my ($host,$port,$family) = ip_sockaddr2parts($from);
+    DEBUG( 2,"received on %s from %s packet\n%s",
+	ip_parts2string($self->{addr},$self->{port},$family),
+	ip_parts2string($host,$port,$family),
+	$packet->dump( Net::SIP::Debug->level -2 )
+    );
 
-    return ($packet,"$host:$port");
+    return ($packet,ip_parts2string($host,$port,$family));
 }
 
 ###########################################################################

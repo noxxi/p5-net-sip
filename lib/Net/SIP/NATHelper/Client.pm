@@ -13,7 +13,7 @@ use warnings;
 package Net::SIP::NATHelper::Client;
 
 use Net::SIP::Debug;
-use Net::SIP::Util 'invoke_callback';
+use Net::SIP::Util qw(invoke_callback INETSOCK);
 use IO::Socket;
 use Storable qw(nfreeze thaw);
 
@@ -67,7 +67,7 @@ sub __create_unix_socket {
 
 sub __create_tcp_socket {
     my $socket = shift;
-    return IO::Socket::INET->new( $socket );
+    return INETSOCK( $socket );
 }
 
 1;

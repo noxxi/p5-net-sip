@@ -9,7 +9,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 63;
+use Test::More tests => 63*2;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -20,92 +20,96 @@ use IO::Socket;
 use File::Temp;
 use List::Util;
 
-my ($luac,$luas,@lproxy);
-for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
-    my ($sock,$addr) = create_socket();
-    $_ = { sock => $sock, addr => $addr };
+for my $proto (qw(ip4 ip6)) {
+    SKIP: {
+	if ($proto eq 'ip6' && !do_ipv6()) {
+	    skip "no IPv6 support",63;
+	    next;
+	}
+	note("----- test with $proto");
+	do_test()
+    }
 }
 
-diag( "UAS on $luas->{addr} " );
-diag( "UAC on $luac->{addr} " );
-diag( "PROXY on $lproxy[0]{addr} $lproxy[1]{addr} " );
+killall();
 
-# restrict legs of proxy so that packets gets routed even
-# if all is on the same interface. Enable dumping on
-# incoing and outgoing packets to check NAT
-for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
-    $_->{leg} = TestLeg->new(
-	sock          => $_->{sock},
-	dump_incoming => [ \&sip_dump_media,'I<' ],
-	dump_outgoing => [ \&sip_dump_media,'O>' ],
-	$_ == $lproxy[0] ? ( can_deliver_to => $luac->{addr} ) :(),
-	$_ == $lproxy[1] ? ( can_deliver_to => $luas->{addr} ) :(),
-    );
-}
-
-# socket for nathelper server
-my $nath_sock = IO::Socket::INET->new(
-    Listen => 10,
-    LocalAddr => '127.0.0.1',
-    # use any port
-) || die $!;
-my $nath_addr = do {
-    my ($p,$a) = unpack_sockaddr_in( $nath_sock->sockname );
-    inet_ntoa($a).':'.$p
-};
-
-
-foreach my $spec ( qw( no-nat inline-nat remote-nat )) {
-
-    my $natcb;
-    if ( $spec eq 'inline-nat' ) {
-	$natcb = sub { NATHelper_Local->new( shift ) };
-    } elsif ( $spec eq 'remote-nat' ) {
-	fork_sub( 'nathelper',$nath_sock );
-	$natcb = sub { NATHelper_Client->new( $nath_addr ) }
+sub do_test {
+    my ($luac,$luas,@lproxy);
+    for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
+	my ($sock,$addr) = create_socket();
+	$_ = { sock => $sock, addr => $addr };
     }
 
-    # start proxy and UAS and wait until they are ready
-    my $proxy = fork_sub( 'proxy', @lproxy,$luas->{addr},$natcb );
-    my $uas   = fork_sub( 'uas', $luas );
-    fd_grep_ok( 'ready',10,$proxy ) || die;
-    fd_grep_ok( 'ready',10,$uas ) || die;
+    note( "UAS on $luas->{addr} " );
+    note( "UAC on $luac->{addr} " );
+    note( "PROXY on $lproxy[0]{addr} $lproxy[1]{addr} " );
 
-    # UAC: invite and transfer RTP data
-    my $uac   = fork_sub( 'uac', $luac, $lproxy[0]{addr} );
-    fd_grep_ok( 'ready',10,$uac ) || die;
-    my $uac_invite  = fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},5,$uac ) || die;
-    my $pin_invite  = fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},5,$proxy ) || die;
-    my $pout_invite = fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},1,$proxy ) || die;
-    my $uas_invite  = fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},1,$uas ) || die;
-    s{.*audio=}{} for ( $uac_invite,$pin_invite,$pout_invite,$uas_invite );
-
-    # check for NAT
-    ok( $uac_invite  eq $pin_invite, "outgoing on UAC must be the same as incoming on proxy" );
-    ok( $pout_invite eq $uas_invite, "outgoing on proxy must be the same as incoming on UAS" );
-    if ( $spec eq 'no-nat' ) {
-	ok( $uac_invite eq $uas_invite, "SDP must pass unchanged to UAS" );
-    } else {
-	# get port/range and compare
-	my ($sock_i,$range_i) = split( m{/},$pin_invite,2 );
-	my ($sock_o,$range_o) = split( m{/},$pout_invite,2 );
-	ok( $sock_i ne $sock_o, "allocated addr:port must be different ($sock_i|$sock_o)" );
-	ok( $range_i == $range_o, "ranges must stay the same" );
+    # restrict legs of proxy so that packets gets routed even
+    # if all is on the same interface. Enable dumping on
+    # incoing and outgoing packets to check NAT
+    for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
+	$_->{leg} = TestLeg->new(
+	    sock          => $_->{sock},
+	    dump_incoming => [ \&sip_dump_media,'I<' ],
+	    dump_outgoing => [ \&sip_dump_media,'O>' ],
+	    $_ == $lproxy[0] ? ( can_deliver_to => $luac->{addr} ) :(),
+	    $_ == $lproxy[1] ? ( can_deliver_to => $luas->{addr} ) :(),
+	);
     }
 
-    # top via must be from lproxy[1], next via from UAC
-    # this is to show that the request went through the proxy
-    fd_grep_ok( 'call created',10,$uas );
-    fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $lproxy[1]{addr};}i,1,$uas );
-    fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $luac->{addr};}i,1,$uas );
+    # socket for nathelper server
+    my ($nath_sock,$nath_addr) = create_socket(undef,undef,'tcp') or die $!;
 
-    # done
-    fd_grep_ok( 'RTP done',10,$uac );
-    fd_grep_ok( 'RTP ok',10,$uas );
-    fd_grep_ok( 'END',10,$uac );
-    fd_grep_ok( 'END',10,$uas );
+    foreach my $spec ( qw( no-nat inline-nat remote-nat )) {
 
-    killall();
+	my $natcb;
+	if ( $spec eq 'inline-nat' ) {
+	    $natcb = sub { NATHelper_Local->new( shift ) };
+	} elsif ( $spec eq 'remote-nat' ) {
+	    fork_sub( 'nathelper',$nath_sock );
+	    $natcb = sub { NATHelper_Client->new( $nath_addr ) }
+	}
+
+	# start proxy and UAS and wait until they are ready
+	my $proxy = fork_sub( 'proxy', @lproxy,$luas->{addr},$natcb );
+	my $uas   = fork_sub( 'uas', $luas );
+	fd_grep_ok( 'ready',10,$proxy ) || die;
+	fd_grep_ok( 'ready',10,$uas ) || die;
+
+	# UAC: invite and transfer RTP data
+	my $uac   = fork_sub( 'uac', $luac, $lproxy[0]{addr} );
+	fd_grep_ok( 'ready',10,$uac ) || die;
+	my $uac_invite  = fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},5,$uac ) || die;
+	my $pin_invite  = fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},5,$proxy ) || die;
+	my $pout_invite = fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},1,$proxy ) || die;
+	my $uas_invite  = fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},1,$uas ) || die;
+	s{.*audio=}{} for ( $uac_invite,$pin_invite,$pout_invite,$uas_invite );
+
+	# check for NAT
+	ok( $uac_invite  eq $pin_invite, "outgoing on UAC must be the same as incoming on proxy" );
+	ok( $pout_invite eq $uas_invite, "outgoing on proxy must be the same as incoming on UAS" );
+	if ( $spec eq 'no-nat' ) {
+	    ok( $uac_invite eq $uas_invite, "SDP must pass unchanged to UAS" );
+	} else {
+	    # get port/range and compare
+	    my ($sock_i,$range_i) = split( m{/},$pin_invite,2 );
+	    my ($sock_o,$range_o) = split( m{/},$pout_invite,2 );
+	    ok( $sock_i ne $sock_o, "allocated addr:port must be different ($sock_i|$sock_o)" );
+	    ok( $range_i == $range_o, "ranges must stay the same" );
+	}
+
+	# top via must be from lproxy[1], next via from UAC
+	# this is to show that the request went through the proxy
+	fd_grep_ok( 'call created',10,$uas );
+	fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $lproxy[1]{addr};}i,1,$uas );
+	fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $luac->{addr};}i,1,$uas );
+
+	# done
+	fd_grep_ok( 'RTP done',10,$uac );
+	fd_grep_ok( 'RTP ok',10,$uas );
+	fd_grep_ok( 'END',10,$uac );
+	fd_grep_ok( 'END',10,$uas );
+    }
 }
 
 

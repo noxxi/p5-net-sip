@@ -5,7 +5,7 @@
 # RFC2327 - base RFC for SDP
 # RFC3264 - offer/answer model with SDP (used in SIP RFC3261)
 # RFC3266 - IP6 in SDP
-# RFC3605 - "a=rtcp:port" Attribut. UNSUPPORTED!!!!
+# RFC3605 - "a=rtcp:port" attribute UNSUPPORTED!!!!
 ###########################################################################
 
 use strict;
@@ -13,6 +13,7 @@ use warnings;
 package Net::SIP::SDP;
 use Hash::Util qw(lock_keys);
 use Net::SIP::Debug;
+use Net::SIP::Util qw(ip_is_v4 ip_is_v6);
 use Socket;
 use Scalar::Util 'looks_like_number';
 
@@ -50,7 +51,12 @@ sub new_from_parts {
     my %g = %$global;
     my $g_addr = delete $g{addr};
     die "no support for time rates" if $g{r};
-    $g{c} = "IN IP4 $g_addr" if $g_addr && !$g{c};
+
+    my $atyp;
+    if ($g_addr && !$g{c}) {
+	$atyp = ip_is_v4($g_addr) ? 'IP4':'IP6';
+	$g{c} = "IN $atyp $g_addr";
+    }
     $g{t} = "0 0" if !$g{t};
 
     my @gl;
@@ -72,7 +78,9 @@ sub new_from_parts {
     my $o = delete($g{o});
     if ( !$o ) {
 	my $t = time();
-	$o = "anonymous $t $t IN IP4 ".( $g_addr || '127.0.0.1' );
+	$atyp ||= $g{c} =~m{^IN (IP4|IP6) } && $1;
+	$o = "anonymous $t $t IN $atyp ".( $g_addr
+	    || ($atyp eq 'IP4' ? '127.0.0.1' : '::1') );
     }
     push @gl,[ 'o',$o ];
 
@@ -454,25 +462,13 @@ sub replace_media_listen {
 # extract addr from [c]connection field and back
 ###########################################################################
 
-my $RX_IP4 = do {
-    my $part = qr{2(?:[0-4]\d|5[0-5]|\d?)|[01]\d{0,2}|[3-9]\d?};
-    qr{^$part\.$part\.$part\.$part$}
-};
-
-# very rough, just enough to distinguish IPv6 from hostnames
-my $RX_IP6 = qr{^[a-fA-F\d:]+:[a-fA-F\d:.]*$};
-my $CHECK_IP6 = eval { require Socket6 }
-    ? sub { Socket6::inet_pton( AF_INET6, shift ) }
-    : sub { 1 }; # FIXME: better syntax check here?
-
 sub _split_c {
     my ($ntyp,$atyp,$addr) = split( ' ',shift,3 );
     $ntyp eq 'IN'  or die "nettype $ntyp not supported";
     if ( $atyp eq 'IP4' ) {
-	die "bad IP4 address: '$addr'" if $addr !~m{$RX_IP4};
+	die "bad IP4 address: '$addr'" if ! ip_is_v4($addr);
     } elsif ( $atyp eq 'IP6' ) {
-	die "bad IP6 address: '$addr'" if $addr !~m{$RX_IP6}
-	    or !$CHECK_IP6->($addr);
+	die "bad IP6 address: '$addr'" if ! ip_is_v6($addr);
     } else {
 	die "addrtype $atyp not supported"
     }
@@ -480,7 +476,7 @@ sub _split_c {
 }
 sub _join_c {
     my $addr = shift;
-    my $atyp = $addr =~m{^[a-fA-F:\.]+$} ? 'IP6':'IP4';
+    my $atyp = $addr =~m{:} ? 'IP6':'IP4';
     return "IN $atyp $addr";
 }
 

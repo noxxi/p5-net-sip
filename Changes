@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.688 2016-10-26
+- support for IPv6
 0.687 2014-02-11
 StatelessProxy:
 - better encryption for rewritten contact and way to define its own
