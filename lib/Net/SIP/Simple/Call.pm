@@ -57,7 +57,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       SDP, e.g. [ 97,240,0.03,'iLBC/8000' ]
 ###########################################################################
 
-use Net::SIP::Util qw(create_rtp_sockets invoke_callback ip_parts2sockaddr);
+use Net::SIP::Util qw(:all);
 use Net::SIP::Debug;
 use Net::SIP::DTMF 'dtmf_extractor';
 use Socket;
@@ -607,7 +607,8 @@ sub _setup_peer_rtp_socks {
     for( my $i=0;$i<@media;$i++) {
 	my $m = $media[$i];
 	my $range = $m->{range} || 1;
-	if ( $m->{addr} eq '0.0.0.0' or  $m->{addr} eq '::') {
+	my $paddr = ip_canonical($m->{addr});
+	if ( $paddr eq '0.0.0.0' or  $paddr eq '::') {
 	    # on-hold for this media
 	    push @$raddr, undef;
 	} else {

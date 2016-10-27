@@ -51,13 +51,11 @@ sub new {
     my $family;
     if ( my $addr = delete $args{addr} ) {
 	my $port = delete $args{port};
-	if ( ! defined $port ) {
-	    ($addr,$port,$family) = ip_string2parts($addr);
-	} else {
-	    $family = (ip_string2parts($addr))[2];
-	    # port = 0 -> get port from system
-	    $port = 5060 if ! defined $port;
-	}
+	($addr,my $port_a, $family) = ip_string2parts($addr);
+	die "port given both as argument and contained in address"
+	    if $port && $port_a && $port != $port_a;
+	# port defined and 0 -> get port from system
+	$port = $port_a || 5060 if ! defined $port;
 	my $proto = $self->{proto} = delete $args{proto} || 'udp';
 	if ( ! ( $self->{sock} = delete $args{sock} ) ) {
 	    $self->{sock} = INETSOCK(

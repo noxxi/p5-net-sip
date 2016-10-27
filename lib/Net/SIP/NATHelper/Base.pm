@@ -880,7 +880,7 @@ sub forward_data {
 	return;
     };
 
-    my $name = sub { ip_parts2string(ip_sockaddr2parts(shift)) };
+    my $name = sub { ip_sockaddr2string(shift) };
 
     if ( ! $$bytes ) {
 	if ( $peer eq $$rfrom ) {

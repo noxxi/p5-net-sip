@@ -248,14 +248,14 @@ sub __forward_response {
 	return;
     };
     my ($first,$param) = sip_hdrval2parts( via => $via );
-    $first =~s{^SIP/\d\.\d(?:/\S+)?\s+}{};
-    my ($addr,$port) = ip_string2parts($first);
+    $first =~m{^SIP/\d\.\d(?:/\S+)?\s+(.*)};
+    my ($addr,$port) = ip_string2parts($1);
     $port ||= 5060; # FIXME default for sip, not sips!
     $addr = $param->{maddr} if $param->{maddr};
     $addr = $param->{received} if $param->{received}; # where it came from
     $port = $param->{rport} if $param->{rport}; # where it came from
     @{ $entry->{dst_addr}} = ( ip_parts2string($addr,$port) );
-    DEBUG( 50,"get dst_addr from via header: $first -> $addr:$port" );
+    DEBUG( 50,"get dst_addr from via header: $first -> $entry->{dst_addr}[0]");
 
     if ( $addr !~m{^[0-9\.]+$} ) {
 	$self->{dispatcher}->dns_host2ip(

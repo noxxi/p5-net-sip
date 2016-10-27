@@ -45,7 +45,7 @@ sub addFD {
     my Net::SIP::Dispatcher::Eventloop $self = shift;
     my ($fd,$callback,$name) = @_;
     defined( my $fn = fileno($fd)) || return;
-    #DEBUG( 100, "$self added fn=$fn sock=".ip_parts2string(ip_sockaddr2parts(getsockname($fd))));
+    #DEBUG( 100, "$self added fn=$fn sock=".ip_sockaddr2string(getsockname($fd)));
     $self->{fd}[$fn] = [ $fd,$callback,$name ];
 }
 
@@ -59,7 +59,7 @@ sub delFD {
     my Net::SIP::Dispatcher::Eventloop $self = shift;
     my ($fd) = @_;
     defined( my $fn = fileno($fd)) || return;
-    #DEBUG( 100, "$self delete fn=$fn sock=".ip_parts2string(ip_sockaddr2parts(getsockname($fd))));
+    #DEBUG( 100, "$self delete fn=$fn sock=".ip_sockaddr2string(getsockname($fd)));
     delete $self->{fd}[$fn];
 }
 

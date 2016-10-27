@@ -1,5 +1,6 @@
 Revision history for Net::SIP
 
+- some fixes and enhancements based on review by BLUHM
 0.688 2016-10-26
 - support for IPv6
 0.687 2014-02-11

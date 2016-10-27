@@ -199,11 +199,22 @@ determined by checking the IP if not given.
 This will return the IP, PORT and FAMILY from a sockaddr_in or sockaddr_in6.
 If FAMILY is not given it will be determined based on the size of SOCKADDR.
 
+=item ip_sockaddr2string(SOCKADDR, [FAMILY]) -> STR
+
+This will return the STR from a sockaddr_in or sockaddr_in6, i.e. like combining
+C<ip_sockaddr2parts> with C<ip_parts2string>.
+If FAMILY is not given it will be determined based on the size of SOCKADDR.
+
 =item ip_ptr(IP, [FAMILY]) -> PTR_NAME
 
 This will create the hostname used in reverse lookup of an IP address, i.e.
 C<*.in-addr.arpa> or C<*.ip6.arpa>.
 If FAMILY is not given it will be determined based on the syntax of IP.
+
+=item ip_canonical(IP, [FAMILY]) -> IP
+
+This will convert the given IP address into a canonical form suitable for
+comparison.
 
 =item hostname2ip(host, [FAMILY]) -> @IP
 

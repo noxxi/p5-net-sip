@@ -61,8 +61,9 @@ our @EXPORT_OK = qw(
     create_socket_to create_rtp_sockets
     ip_string2parts ip_parts2string
     ip_parts2sockaddr ip_sockaddr2parts
+    ip_sockaddr2string
     ip_is_v4 ip_is_v6
-    ip_ptr
+    ip_ptr ip_canonical
     hostname2ip
     CAN_IPV6
     invoke_callback
@@ -435,8 +436,9 @@ sub ip_string2parts {
     return @rv if inet_pton($rv[2],$rv[0]); # check if really IP address
     #Carp::confess("invalid ip:port string: '$_[0]'") if $rv[2] && $rv[2] != AF_INET;
     die "invalid ip:port string: '$_[0]'" if $rv[2] && $rv[2] != AF_INET;
-    # hostname - remove trailing dots
-    $rv[0] =~s{\.+\z}{};
+
+    # hostname, unknown family
+    $rv[0] =~s{\.+\z}{.};    # remove too much trailing dots
     return (@rv[0,1],undef);
 }
 
@@ -502,6 +504,25 @@ sub ip_sockaddr2parts {
 }
 
 ###########################################################################
+# gets string from sockaddr, i.e. like ip_parts2string(ip_sockaddr2parts(..))
+# Args: $sockaddr;$family
+#  $sockaddr: sockaddr as returned by getsockname, recvfrom..
+#  $family: optional family, otherwise guessed based on size of sockaddr
+# Returns: $string
+###########################################################################
+sub ip_sockaddr2string {
+    my ($sockaddr,$fam) = @_;
+    $fam ||= length($sockaddr)>=24 ? AF_INET6 : AF_INET;
+    if ($fam == AF_INET) {
+	my ($port,$addr) = unpack_sockaddr_in($sockaddr);
+	return inet_ntop(AF_INET,$addr) . ":$port";
+    } else {
+	my ($port,$addr) = unpack_sockaddr_in6($sockaddr);
+	return '[' . inet_ntop(AF_INET6,$addr) . "]:$port";
+    }
+}
+
+###########################################################################
 # return name for PTR lookup of given IP address
 # Args: $ip;$family
 #  $ip: IP address
@@ -511,11 +532,27 @@ sub ip_sockaddr2parts {
 sub ip_ptr {
     my ($ip,$family) = @_;
     $family ||= $ip=~m{:} ? AF_INET6 : AF_INET;
-    return join('.',
-	reverse(unpack("C*",inet_pton($family,$ip))),
-	($family == AF_INET ? 'in-addr' : 'ip6'),
-	'arpa'
-    );
+    if ($family == AF_INET) {
+	return join('.', reverse(unpack("C*",inet_pton(AF_INET,$ip))))
+	    . 'in-addr.arpa';
+    } else {
+	return join('.', reverse(split('',
+	    unpack("H*", inet_pton(AF_INET6,$ip)))))
+	    . 'ip6.arpa';
+    }
+}
+
+###########################################################################
+# convert IP address into canonical form suitable for comparison
+# Args: $ip;$family
+#  $ip: IP address
+#  $family: optional family
+# Returns: $ip_canonical
+###########################################################################
+sub ip_canonical {
+    my ($ip,$family) = @_;
+    $family ||= $ip=~m{:} ? AF_INET6 : AF_INET;
+    return inet_ntop($family, inet_pton($family, $ip));
 }
 
 ###########################################################################

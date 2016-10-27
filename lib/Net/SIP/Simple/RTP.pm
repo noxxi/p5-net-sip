@@ -243,8 +243,8 @@ sub _receive_rtp {
 
     if(0) {
 	DEBUG( "got data on socket %d %s from %s",fileno($sock),
-	    ip_parts2string(ip_sockaddr2parts(getsockname($sock))),
-	    ip_parts2string(ip_sockaddr2parts($from)));
+	    ip_sockaddr2string(getsockname($sock)),
+	    ip_sockaddr2string($from));
     }
 
     $$didit = 1;
@@ -376,8 +376,8 @@ sub _send_rtp {
     die $! if ! defined $buf or $buf eq '';
     if (0) {
 	DEBUG(50, "%s -> %s seq=%d ts=%x",
-	    ip_parts2string(ip_sockaddr2parts(getsockname($sock))),
-	    ip_parts2string(ip_sockaddr2parts($addr)),
+	    ip_sockaddr2string(getsockname($sock)),
+	    ip_sockaddr2string($addr),
 	    $seq, $timestamp
 	);
     }
