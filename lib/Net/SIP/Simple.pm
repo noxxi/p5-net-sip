@@ -125,10 +125,13 @@ sub new {
 	} elsif ( UNIVERSAL::isa( $_, 'HASH' )) {
 	    # create leg from hash
 	    $_ = Net::SIP::Leg->new( %$_ )
-	} elsif ( m{^(?:(udp|tcp):)?([\w\-\.]+)(?::(\d+))?$} ) {
-	    # host|udp:host|udp:host:port|host:port
+	} elsif ( m{^(?:(udp|tcp):)?(\S+)$} ) {
+	    # host|udp:host|udp:host:port|host:port|..[host]..
+	    my $proto = $1;
+	    my ($host,$port) = ip_string2parts($2)
+		or die "invalid address: $_";
 	    $_ = Net::SIP::Leg->new(
-		addr => $2, port => $3, proto => $1 );
+		addr => $host, port => $port, proto => $proto);
 	}
     }
 
@@ -305,7 +308,7 @@ sub register {
     if ( ! $contact) {
 	$contact = $from;
 	my $local = ip_parts2string($leg->{addr},$leg->{port});
-	$contact.= '@'.$local unless $contact =~s{\@([^\s;,]+)}{\@$local};
+	$contact.= '@'.$local unless $contact =~s{\@([^\s;,>]+)}{\@$local};
     }
 
     my %rarg = (

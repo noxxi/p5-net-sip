@@ -533,6 +533,28 @@ sub as_parts {
 	'max-forwards' => \&_hdrkey_parse_num,
 	'min-expires' => \&_hdrkey_parse_num,
 
+	'via' => \&_hdrkey_parse_comma_seperated,
+	'contact' => \&_hdrkey_parse_comma_seperated,
+	'record-route' => \&_hdrkey_parse_comma_seperated,
+	'route' => \&_hdrkey_parse_comma_seperated,
+	'allow' => \&_hdrkey_parse_comma_seperated,
+	'supported' => \&_hdrkey_parse_comma_seperated,
+	'unsupported' => \&_hdrkey_parse_comma_seperated,
+
+	'in-reply-to' => \&_hdrkey_parse_comma_seperated,
+	'accept' => \&_hdrkey_parse_comma_seperated,
+	'accept-encoding' => \&_hdrkey_parse_comma_seperated,
+	'accept-language' => \&_hdrkey_parse_comma_seperated,
+	'proxy-require' => \&_hdrkey_parse_comma_seperated,
+	'require' => \&_hdrkey_parse_comma_seperated,
+	'content-encoding' => \&_hdrkey_parse_comma_seperated,
+	'content-language' => \&_hdrkey_parse_comma_seperated,
+	'alert-info' => \&_hdrkey_parse_comma_seperated,
+	'call-info' => \&_hdrkey_parse_comma_seperated,
+	'error-info' => \&_hdrkey_parse_comma_seperated,
+	'error-info' => \&_hdrkey_parse_comma_seperated,
+	'warning' => \&_hdrkey_parse_comma_seperated,
+
 	'call-id' => sub {
 	    $_[0] =~ $callid_rx or die "invalid callid, should be 'word [@ word]'";
 	    return $_[0];
@@ -565,6 +587,9 @@ sub as_parts {
 			$v[-1].=$1.$2;
 			$quote = '';
 		    }
+		} else {
+		    # missing end-quote
+		    die "missing '$quote' in '$v'";
 		}
 	    } elsif ( $v =~m{\G(.*?)([\\"<,])}gc ) {
 		if ( $2 eq "\\" ) {
@@ -625,7 +650,7 @@ sub as_parts {
 	    my $nk = _normalize_hdrkey($k);
 
 	    my $parse = $key2parser{$nk};
-	    my @v = $parse ? $parse->($v,$nk) : _hdrkey_parse_comma_seperated($v,$nk);
+	    my @v = $parse ? $parse->($v,$nk) : _hdrkey_parse_keep($v,$nk);
 	    if ( @v>1 ) {
 		for( my $i=0;$i<@v;$i++ ) {
 		    push @hdr, Net::SIP::HeaderPair->new( $k,$v[$i],scalar(@lines),$i );

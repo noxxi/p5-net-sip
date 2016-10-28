@@ -615,8 +615,8 @@ sub do_nat {
     # way around
 
     my $side;
-    my $ileg = join( ':', @{ $incoming_leg }{qw(addr port)} );
-    my $oleg = join( ':', @{ $outgoing_leg }{qw(addr port)} );
+    my $ileg = ip_parts2string(@{ $incoming_leg }{qw(addr port)});
+    my $oleg = ip_parts2string(@{ $outgoing_leg }{qw(addr port)});
     if ( $request ) {
 	$idfrom .= "\0".$ileg;
 	$idto   .= "\0".$oleg;
