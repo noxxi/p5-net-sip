@@ -868,8 +868,6 @@ sub dns_domain2srv {
 	if ( CAN_IPV6 and my $q = $dns->query( $domain,'AAAA' )) {
 	    foreach my $rr ($q->answer ) {
 		$rr->type eq 'AAAA' || next;
-		# XXX fixme, check that name in response corresponds to query
-		# (beware of CNAMEs!)
 		push @resp,map {
 		    [ -1, $_ , $rr->address,$default_port ]
 		} @$protos;
@@ -878,8 +876,6 @@ sub dns_domain2srv {
 	if ( my $q = $dns->query( $domain,'A' )) {
 	    foreach my $rr ($q->answer ) {
 		$rr->type eq 'A' || next;
-		# XXX fixme, check that name in response corresponds to query
-		# (beware of CNAMEs!)
 		push @resp,map {
 		    [ -1, $_ , $rr->address,$default_port ]
 		} @$protos;
