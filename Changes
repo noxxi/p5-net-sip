@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.690 2016-10-30
+- fix target hostname vs. IP detection in StatelessProxy with IPv6
 0.689 2016-10-28
 - some IPv6 fixes and enhancements in parts based on review by BLUHM
 0.688 2016-10-26

@@ -257,7 +257,7 @@ sub __forward_response {
     @{ $entry->{dst_addr}} = ( ip_parts2string($addr,$port) );
     DEBUG( 50,"get dst_addr from via header: $first -> $entry->{dst_addr}[0]");
 
-    if ( $addr !~m{^[0-9\.]+$} ) {
+    if ( $addr !~m{^[0-9\.]+$|:} ) {
 	$self->{dispatcher}->dns_host2ip(
 	    $addr,
 	    [ \&__forward_response_1,$self,$entry ]
