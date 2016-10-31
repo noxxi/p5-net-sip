@@ -68,7 +68,7 @@ our @EXPORT_OK = qw(
     CAN_IPV6
     invoke_callback
 );
-our %EXPORT_TAGS = ( all => \@EXPORT_OK );
+our %EXPORT_TAGS = ( all => [ @EXPORT_OK, @EXPORT ] );
 
 our $RTP_MIN_PORT = 2000;
 our $RTP_MAX_PORT = 12000;
@@ -401,15 +401,17 @@ sub invoke_callback {
 
 ###########################################################################
 # split string into host/ip, port and detect family (IPv4 or IPv6)
-# Args: $addr
+# Args: $addr;$opaque
 #  $addr: ip_or_host, ipv4_or_host:port, [ip_or_host]:port
+#  $opaque: optional argument, if true it will not enforce valid syntax
+#     for the hostname and will not return canonicalized data
 # Returns: ($host,$port,$family)
-#  $host:   the IP address or hostname
+#  $host:   canonicalized IP address or hostname
 #  $port:   the port or undef if no port was given in string
 #  $family: AF_INET or AF_INET6 or undef (hostname not IP given)
 ###########################################################################
 sub ip_string2parts {
-    my ($addr) = @_;
+    my ($addr,$opaque) = @_;
     my @rv;
     if ($addr =~m{:[^:\s]*(:)?}) {
 	if (!$1) {
@@ -433,13 +435,25 @@ sub ip_string2parts {
 	@rv = ($addr,undef,AF_INET);
     }
 
-    return @rv if inet_pton($rv[2],$rv[0]); # check if really IP address
-    #Carp::confess("invalid ip:port string: '$_[0]'") if $rv[2] && $rv[2] != AF_INET;
-    die "invalid ip:port string: '$_[0]'" if $rv[2] && $rv[2] != AF_INET;
+    # we now have:
+    # AF_INET6 if it contains a ':', i.e. either valid IPv6 or smthg invalid
+    # AF_INET  otherwise, i.e. IPv4 or hostname or smthg invalid
 
-    # hostname, unknown family
-    $rv[0] =~s{\.+\z}{.};    # remove too much trailing dots
-    return (@rv[0,1],undef);
+    # check if this is an IP address from the expected family
+    if (my $addr = inet_pton($rv[2],$rv[0])) {
+	# valid IP address
+	return @rv if $opaque;
+	return (inet_ntop($rv[2],$addr), @rv[1,2]); # canonicalized form
+    }
+
+    return (@rv[0,1],undef) if $opaque;
+
+    # make sure that it looks like a valid hostname and return it lower case
+    return (lc($rv[0]), $rv[1], undef)
+	if $rv[0] =~m{^[a-z\d\-\_]+(?:\.[a-z\d\-\_]+)*\.?\z};
+
+    #Carp::confess("invalid hostname '$rv[0]' in '$_[0]'");
+    die "invalid hostname '$rv[0]' in '$_[0]'";
 }
 
 ###########################################################################

@@ -318,7 +318,10 @@ sub __forward_request_getleg {
 	}
     } else {
 	my ($data,$param) = sip_hdrval2parts( route => $route );
-	my ($addr,$port) = ip_string2parts((sip_uri2parts($data))[0]);
+	my ($addr,$port) = ip_string2parts(
+	    (sip_uri2parts($data))[0],
+	    $param->{maddr} ? 1:0,   # accept anything as addr if we have maddr
+	);
 	$port ||= 5060; # FIXME sips
 	my @legs = $self->{dispatcher}->get_legs(addr => $addr, port => $port);
 	if ( ! @legs and $param->{maddr} ) {
@@ -339,7 +342,10 @@ sub __forward_request_getleg {
 	# still routing infos. Use next route as nexthop
 	my $route = $route[0] =~m{<([^\s>]+)>} && $1 || $route[0];
 	my ($data,$param) = sip_hdrval2parts( route => $route );
-	my ($addr,$port) = ip_string2parts((sip_uri2parts($data))[0]);
+	my ($addr,$port) = ip_string2parts(
+	    (sip_uri2parts($data))[0],
+	    $param->{maddr} ? 1:0,   # accept anything as addr if we have maddr
+	);
 	$port ||= 5060; # FIXME sips
 	$entry->{nexthop} = ip_parts2string($param->{maddr} || $addr,$port);
 	DEBUG( 50, "setting nexthop from route $route to $entry->{nexthop}" );

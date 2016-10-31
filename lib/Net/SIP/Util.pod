@@ -168,7 +168,7 @@ This compares user part case sensitive, domain part case insensitive (does
 no DNS resolution) protocol and ports in domain (assumes default ports
 for protocol if no port is given).
 
-=item ip_string2parts(STR) -> (HOST, PORT, FAMILY)
+=item ip_string2parts(STR;OPAQUE) -> (HOST, PORT, FAMILY)
 
 This will parse the given string STR and split it into the parts as follows:
 
@@ -178,6 +178,13 @@ This will parse the given string STR and split it into the parts as follows:
   [IPv6]:port                -> (IPv6, port,  AF_INET6)
   host, [host]               -> (host, undef, undef)
   host:port, [host]:port     -> (host, port,  undef)
+
+The IP address and host will be returned in a canonicalized way.
+
+If this function is used to parse strings where the host part is not a real
+hostname but some identifier with more allowed characters than a hostname then
+OPAQUE should be set and in this way no strict checking and no canonicalization
+is done.
 
 =item ip_parts2string(HOST, [ PORT, FAMILY, IPv6_BRCKT]) -> STR
 
