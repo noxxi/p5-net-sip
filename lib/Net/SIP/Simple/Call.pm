@@ -495,7 +495,7 @@ sub dtmf {
 # Args: ($self,$endpoint,$ctx,$error,$code,$packet,$leg,$from)
 #   $endpoint: the endpoint
 #   $ctx: context for call
-#   $error: errno if error occured
+#   $error: errno if error occurred
 #   $code: code from responses
 #   $packet: incoming packet
 #   $leg: leg where packet came in
@@ -505,7 +505,7 @@ sub dtmf {
 sub receive {
     my ($self,$endpoint,$ctx,$error,$code,$packet,$leg,$from) = @_;
     if ( ! $packet ) {
-	$self->error( "error occured: $error" );
+	$self->error( "error occurred: $error" );
     } elsif ( $packet->is_request ) {
 	my $method = $packet->method;
 	my $param = $self->{param};

@@ -84,7 +84,7 @@ keys for constructing the 'c' and 'm' line:
 =back
 
 If the SDP should contain multiple values for the same key in the same
-media section on can specifiy the value for the key as a \@list instead
+media section on can specify the value for the key as a \@list instead
 of a string (this is often the case for 'a' lines).
 
 =back

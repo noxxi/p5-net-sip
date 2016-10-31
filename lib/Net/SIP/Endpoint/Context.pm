@@ -238,7 +238,7 @@ sub set_callback {
 # layer (e.g response with 400 Bad request) are handled by handle_response()
 # Args: ($self,$tid;$error)
 #  $tid: Transaction ID
-#  $error: errno if error occured
+#  $error: errno if error occurred
 # Returns: NONE
 ############################################################################
 sub request_delivery_done {

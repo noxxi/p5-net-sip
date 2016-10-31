@@ -201,7 +201,7 @@ sub cancel_invite {
 # delivered (tcp only) or an error occurred
 # Args: ($self,$ctx,$error,$delivery_packet)
 #   $ctx: Net::SIP::Endpoint::Context
-#   $error: errno if error occured
+#   $error: errno if error occurred
 #   $delivery_packet: Net::SIP::Dispatcher::Packet which encapsulates
 #     the original request and information about leg, dst_addr...
 #     and has method use_next_dstaddr to try the next dstaddr if for the

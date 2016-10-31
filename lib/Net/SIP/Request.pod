@@ -77,7 +77,7 @@ Returns Net::SIP::Request object to cancel request in C<$self>.
 
 Returns Net::SIP::Response packet for the received request C<$self> with
 numerical code CODE and text message MSG. Header for the response will
-be based on the request, but can be added or overriden using \%HEADER.
+be based on the request, but can be added or overridden using \%HEADER.
 If MSG is not given (e.g. argument is missing, second argument is \%HEADER
 already) a builtin message for the code will be used.
 

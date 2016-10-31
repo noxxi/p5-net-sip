@@ -67,8 +67,8 @@ other registrar given.
 \@List of legs or single leg. Leg can be an existing L<Net::SIP::Leg> (or derived)
 object, an L<IO::Handle> (existing socket), a hash reference which can be used
 in the constructor of L<Net::SIP::Leg> or a string of C<< "proto:ip:port" >>.
-In the latter case C<proto> can be ommitted (including the colon) and defaults
-to 'udp' and C<port> can be ommitted to (including the colon) defaulting to 5060.
+In the latter case C<proto> can be omitted (including the colon) and defaults
+to 'udp' and C<port> can be omitted to (including the colon) defaulting to 5060.
 
 Either B<legs> or B<outgoing_proxy> has to be provided, e.g. it needs at least one
 leg.

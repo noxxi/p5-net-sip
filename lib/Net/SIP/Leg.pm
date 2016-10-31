@@ -253,8 +253,8 @@ sub forward_outgoing {
 # Args: ($self,$packet,$addr;$callback)
 #   $packet: Net::SIP::Packet
 #   $addr:   ip:port where to deliver
-#   $callback: optional callback, if an error occured the callback will
-#      be called with $! as argument. If no error occured and the
+#   $callback: optional callback, if an error occurred the callback will
+#      be called with $! as argument. If no error occurred and the
 #      proto is tcp the callback will be called with error=0 to show
 #      that the packet was definitely delivered (and there's no need to retry)
 ###########################################################################
@@ -329,7 +329,7 @@ sub deliver {
 #   $port: target port
 #   $callback: callback for error|success, see method deliver
 # Returns: $success
-#   $success: true if no problems occured while sending (this does not
+#   $success: true if no problems occurred while sending (this does not
 #     mean that the packet was delivered reliable!)
 ###########################################################################
 sub sendto {

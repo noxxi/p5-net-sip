@@ -122,7 +122,7 @@ it into the parts (prefix, parameter). Because for most keys the
 delimiter is C<;>, but for some keys C<,> the field name KEY need to
 be known.
 
-KEY needs to be normalized already (lower case, no abbrevation).
+KEY needs to be normalized already (lower case, no abbreviation).
 
 Returns array with initial data (up to first delimiter) and
 the parameters as hash.

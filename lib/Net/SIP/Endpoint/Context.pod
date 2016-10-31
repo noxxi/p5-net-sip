@@ -148,7 +148,7 @@ The L<Net::SIP::Endpoint> object managing CTX.
 
 =item ERROR
 
-The errno of the error occured ( undef or 0 if no error ).
+The errno of the error occurred ( undef or 0 if no error ).
 These are the same numbers defined in L<Errno>, but they are
 usually not set by a system call, but by the dispatcher
 (like ETIMEDOUT if delivery failed permanently after none of

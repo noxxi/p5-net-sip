@@ -740,9 +740,9 @@ use fields qw( key value orig_key line pos );
 ###########################################################################
 # Create new HeaderPair
 # Args: ($class,$key,$value,$line,$pos)
-#   $key: orginal key
+#   $key: original key
 #   $value: value
-#   $line: index of header line in orginal header
+#   $line: index of header line in original header
 #   $pos: index within header line if multiple values are in line
 # Returns: $self
 ###########################################################################

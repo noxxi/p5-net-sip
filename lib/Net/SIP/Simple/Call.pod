@@ -193,7 +193,7 @@ each time the call should be put on hold.
 
 =item ...
 
-More parameters may be specified and are accessable from the callbacks.
+More parameters may be specified and are accessible from the callbacks.
 For instance B<media_send_recv> in L<Net::SIP::Simple::RTP> uses a parameter
 B<cb_rtp_done>. See there.
 

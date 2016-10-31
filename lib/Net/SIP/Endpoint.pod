@@ -133,7 +133,7 @@ C<< "ip:port" >> of registrar. Mandatory.
 
 =item from
 
-The adress to register at the registrar. Mandatory.
+The address to register at the registrar. Mandatory.
 
 =item contact
 

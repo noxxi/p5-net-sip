@@ -50,7 +50,7 @@ which can reach the outgoing proxy by udp.
 
 =item do_retransmits
 
-If TRUE retransmits will be done accoring to RFC3261. If FALSE no
+If TRUE retransmits will be done according to RFC3261. If FALSE no
 retransmits will be done, which is used in the case of stateless
 proxies.
 Defaults to TRUE.
@@ -138,7 +138,7 @@ WHEN is either an absolute or a relative time (what it is will
 be decided based on the value of WHEN). Absolute times will be
 specified in time_t (seconds since 1970-01-01 00:00:00) and
 relative time will be specified in seconds.
-WHEN can be floating point to specifiy subseconds.
+WHEN can be floating point to specify subseconds.
 WHEN can be C<0> to trigger the timer immediately.
 
 CALLBACK is a callback usable by B<invoke_callback> in L<Net::SIP::Util>.
@@ -231,7 +231,7 @@ If ALLOWED_LEGS is given it will be interpreted as a \@list of L<Net::SIP::Leg>
 objects and only these legs are allowed.
 
 Because the method can be asynchronous (DNS lookups can be involved)
-it will call CALLBACK once it is done. If no errors occured
+it will call CALLBACK once it is done. If no errors occurred
 CALLBACK will be invoked without additional arguments, otherwise
 with the errno as additional argument.
 

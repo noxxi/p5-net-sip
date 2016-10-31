@@ -116,7 +116,7 @@ Returns TRUE if the leg can deliver address specified by ADDR or %SPEC.
 ADDR is a hostname which can be prefixed by the protocol ( e.g. C<udp:host> )
 and postfixed by the port ( C<host:port>, C<tcp:host:port>,... ).
 
-If the caller has 'proto','addr' and 'port' already as seperate items
+If the caller has 'proto','addr' and 'port' already as separate items
 it can call the method with %SPEC instead.
 
 Right now it has now way to check if the leg can deliver to a specific

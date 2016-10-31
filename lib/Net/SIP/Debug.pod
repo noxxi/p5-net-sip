@@ -80,7 +80,7 @@ level lower or equal to NUMBER.
 
 Enables debugging for package PACKAGE. PACKAGE might be a fully
 qualified package (e.g. C<Net::SIP::Registrar>) or the C<Net>
-or C<Net::SIP> might be ommited (C<Registrar>). If a C<*> is added
+or C<Net::SIP> might be omitted (C<Registrar>). If a C<*> is added
 the debugging will also be enabled for subpackages, e.g.
 C<Endpoint*> will enable debugging for L<Net::SIP::Endpoint> and
 L<Net::SIP::Endpoint::Context> too.

@@ -81,7 +81,7 @@ time in case of repeating timers).
 
 Returns the current loop time in subseconds resolution (using B<gettimeofday>
 from L<Time::HiRes>). This is not the current time, but the time, when the
-last event in the loop occured (e.g. when the select(2) call returned)
+last event in the loop occurred (e.g. when the select(2) call returned)
 
 =item loop ( [ TIMEOUT, \@STOPVAR ] )
 

@@ -136,7 +136,7 @@ this value. In case of multiple values it returns a @list of all
 values, but if C<wantarray> says, that the caller expects only a
 single value it will C<croak()>.
 
-If no NAME is given it will return a reference to a hash wich contains
+If no NAME is given it will return a reference to a hash which contains
 all fields and has the format described in B<new_from_parts>.
 
 =item add_header ( NAME, VAL )

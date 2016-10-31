@@ -144,7 +144,7 @@ Expire time for unused sockets. Default ist 180, e.g. 3 minutes.
 =item active
 
 Expire time for active sessions. Default to 30 seconds. If no data
-gets transfered through the session for C<active> seconds the session
+gets transferred through the session for C<active> seconds the session
 will be closed.
 
 =back
