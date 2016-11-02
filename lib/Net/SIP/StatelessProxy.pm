@@ -248,14 +248,16 @@ sub __forward_response {
 	return;
     };
     my ($first,$param) = sip_hdrval2parts( via => $via );
-    $first =~m{^SIP/\d\.\d(?:/\S+)?\s+(.*)};
-    my ($addr,$port) = ip_string2parts($1);
+    $first =~m{^SIP/\d\.\d(?:/(\S+))?\s+(.*)};
+    my $proto = lc($1) || 'udp';
+    my ($addr,$port,$family) = ip_string2parts($2);
     $port ||= 5060; # FIXME default for sip, not sips!
     $addr = $param->{maddr} if $param->{maddr};
     $addr = $param->{received} if $param->{received}; # where it came from
     $port = $param->{rport} if $param->{rport}; # where it came from
-    @{ $entry->{dst_addr}} = ( ip_parts2string($addr,$port) );
-    DEBUG( 50,"get dst_addr from via header: $first -> $entry->{dst_addr}[0]");
+    @{ $entry->{dst_addr}} = [ $proto,$addr,$port,$family ];
+    $DEBUG && DEBUG(50, "get dst_addr from via header: %s -> %s",
+	$first, ip_parts2string(@{$entry->{dst_addr}[0]}[1..3]));
 
     if ( $addr !~m{^[0-9\.]+$|:} ) {
 	$self->{dispatcher}->dns_host2ip(
@@ -278,13 +280,12 @@ sub __forward_response_1 {
     if ( @_ ) {
 	my ($errno,$ip) = @_;
 	unless ( $ip ) {
-	    DEBUG( 10,"cannot resolve address $entry->{dst_addr}[0]" );
+	    $DEBUG && DEBUG( 10,"cannot resolve address %s ",
+		ip_parts2string(@{$entry->{dst_addr}[0]}[1..3]));
 	    return;
 	}
 	# replace host part in dst_addr with ip
-	my ($proto,$addr) = $entry->{dst_addr}[0] =~m{^(udp:|tcp:|)(\S+)$};
-	($addr,my $port,my $fam) = ip_string2parts($addr);
-	$entry->{dst_addr}[0] = $proto . ip_parts2string($ip,$port,$fam);
+	$entry->{dst_addr}[0][1] = $ip;
     }
 
     __forward_packet_final( $self,$entry );
@@ -369,7 +370,7 @@ sub __forward_request_getdaddr {
 
     my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
     $entry->{nexthop} ||= $entry->{packet}->uri,
-    DEBUG( 50,"need to resolve $entry->{nexthop} proto=".( $proto ||'') );
+    DEBUG(50,"need to resolve $entry->{nexthop} proto=".($proto ? "@$proto": ''));
     return $self->{dispatcher}->resolve_uri(
 	$entry->{nexthop},
 	$entry->{dst_addr},
@@ -394,9 +395,8 @@ sub __forward_request_1 {
     }
     my %hostnames;
     foreach (@$dst_addr) {
-	my ($addr) = m{^(?:udp:|tcp:)?(\S+)};
-	($addr,undef,my $fam) = ip_string2parts($addr);
-	$hostnames{$addr} = undef if ! $fam;
+	ref($_) or Carp::confess("expected reference: $_");
+	$hostnames{$_->[0]} = $_->[0] if ! $_->[2];
     }
     if ( %hostnames ) {
 	$self->{dispatcher}->dns_host2ip(
@@ -420,11 +420,11 @@ sub __forward_request_2 {
     while ( my ($host,$ip) = each %$host2ip ) {
 	unless ( $ip ) {
 	    DEBUG( 10,"cannot resolve address $host" );
-	    @$dst_addr = grep { !m{^(?:\w*:)?\Q$host\E(?::)?} } @$dst_addr;
+	    @$dst_addr = grep { $_->[1] ne $host } @$dst_addr;
 	    next;
 	} else {
 	    DEBUG( 50,"resolved $host -> $ip" );
-	    s{^(\w*:)?\Q$host\E(:)?}{$1$ip$2} for (@$dst_addr);
+	    $_->[1] = $ip for grep { $_->[1] eq $host } @$dst_addr;
 	}
     }
 
@@ -454,7 +454,12 @@ sub __forward_packet_final {
 	@$legs = ();
 	my @addr;
 	foreach my $addr (@$dst_addr) {
-	    my $leg = first { $_->can_deliver_to( $addr ) } @all_legs;
+	    my $leg = first { $_->can_deliver_to(
+		proto  => $addr->[0],
+		addr   => $addr->[1],
+		port   => $addr->[2],
+		family => $addr->[3],
+	    ) } @all_legs;
 	    if ( ! $leg ) {
 		DEBUG( 50,"no leg for $addr" );
 		next;
@@ -508,7 +513,7 @@ sub __forward_packet_final {
 	    } else {
 		$addr = invoke_callback($rewrite_contact,$addr,$incoming_leg,
 		    $outgoing_leg);
-		$addr .= '@'.$outgoing_leg->{addr}.':'.$outgoing_leg->{port};
+		$addr .= '@'.$outgoing_leg->laddr(1);
 		my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
 		DEBUG( 50,"rewrote '$c' to '$cnew'" );
 		$c = $cnew;
@@ -621,8 +626,8 @@ sub do_nat {
     # way around
 
     my $side;
-    my $ileg = ip_parts2string(@{ $incoming_leg }{qw(addr port)});
-    my $oleg = ip_parts2string(@{ $outgoing_leg }{qw(addr port)});
+    my $ileg = $incoming_leg->laddr(1);
+    my $oleg = $outgoing_leg->laddr(1);
     if ( $request ) {
 	$idfrom .= "\0".$ileg;
 	$idto   .= "\0".$oleg;
@@ -655,7 +660,7 @@ sub do_nat {
 	DEBUG( 100,"need to NAT SDP body: ".$body->as_string );
 
 	my $new_media = $nathelper->allocate_sockets(
-	    $callid,$cseq,$idfrom,$idto,$side,$outgoing_leg->{addr},
+	    $callid,$cseq,$idfrom,$idto,$side,$outgoing_leg->laddr(0),
 	    scalar( $body->get_media) );
 	if ( ! $new_media ) {
 	    DEBUG( 10,"allocation of RTP session failed for $callid|$cseq $idfrom|$idto|$side" );

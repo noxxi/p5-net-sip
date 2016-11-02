@@ -71,7 +71,7 @@ sub receive {
     $packet->is_request || return;
     if ( $packet->method ne 'REGISTER' ) {
 	# if we know the target rewrite the destination URI
-	my $addr = (sip_uri2parts($packet->uri))[3];
+	my $addr = sip_parts2uri((sip_uri2parts($packet->uri))[0,1,2]);
 	DEBUG( 1,"method ".$packet->method." addr=<$addr>" );
 	my @found = $self->query( $addr );
 	@found or do {

@@ -8,24 +8,32 @@
 
 use strict;
 use warnings;
-use Test::More tests => 9*2;
+use Test::More tests => 9*4;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 use IO::Socket;
 use File::Temp;
 
-for my $proto (qw(ip4 ip6)) {
+my @tests;
+for my $transport (qw(udp tcp)) {
+    for my $family (qw(ip4 ip6)) {
+	push @tests, [ $transport, $family ];
+    }
+}
+
+for my $t (@tests) {
+    my ($transport,$family) = @$t;
     SKIP: {
-	if ($proto eq 'ip6' && !do_ipv6()) {
+	if (!use_ipv6($family eq 'ip6')) {
 	    skip "no IPv6 support",9;
 	    next;
 	}
 
-	note("------ testing with $proto");
+	note("------- test with family $family transport $transport");
 
 	# create leg for UAS on dynamic port
-	my ($sock_uas,$uas_addr) = create_socket();
+	my ($sock_uas,$uas_addr) = create_socket($transport);
 	diag( "UAS on $uas_addr" );
 
 	# fork UAS and make call from UAC to UAS
@@ -47,7 +55,11 @@ for my $proto (qw(ip4 ip6)) {
 	alarm(40);
 	$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
 
-	uac( $uas_addr,$from_uas );
+	my $uas_uri = sip_parts2uri($uas_addr, undef, 'sip', {
+	    $transport eq 'tcp' ? ( transport => 'tcp' ) :()
+	});
+	uac( $uas_uri,$from_uas );
+
 	my $uas = <$from_uas>;
 	is( $uas, "UAS finished events=1 2 D # 3 4 B *\n", "UAS finished with DTMF" );
 	wait;
@@ -59,7 +71,7 @@ for my $proto (qw(ip4 ip6)) {
 ###############################################
 
 sub uac {
-    my ($peer_addr,$from_uas) = @_;
+    my ($peer_uri,$from_uas) = @_;
     Debug->set_prefix( "DEBUG(uac):" );
 
     my $packets = 300;
@@ -72,12 +84,13 @@ sub uac {
 
     # create Net::SIP::Simple object
     my $rtp_done;
-    my ($lsock,$laddr) = create_socket_to( $peer_addr );
+    my ($transport) = sip_uri2sockinfo($peer_uri);
+    my ($lsock,$laddr) = create_socket($transport);
     diag( "UAC on $laddr" );
     my $uac = Simple->new(
 	from         => 'me.uac@example.com',
 	leg          => $lsock,
-	domain2proxy => { 'example.com' => $peer_addr },
+	domain2proxy => { 'example.com' => $peer_uri },
     );
     ok( $uac, 'UAC created' );
 

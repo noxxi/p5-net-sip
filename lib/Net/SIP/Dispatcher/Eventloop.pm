@@ -8,12 +8,13 @@ use strict;
 use warnings;
 
 package Net::SIP::Dispatcher::Eventloop;
-use fields qw( fd timer now );
+use fields qw( fd vec just_dropped timer now );
 use Time::HiRes qw(gettimeofday);
 use Socket;
 use List::Util qw(first);
-use Net::SIP::Util 'invoke_callback';
+use Net::SIP::Util ':all';
 use Net::SIP::Debug;
+use Carp 'confess';
 use Errno 'EINTR';
 
 ###########################################################################
@@ -25,17 +26,20 @@ sub new {
     my $class = shift;
     my $self = fields::new($class);
     %$self = (
-	fd => [],
-	timer => [],
-	now => scalar(gettimeofday()),
+	fd           => [],         # {fd}[fn][rw] -> [fd,callback,name]
+	vec          => [ '','' ],  # read|write vec(..) for select
+	just_dropped => undef,      # dropped fn inside current select
+	timer        => [],         # list of TimerEvent objects
+	now => scalar(gettimeofday()),  # time after select
     );
     return $self;
 }
 
 ###########################################################################
 # adds callback for the event, that FD is readable
-# Args: ($self,$fd,$callback,?$name)
+# Args: ($self,$fd,$rw,$callback,?$name)
 #  $fd: file descriptor
+#  $rw: if the callback is for read(0) or write(1)
 #  $callback: callback to be called, when fd is readable, will be called
 #    with fd as argument
 #  $name: optional name for callback, used for debugging
@@ -43,24 +47,45 @@ sub new {
 ###########################################################################
 sub addFD {
     my Net::SIP::Dispatcher::Eventloop $self = shift;
-    my ($fd,$callback,$name) = @_;
+    my ($fd,$rw,$callback,$name) = @_;
+    ref($callback) or confess("wrong usage");
     defined( my $fn = fileno($fd)) || return;
-    #DEBUG( 100, "$self added fn=$fn sock=".ip_sockaddr2string(getsockname($fd)));
-    $self->{fd}[$fn] = [ $fd,$callback,$name ];
+    $DEBUG && DEBUG(99, "$self added fn=$fn rw($rw) sock="
+	. eval { ip_sockaddr2string(getsockname($fd)) });
+    $self->{fd}[$fn][$rw] = [ $fd,$callback,$name || '' ];
+    vec($self->{vec}[$rw],$fn,1) = 1;
+    $DEBUG && DEBUG(100, "maxfd=%d",0+@{$self->{fd}});
 }
 
 ###########################################################################
 # removes callback for readable for FD
-# Args: ($self,$fd)
+# Args: ($self,$fd,?$rw)
 #  $fd: file descriptor
+#  $rw: if disable for read(0) or write(1). Disables both if not given
 # Returns: NONE
 ###########################################################################
 sub delFD {
     my Net::SIP::Dispatcher::Eventloop $self = shift;
-    my ($fd) = @_;
+    my $fd = shift;
     defined( my $fn = fileno($fd)) || return;
-    #DEBUG( 100, "$self delete fn=$fn sock=".ip_sockaddr2string(getsockname($fd)));
-    delete $self->{fd}[$fn];
+    if (!@_) {
+	$DEBUG && DEBUG(99, "$self delete fn=$fn sock="
+	    . eval { ip_sockaddr2string(getsockname($fd)) });
+	delete $self->{fd}[$fn];
+	vec($self->{vec}[0],$fn,1) = 0;
+	vec($self->{vec}[1],$fn,1) = 0;
+	$self->{just_dropped}[$fn] = [1,1] if $self->{just_dropped};
+
+    } else {
+	for my $rw (@_) {
+	    $DEBUG && DEBUG(99, "$self disable rw($rw) fn=$fn sock="
+		. eval { ip_sockaddr2string(getsockname($fd)) });
+	    delete $self->{fd}[$fn][$rw];
+	    vec($self->{vec}[$rw],$fn,1) = 0;
+	    $self->{just_dropped}[$fn][$rw] = 1 if $self->{just_dropped};
+	}
+    }
+    $DEBUG && DEBUG(100, "maxfd=%d",0+@{$self->{fd}});
 }
 
 ###########################################################################
@@ -158,29 +183,25 @@ sub loop {
 
 	# wait for selected fds
 	my $fds = $self->{fd};
-	my $rin;
-	if ( my @to_read = grep { $_ } @$fds ) {
+	my @vec = @{$self->{vec}};
+	my $nfound = select($vec[0],$vec[1], undef, $to);
+	if ($nfound<0) {
+	    next if $! == EINTR;
+	    die $!
+	};
 
-	    # Select which fds are readable or timeout
-	    my $rin = '';
-	    map { vec( $rin,fileno($_->[0]),1 ) = 1 } @to_read;
-	    DEBUG( 100, "handles=".join( " ",map { fileno($_->[0]) } @to_read ));
-	    select( my $rout = $rin,undef,undef,$to ) < 0 and do {
-		next if $! == EINTR;
-		die $!
-	    };
-	    # returned from select
-	    $looptime = $self->{now} = gettimeofday();
-	    DEBUG( 100, "can_read=".join( " ",map { $_ } grep { $fds->[$_] && vec($rout,$_,1) } (0..$#$fds)));
-	    for( my $fn=0;$fn<@$fds;$fn++ ) {
-		vec($rout,$fn,1) or next;
-		my $fd_data = $fds->[$fn] or next;
-		DEBUG( 50,"call cb on fn=$fn ".( $fd_data->[2] || '') );
-		invoke_callback( $fd_data->[1],$fd_data->[0] );
+	$looptime = $self->{now} = gettimeofday();
+	$self->{just_dropped} = [];
+
+	for(my $i=0; $nfound>0 && $i<@$fds; $i++) {
+	    next if !$fds->[$i];
+	    for my $rw (0,1) {
+		vec($vec[$rw],$i,1) or next;
+		$nfound--;
+		next if $self->{just_dropped}[$i][$rw];
+		$DEBUG && DEBUG(50,"call cb on fn=$i rw=$rw ".$fds->[$i][$rw][2]);
+		invoke_callback(@{ $fds->[$i][$rw] }[1,0]);
 	    }
-	} else {
-	    DEBUG( 50, "no handles, sleeping for %s", defined($to) ? $to : '<endless>' );
-	    select(undef,undef,undef,$to )
 	}
 
 	if ( defined($timeout)) {

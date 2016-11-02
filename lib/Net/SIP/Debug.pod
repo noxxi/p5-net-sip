@@ -160,3 +160,19 @@ call to LEAK_TRACK.
 Exported by default.
 
 =back
+
+=head1 exported Variables
+
+=over 4
+
+=item $DEBUG
+
+This variable is set to false if all kind of debugging is disabled.
+This variable is exported by default. It should not be changed.
+It is intended to be used as a quick check to save expensive calls of debugging
+functions if no debugging will be used anyway, i.e.:
+
+    $DEBUG && DEBUG(...)
+
+=back
+

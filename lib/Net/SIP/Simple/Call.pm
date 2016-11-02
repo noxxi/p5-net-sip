@@ -108,11 +108,10 @@ sub cleanup {
     while ( my $cb = shift @{ $self->{call_cleanup} } ) {
 	invoke_callback($cb,$self)
     }
-    if ( my $ctx = $self->{ctx} ) {
+    if (my $ctx = delete $self->{ctx}) {
 	$self->{endpoint}->close_context( $ctx );
     }
     $self->{param} = {};
-    $self->SUPER::cleanup;
 }
 
 sub rtp_cleanup {
@@ -205,10 +204,10 @@ sub reinvite {
 	my ($endpoint,$ctx,$errno,$code,$packet,$leg,$from,$ack) = @_;
 
 	if ( $errno ) {
-	    if ( $code == 487 ) {
-		# request was canceled, probably be me -> ignore
-	    } else {
+	    if (!$code || $code != 487) {
 		$self->error( "Failed with error $errno".( $code ? " code=$code" :"" ) );
+	    } else {
+		# code 487: request was canceled, probably be me -> ignore
 	    }
 	    invoke_callback( $param->{cb_final}, 'FAIL',$self,errno => $errno,
 		code => $code,packet => $packet );
@@ -656,7 +655,7 @@ sub _setup_local_rtp_socks {
 	$sdp = Net::SIP::SDP->new( $sdp );
     }
 
-    my $laddr = $param->{leg}{addr};
+    my $laddr = $param->{leg}->laddr(0);
     if ( !$sdp ) {
 	# create SDP body
 	my $raddr = $param->{media_rsocks};

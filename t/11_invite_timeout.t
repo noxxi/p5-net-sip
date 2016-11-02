@@ -9,7 +9,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 8*2;
+use Test::More tests => 8*4;
 
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
@@ -17,17 +17,25 @@ use Net::SIP;
 use Net::SIP::Util ':all';
 use IO::Socket;
 
-for my $proto (qw(ip4 ip6)) {
+my @tests;
+for my $transport (qw(udp tcp)) {
+    for my $family (qw(ip4 ip6)) {
+	push @tests, [ $transport, $family ];
+    }
+}
+
+for my $t (@tests) {
+    my ($transport,$family) = @$t;
     SKIP: {
-	if ($proto eq 'ip6' && !do_ipv6()) {
+	if (!use_ipv6($family eq 'ip6')) {
 	    skip "no IPv6 support",8;
 	    next;
 	}
 
-	note("------- test with proto $proto");
+	note("------- test with family $family transport $transport");
 
 	# create leg for UAS on dynamic port
-	my ($sock_uas,$uas_addr) = create_socket();
+	my ($sock_uas,$uas_addr) = create_socket($transport);
 	ok( $sock_uas, 'create UAS socket' );
 
 	# fork UAS and make call from UAC to UAS
@@ -47,7 +55,11 @@ for my $proto (qw(ip4 ip6)) {
 	alarm(15);
 	$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
 
-	uac( $uas_addr,$read );
+	my $uas_uri = sip_parts2uri($uas_addr, undef, 'sip', {
+	    $transport eq 'tcp' ? ( transport => 'tcp' ) :()
+	});
+	uac( $uas_uri,$read );
+
 	ok( <$read>, "done" );
 	wait;
     }
@@ -58,14 +70,15 @@ for my $proto (qw(ip4 ip6)) {
 ###############################################
 
 sub uac {
-    my ($peer_addr,$pipe) = @_;
+    my ($peer_uri,$pipe) = @_;
     Net::SIP::Debug->set_prefix( "DEBUG(uac):" );
 
     ok( <$pipe>, "UAS created\n" ); # wait until UAS is ready
+    my ($transport) = sip_uri2sockinfo($peer_uri);
     my $uac = Net::SIP::Simple->new(
 	from => 'me.uac@example.com',
-	leg => scalar(create_socket_to( $peer_addr )),
-	domain2proxy => { 'example.com' => $peer_addr },
+	leg => (create_socket($transport))[0],
+	domain2proxy => { 'example.com' => $peer_uri },
     );
     ok( $uac, 'UAC created' );
 

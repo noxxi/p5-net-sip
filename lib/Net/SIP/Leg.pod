@@ -30,8 +30,15 @@ The following keys are used from %ARGS:
 
 =item sock
 
-The socket as IO::Socket object. C<addr>, C<port> and C<proto>
+The socket as IO::Socket object. C<addr>, C<port>, C<family> and C<proto>
 will be determined from this object and not from %ARGS.
+This will be used to create the B<SocketPool> object.
+
+=item socketpool
+
+The socketpool as L<Net::SIP::SocketPool> compatible object. This argument can
+not be used together with C<sock>. It will instead determine the master socket
+by calling B<master> on the given B<SocketPool> object.
 
 =item addr
 
@@ -42,9 +49,17 @@ will extract port from addr, if it's in the format C<< host:port >>.
 
 The port of the socket. Defaults to 5060.
 
+=item family
+
+The family of the socket. Will be determined from C<addr> if omitted.
+
 =item proto
 
 The connection protocol, e.g. 'tcp' or 'udp'. Defaults to 'udp'.
+
+=item dst
+
+The optional fixed target of the leg as C<< [ip, port, family] >>.
 
 =item contact
 
@@ -84,7 +99,7 @@ remove itself from B<Route>.
 =item deliver ( PACKET, ADDR, [ CALLBACK ] )
 
 Delivers L<Net::SIP::Packet> PACKET through the leg C<$self> to ADDR, which
-is C<< "ip:port" >>.
+is C<< [ip, port, family] >>.
 Usually this method will be call from within L<Net::SIP::Dispatcher>.
 
 If the packet was received by the other end (which is
@@ -95,10 +110,13 @@ will be invoked with the appropriate errno (C<$!>).
 
 While delivering requests it adds a B<Via> header.
 
-=item receive
+=item receive(PACKET, FROM)
 
-Reads a packet from the socket and returns the L<Net::SIP::Packet> PACKET
-and the senders ADDR as C<< "ip:port" >>. If reading failed will return C<()>.
+This is called from the dispatcher if the the L<Net::SIP::Packet> B<PACKET> was
+received from B<FROM> (given as C<< [ip, port, family] >>). This function might
+process the packet further or block it.
+
+It will return C<< (PACKET, FROM) >> in the normal case or C<()> if blocked.
 
 =item check_via ( PACKET )
 
@@ -113,22 +131,35 @@ Adds itself to PACKET as B<Via> header.
 =item can_deliver_to ( ADDR|%SPEC )
 
 Returns TRUE if the leg can deliver address specified by ADDR or %SPEC.
-ADDR is a hostname which can be prefixed by the protocol ( e.g. C<udp:host> )
-and postfixed by the port ( C<host:port>, C<tcp:host:port>,... ).
+ADDR is a full or partial SIP URI.
 
-If the caller has 'proto','addr' and 'port' already as separate items
+If the caller has 'proto','addr','port' and 'family' already as separate items
 it can call the method with %SPEC instead.
 
 Right now it has now way to check if the leg can deliver to a specific
 host because it has no access to the routing information of the underlying
 OS, so that only proto will be checked.
 
-=item fd
+=item match(%SPEC)
 
-Returns socket of leg. In some special environments (like tests) there might
-be legs, which don't have a socket associated. In this case you need to call
-B<receive> from L<Net::SIP::Dispatcher> yourself, because it cannot be
-called automatically once it receives data on the socket.
+This checks if the given B<SPEC> matches the leg. This is used from inside the
+B<get_legs> in L<Net::SIP::Dispatcher> to get all legs matching specific
+criteria. The B<SPEC> can contain the keys C<addr>, C<port> and C<proto>
+which match the arguments given during construction of the leg or are obtained
+from the legs socket.
+Additionally C<sub> can be used to specifiy a function which gets called with
+the leg object and must return true on match only.
+
+The method returns true if there was a full match and false otherwise.
+
+=item socketpool
+
+This returns the L<Net::SIP::SocketPool> object associated with the leg.
+
+=item laddr(LEVEL)
+
+This will return the local address of the socket, either as address only
+(B<LEVEL> is 0) or as C<ip:port> (higher levels).
 
 =item dump
 

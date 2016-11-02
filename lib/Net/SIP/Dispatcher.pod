@@ -116,10 +116,6 @@ Matches if given port matches the legs source port.
 
 Matches if given proto ('udp','tcp') matches the legs protocol.
 
-=item sock
-
-Matches if the given L<IO::Handle> is used as the socket in the leg.
-
 =item sub
 
 Call given sub with the L<Net::SIP::Leg> as argument. Matches if
@@ -178,8 +174,9 @@ incoming leg for the request.
 
 =item dst_addr
 
-C<< "ip:port" >> where to deliver the packet. This is necessary for
-responses, for requests it can be find out based on the requests URI.
+Destionation, i.e. where to deliver the packet as C<< [ip, port, family] >>.
+This is necessary for responses, for requests it can be find out based on the
+requests URI.
 
 =item do_retransmits
 

@@ -38,7 +38,7 @@ sub receive {
     } elsif ( $method eq 'REGISTER' ) {
 	return; # don't process myself
     } else {
-	my $key = (sip_uri2parts($packet->uri))[3];
+	my $key = sip_parts2uri((sip_uri2parts($packet->uri))[0,1,2]);
 	if ( my @contacts = $self->{registrar}->query($key)) {
 	    $resp = $packet->create_response('302','Moved Temporarily');
 	    $resp->add_header( contact => $_ ) for(@contacts);

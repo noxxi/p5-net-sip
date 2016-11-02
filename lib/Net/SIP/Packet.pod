@@ -61,10 +61,11 @@ L<Net::SIP::Request> or L<Net::SIP::Response> will be used instead.
 
 =over 4
 
-=item new ( STRING | @PARTS )
+=item new ( STRING | @PARTS | HASH )
 
 This is the default constructor. Depending on the number of arguments branches
-into B<new_from_string> or B<new_from_parts>.
+into B<new_from_string> or B<new_from_parts> or just creates the object directly
+from the given HASH.
 
 =item new_from_string ( STRING )
 
@@ -99,6 +100,13 @@ object which has a method B<as_string>, like L<Net::SIP::SDP>. If the BODY is an
 object which has a method B<content_type> it will set the C<content-type> header
 of the SIP object based on the result of C<< BODY->content_type >> unless a
 C<content-type> header was explicitly given.
+
+=item _new_request | _new_response
+
+These work like C<new> but assign the new object to the subclasses
+C<Net::SIP::Request> resp. C<Net::SIP:.Response>. They are not intended to be
+used directly but only for redefining for using different subclasses when
+subclassing C<Net::SIP::Packet>.
 
 =back
 

@@ -78,6 +78,7 @@ sub fw {
     });
     $disp->receive( $request,$incoming_leg,'127.0.0.1:282' );
     $loop->loop(1,\$delivered_via );
+    #diag("delivered_via=$delivered_via - expected = $expected_outgoing_leg");
     ok( $delivered_via == $expected_outgoing_leg, 'expected leg' );
 }
 
@@ -104,7 +105,7 @@ sub can_deliver_to {
 	    my %args = @_;
 	    @args{ qw/proto addr port/ }
 	} else {
-	    $_[0] =~m{^(?:(udp|tcp):)?([^:]+)(?::(\d+))$}
+	    sip_uri2sockinfo($_[0])
 	}
     };
     return 1 if ! $addr || ! $port;

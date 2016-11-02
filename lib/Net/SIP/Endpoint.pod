@@ -10,7 +10,7 @@ Net::SIP::Endpoint - Endpoint for SIP packets (UAC,UAS)
   $ua->register(
 	from => 'sip:me@example.com',
 	contact => 'sip:me@192.168.0.1',
-	registrar => '192.168.0.10:5060'
+	registrar => 'sip:192.168.0.10:5060'
   );
 
 =head1 DESCRIPTION
@@ -129,7 +129,8 @@ be filled as follows:
 
 =item registrar
 
-C<< "ip:port" >> of registrar. Mandatory.
+SIP URI of registrar, i.e. anything acceptable to B<sip_uri2parts> from
+L<Net::SIP::Util>. Mandatory.
 
 =item from
 

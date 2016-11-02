@@ -13,9 +13,10 @@ use Storable;
 use Net::SIP::SDP;
 use Carp 'croak';
 
-use fields qw( code text header lines body as_string );
+use fields qw( code method text header lines body as_string );
 
-# code: response code (numeric) or request method
+# code: numeric response code in responses
+# method request method in requests
 # text: response text or request URI
 # body: scalar with body
 # as_string: string representation
@@ -26,24 +27,42 @@ use fields qw( code text header lines body as_string );
 
 
 ###########################################################################
-# Constructor
-# Creates new object. If there was only one argument it will interprete
-# it as a string representation (see new_from_string), otherwise it will
-# assume a hash/array representation (see new_from_parts)
-# Args: see new_from_string|new_from_parts
+# Constructor - Creates new object.
+# If there are more than one argument it will forward to new_from_parts.
+# If the only argument is a scalar it will forward to new_from_string.
+# Otherwise it will just create the object of the given class and if
+#  there is an argument treat is as a hash to fill the new object.
+#
+# Apart from new there are also _new_request and _new_response.
+# These can be overridden so that application specific classes for
+#  request and response will be used for the new object.
+#
+# Args: see new_from_parts(..)|new_from_string($scalar)|\%hash|none
 # Returns: $self
 ###########################################################################
 sub new {
     my $class = shift;
-    return @_>1
-	? $class->new_from_parts(@_)
-	: $class->new_from_string(@_);
+    return $class->new_from_parts(@_) if @_>1;
+    return $class->new_from_string(@_) if @_ && !ref($_[0]);
+    my $self = fields::new($class);
+    %$self = %{$_[0]} if @_;
+    return $self;
+}
+
+sub _new_request {
+    shift;
+    return Net::SIP::Request->new(@_);
+}
+
+sub _new_response {
+    shift;
+    return Net::SIP::Response->new(@_);
 }
 
 ###########################################################################
 # create new object from parts
-# Args: ($class,$code,$text,$header,$body)
-#   $code:   Response code or request method
+# Args: ($class,$code_or_method,$text,$header,$body)
+#   $code_or_method:   Response code or request method
 #   $text:   Response text or request URI
 #   $header: Header representation as array or hash
 #            either [ [key1 => val2],[key2 => val2],... ] where the same
@@ -53,9 +72,8 @@ sub new {
 #   $body:   Body as string
 # Returns: $self
 # Comment:
-# if $class is Net::SIP::Packet $self will be either Net::SIP::Request
-# or Net::SIP::Response (both are subclasses from Net::SIP::Packet) depending
-# if it is a request or response
+# the actual object will be created with _new_request and _new_response and
+# thus will usually be a subclass of Net::SIP::Packet
 ###########################################################################
 sub new_from_parts {
     my ($class,$code,$text,$header,$body) = @_;
@@ -74,17 +92,9 @@ sub new_from_parts {
 	$header = \@hnew;
     }
 
-    if ( $code =~m{^\d} ) {
-	# Response
-	$class = 'Net::SIP::Response' if $class eq 'Net::SIP::Packet';
-    } else {
-	# Request
-	$code = uc($code);  # uppercase method
-	$class = 'Net::SIP::Request' if $class eq 'Net::SIP::Packet';
-    }
-
-    my $self = fields::new($class);
-    $self->{code} = $code;
+    my $self = $code =~m{^\d}
+	? $class->_new_response({ code => $code })
+	: $class->_new_request({ method => uc($code) });
     $self->{text} = defined($text) ? $text:'';
 
     # $self->{header} is list of Net::SIP::HeaderPair which cares about normalized
@@ -117,7 +127,7 @@ sub new_from_parts {
 	}
 	$body = $body->as_string;
     }
-    $self->{body}   = $body;
+    $self->{body} = $body;
 
     return $self;
 }
@@ -132,35 +142,32 @@ sub new_from_parts {
 ###########################################################################
 sub new_from_string {
     my ($class,$string) = @_;
-    my $data = _string2parts( $string );
-    if ( $class eq 'Net::SIP::Packet' ) {
-	$class = $data->{code} =~m{^\d}
-	    ? 'Net::SIP::Response'
-	    : 'Net::SIP::Request';
-    }
-    my $self = fields::new($class);
-    %$self = %$data;
-    return $self;
+    my $data = _string2parts($string);
+    return $data->{method}
+	? $class->_new_request($data)
+	: $class->_new_response($data);
 }
 
 ###########################################################################
 # Find out if it is a request
 # Args: $self
-# Returns: 1 if it's a request
+# Returns: true if it's a request
 ###########################################################################
 sub is_request {
     my $self = shift;
-    $self->{code} || $self->as_parts();
-    return $self->{code} !~m{^\d}
+    $self->{header} || $self->as_parts();
+    return $self->{method} && 1;
 }
 
 ###########################################################################
 # Find out if it is a response
 # Args: $self
-# Returns: 1 if it's a response
+# Returns: true if it's a response
 ###########################################################################
 sub is_response {
-    return ! shift->is_request()
+    my $self = shift;
+    $self->{header} || $self->as_parts();
+    return ! $self->{method};
 }
 
 
@@ -442,10 +449,9 @@ sub as_string {
     }
 
     # (re)build packet
-    my $hdr_string = $self->{code} =~m{^\d}
-	? "SIP/2.0 $self->{code} $self->{text}\r\n"   # Response
-	: "$self->{code} $self->{text} SIP/2.0\r\n"   # Request
-	;
+    my $hdr_string = $self->{method}
+	? "$self->{method} $self->{text} SIP/2.0\r\n"   # Request
+	: "SIP/2.0 $self->{code} $self->{text}\r\n";    # Response
 
     $hdr_string .= join( "\r\n", grep { $_ } @result )."\r\n";
 
@@ -466,10 +472,11 @@ sub dump {
     my Net::SIP::Packet $self = shift;
     my $level = shift;
     if ( !$level ) {
-	my ($code,$text,$header,$body) = $self->as_parts;
 	if ( $self->is_request ) {
-	    return "REQ  $code $text ".( $body ? 'with body' :'' );
+	    my ($method,$text,$header,$body) = $self->as_parts;
+	    return "REQ  $method $text ".( $body ? 'with body' :'' );
 	} else {
+	    my ($code,$text,$header,$body) = $self->as_parts;
 	    return "RESP $code '$text' ".( $body ? 'with body' :'' );
 	}
     } else {
@@ -481,8 +488,8 @@ sub dump {
 ###########################################################################
 # Return parts
 # Args: ($self)
-# Returns: ($code,$text,$header,$body)
-#   $code:   Response code or request method
+# Returns: ($code_or_method,$text,$header,$body)
+#   $code_or_method:   Response code or request method
 #   $text:   Response text or request URI
 #   $header: Header representation as array
 #            [ [key1 => val2],[key2 => val2],... ] where the same
@@ -494,12 +501,13 @@ sub dump {
 sub as_parts {
     my $self = shift;
 
-    # if parts are up to date return immediately#
-    if ( ! $self->{code} ) {
+    # if parts are up to date return immediately
+    if ( ! $self->{header} ) {
 	my $data = _string2parts( $self->{as_string} );
 	%$self = ( %$self,%$data );
     }
-    return @{$self}{qw(code text header body)} if $self->{code};
+    return @{$self}{qw(method text header body)} if $self->{method};
+    return @{$self}{qw(code text header body)};
 }
 
 {
@@ -627,7 +635,7 @@ sub as_parts {
 	    $result{text} = $2;
 	} elsif ( $header[0] =~m{^(\w+)\s+(\S.*?)\s+SIP/2\.0\s*$} ) {
 	    # Request, e.g. INVITE <sip:bla@fasel> SIP/2.0
-	    $result{code} = $1;
+	    $result{method} = $1;
 	    $result{text} = $2;
 	} else {
 	    die "bad request: starts with '$header[0]'";
@@ -691,25 +699,25 @@ sub clone {
 }
 
 ###########################################################################
-# Trigger updating parts, e.g. code, header...
-# done by setting code as undef if as_string is set, so the next time
+# Trigger updating parts, e.g. code, method, header...
+# done by setting header as undef if as_string is set, so the next time
 # I'll try to access code it will be recalculated from string
 # Args: $self
 ###########################################################################
 sub _update_parts {
     my $self = shift;
-    $self->{code} = undef if $self->{as_string};
+    $self->{header} = undef if $self->{as_string};
 }
 
 ###########################################################################
 # Trigger updating string
-# done by setting as_string as undef if code is set, so the next time
+# done by setting as_string as undef if header is set, so the next time
 # I'll try to access as_string it will be recalculated from the parts
 # Args: $self
 ###########################################################################
 sub _update_string {
     my $self = shift;
-    $self->{as_string} = undef if $self->{code};
+    $self->{as_string} = undef if $self->{header};
 }
 
 ###########################################################################

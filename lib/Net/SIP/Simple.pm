@@ -16,7 +16,7 @@ use fields (
     'endpoint',           # Net::SIP::Endpoint
     'dispatcher',         # Net::SIP::Dispatcher
     'loop',               # Net::SIP::Dispatcher::Eventloop or similar
-    'outgoing_proxy',     # optional outgoing proxy (addr:port)
+    'outgoing_proxy',     # optional outgoing proxy (SIP URL)
     'route',              # more routes
     'registrar',          # optional registrar (addr:port)
     'auth',               # Auth data, see Net::SIP::Endpoint
@@ -52,9 +52,8 @@ use Net::SIP::Debug;
 #   %args: misc args, all args are optional
 #     legs|leg       - \@list of legs or single leg.
 #                      leg can be (derived from) Net::SIP::Leg, a IO::Handle (socket),
-#                      a hash reference for constructing Net::SIP::Leg or a string of
-#                      the form (proto:)?host(:port)? where proto defaults to udp and
-#                      port defaults to 5060.
+#                      a hash reference for constructing Net::SIP::Leg or a string
+#                      with a SIP address (i.e. sip:ip:port;transport=TCP)
 #     outgoing_proxy - specify outgoing proxy, will create leg if necessary
 #     proxy          - alias to outgoing_proxy
 #     route|routes   - \@list with SIP routes in right syntax "<sip:host:port;lr>"...
@@ -125,28 +124,25 @@ sub new {
 	} elsif ( UNIVERSAL::isa( $_, 'HASH' )) {
 	    # create leg from hash
 	    $_ = Net::SIP::Leg->new( %$_ )
-	} elsif ( m{^(?:(udp|tcp):)?(\S+)$} ) {
-	    # host|udp:host|udp:host:port|host:port|..[host]..
-	    my $proto = $1;
-	    my ($host,$port) = ip_string2parts($2)
-		or die "invalid address: $_";
-	    $_ = Net::SIP::Leg->new(
-		addr => $host, port => $port, proto => $proto);
+	} elsif (my ($proto,$host,$port,$family) = sip_uri2sockinfo($_)) {
+	    $_ = Net::SIP::Leg->new(proto => $proto, 
+		addr => $host, port => $port, family => $family);
+	} else {
+	    die "invalid leg specification: $_";
 	}
     }
 
     my $ob = delete $args{outgoing_proxy}
 	|| delete $args{proxy};
-    if ( $ob && ! first { $_->can_deliver_to($ob) } @$legs ) {
-	my ($sock) = create_socket_to( $ob ) or die $!;
-	push @$legs, Net::SIP::Leg->new( sock => $sock );
+    for my $dst ($registrar, $ob) {
+	$_ or next;
+	first { $_->can_deliver_to($dst) } @$legs and next;
+	my ($proto,$addr,$port,$family) = sip_uri2sockinfo($dst);
+	push @$legs, Net::SIP::Leg->new(
+	    proto  => $proto,
+	    dst    => [ $addr, $port, $family ],
+	);
     }
-
-    if ( $registrar && ! first { $_->can_deliver_to($registrar) } @$legs ) {
-	my ($sock) = create_socket_to( $registrar ) or die $!;
-	push @$legs, Net::SIP::Leg->new( sock => $sock );
-    }
-
 
     my $loop = delete $args{loop}
 	|| Net::SIP::Dispatcher::Eventloop->new;
@@ -213,7 +209,8 @@ sub error {
     my Net::SIP::Simple $self = shift;
     if ( @_ ) {
 	$self->{last_error} = shift;
-	DEBUG( 100,Net::SIP::Debug::stacktrace( "set error to ".$self->{last_error}) );
+	$DEBUG && DEBUG(100,Net::SIP::Debug::stacktrace(
+	    "set error to ".$self->{last_error}) );
     }
     return $self->{last_error};
 }
@@ -289,6 +286,7 @@ sub register {
 
     my $registrar = delete $args{registrar} || $self->{registrar}
 	|| croak( "no registrar" );
+    $registrar = sip_parts2uri(sip_uri2parts($registrar)); # normalize
     my $leg = delete $args{leg};
     if ( !$leg ) {
 	# use first leg which can deliver to registrar
@@ -307,7 +305,7 @@ sub register {
     my $contact = delete $args{contact} || $self->{contact};
     if ( ! $contact) {
 	$contact = $from;
-	my $local = ip_parts2string($leg->{addr},$leg->{port});
+	my $local = $leg->laddr(1);
 	$contact.= '@'.$local unless $contact =~s{\@([^\s;,>]+)}{\@$local};
     }
 

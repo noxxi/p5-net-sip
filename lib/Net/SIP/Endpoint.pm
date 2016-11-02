@@ -86,7 +86,7 @@ sub invite {
 #  %args: at minimum there must be
 #    from:    the sip-address to register
 #    contact: to which local address should it registered
-#    registrar: where it should be registered
+#    registrar: SIP address of registrar
 #  there can be:
 #    expires: Expires header, defaults to 900 if not given
 #    callback: callback which will be called on response
@@ -116,7 +116,7 @@ sub register {
 	\%ctx,
 	delete($args{callback}),
 	undef,
-	uri => "sip:$registrar",
+	uri => $registrar,
 	expires => $expires,
 	%args,
     );

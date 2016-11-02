@@ -2,22 +2,30 @@
 
 use strict;
 use warnings;
-use Test::More tests => 22;
+use Test::More tests => 11*4;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 
-for my $proto (qw(ip4 ip6)) {
+my @tests;
+for my $transport (qw(udp tcp)) {
+    for my $family (qw(ip4 ip6)) {
+	push @tests, [ $transport, $family ];
+    }
+}
+
+for my $t (@tests) {
+    my ($transport,$family) = @$t;
     SKIP: {
-	if ($proto eq 'ip6' && !do_ipv6()) {
+	if (!use_ipv6($family eq 'ip6')) {
 	    skip "no IPv6 support",11;
 	    next;
 	}
 
-	note("------ testing with $proto");
+	note("------- test with family $family transport $transport");
 
-	my ($csock,$caddr) = create_socket();
-	my ($ssock,$saddr) = create_socket();
+	my ($csock,$caddr) = create_socket($transport);
+	my ($ssock,$saddr) = create_socket($transport);
 
 	# start UAS
 	my $uas = fork_sub( 'uas',$ssock,$caddr,$saddr );

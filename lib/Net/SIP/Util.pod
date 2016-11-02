@@ -59,13 +59,17 @@ If anything matches it will return TRUE, else FALSE.
 
 =back
 
+=item laddr4dst(DST) -> SRC
+
+This will try to find out which local IP address B<SRC> is used for
+connections to target B<DST>. This will be done by creating a connected UDP
+socket to the target and using B<getsockname> to get the local IP address of
+this socket.
+
 =item create_socket_to ( ADDR, [ PROTO ] )
 
-Creates socket with protocol PROTO (default 'udp') on a local interface,
-from where ADDR is reachable.
-This is done by first creating a UDP socket with target
-ADDR and using getsockname(2) to find out the local address of this
-socket. The newly created socket than will be bound to this address.
+Creates socket with protocol PROTO (default 'udp').
+It will use C<laddr4dst> to find the appropriate local source IP address.
 
 It will try to bind the socket to port 5060 (default SIP port).
 If this fails it will try port 5062..5100 and if it cannot bind
@@ -142,24 +146,58 @@ Example for key 'www-authenticate':
 Inverse function to B<sip_hdrval2parts>, e.g constructs header value for KEY from
 PREFIX and %PARAMETER and returns value.
 
-=item sip_uri2parts ( URI )
+=item sip_uri2parts(URI) -> (DOMAIN, USER, PROTO, DATA, PARAM) | DOMAIN
 
 Returns parts from URI. If called in scalar context it returns only the domain
 part. In array context it returns an array with the following values:
 
 =over 4
 
-=item domain - The domain part (including ports if any)
+=item DOMAIN
 
-=item user - The user part of the SIP address
+The lower cased domain part as given in the URI, i.e. C<host>, C<host:port>,
+C<[ipv6]:port> etc.
 
-=item proto - The protocol, e.g. "sip" or "sips".
+=item USER
 
-=item data - The part before any parameter, includes SIP address
+The optional user part of the SIP address.
 
-=item param - A hash reference to any parameter, like in B<sip_hdrval2parts>.
+=item PROTO
+
+The protocol, e.g. C<sip> or C<sips>.
+If not explicitly given it will default to C<sip>.
+
+=item DATA
+
+The original full part before any parameter, i.e. the part containing the
+domain, optional user and optional proto.
+
+=item PARAM
+
+A hash reference to any parameters following C<data> as returned by
+B<sip_hdrval2parts>.
 
 =back
+
+=item sip_parts2uri(DOMAIN, USER, PROTO, PARAM) -> URI
+
+Returns URI from parts, i.e. the reverse to B<sip_uri2parts>.
+For the meaning of the parameters see there.
+
+=item sip_uri2sockinfo(URI) -> (PROTO, HOST, PORT, FAMILY)
+
+This extracts information from B<URI> which are needed for creating the socket:
+B<HOST> is the IP address or host name, B<PORT> the port (undef if not given)
+and B<FAMILY> the family, i.e. AF_INET, AF_INET6 or undef if B<HOST> is not an
+IP address.
+B<PROTO> will be set based on the SIP protocol and parameters, i.e. C<tls> for
+C<sips> URI, C<tcp> or C<udp> for C<sip> URI with explicit C<transport>
+parameter and C<undef> otherwise.
+
+=item sip_sockinfo2uri(PROTO, HOST, PORT, FAMILY) -> URI
+
+This is the reverse to B<sip_uri2sockinfo>. See there for the meaning of the
+parameters.
 
 =item sip_uri_eq ( URI1, URI2 )
 

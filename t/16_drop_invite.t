@@ -96,8 +96,8 @@ sub uac {
 
     ok( ! $uac->error, "UAC ready\nNow send INVITE for 5 seconds" );
 
-    # print UAC-port into tempfile
-    print $tfh $uac->{dispatcher}{legs}[0]{port}; # FIXME access interna
+    # print UAC address into tempfile
+    print $tfh $uac->{dispatcher}{legs}[0]->laddr(1);
     close($tfh);
 
     $call->loop(\$dropping, 5);
@@ -147,7 +147,7 @@ sub uas {
     $loop->loop(2);
 
     seek( $tfh,0,0);
-    my $uac_port = <$tfh>;
+    my ($uac_port) = <$tfh> =~m{:(\d+)$};
     close($tfh);
 
     if ( $by_ipport->data->{$uac_ip}{$uac_port} ) {

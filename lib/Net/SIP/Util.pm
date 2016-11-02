@@ -57,8 +57,8 @@ BEGIN {
 our @EXPORT = qw(INETSOCK);
 our @EXPORT_OK = qw(
     sip_hdrval2parts sip_parts2hdrval
-    sip_uri2parts sip_uri_eq
-    create_socket_to create_rtp_sockets
+    sip_uri2parts sip_parts2uri sip_uri_eq sip_uri2sockinfo sip_sockinfo2uri
+    laddr4dst create_socket_to create_rtp_sockets
     ip_string2parts ip_parts2string
     ip_parts2sockaddr ip_sockaddr2parts
     ip_sockaddr2string
@@ -84,16 +84,17 @@ our $RTP_MAX_PORT = 12000;
 #   $data: initial data
 #   %parameter: additional parameter
 ###########################################################################
+my %delimiter = (
+    'www-authenticate' => ',',
+    'proxy-authenticate' => ',',
+    'authorization' => ',',
+    'proxy-authorization' => ',',
+);
 sub sip_hdrval2parts {
     croak( "usage: sip_hdrval2parts( key => val )" ) if @_!=2;
     my ($key,$v) = @_;
     return if !defined($v);
-    my $delim = ';';
-    if ( $key eq 'www-authenticate' || $key eq 'proxy-authenticate'
-	|| $key eq 'authorization' || $key eq 'proxy-authorization' ) {
-	# these keys have ',' instead of ';' as delimiter
-	$delim = ',';
-    }
+    my $delim = $delimiter{$key} || ';';
 
     # split on delimiter (but not if quoted)
     my @v = ('');
@@ -166,12 +167,7 @@ sub sip_hdrval2parts {
 sub sip_parts2hdrval {
     my ($key,$data,$param) = @_;
 
-    my $delim = ';';
-    if ( $key eq 'www-authenticate' || $key eq 'proxy-authenticate'
-	|| $key eq 'authorization' || $key eq 'proxy-authorization' ) {
-	# these keys have ',' instead of ';' as delimiter
-	$delim = ',';
-    }
+    my $delim = $delimiter{$key} || ';';
 
     my $val = $data; # FIXME: need to escape $data?
     for my $k ( sort keys %$param ) {
@@ -191,12 +187,12 @@ sub sip_parts2hdrval {
 ###########################################################################
 # extract parts from SIP URI
 # Args: $uri
-# Returns: $domain || ($domain,$user,$proto,$data,$param)
+# Returns: $domain || ($domain,$user,$proto,$param,$data)
 #  $domain: SIP domain maybe with port
 #  $user:   user part
 #  $proto:  'sip'|'sips'
-#  $data:   full part before any params
 #  $param:  hashref with params, e.g { transport => 'udp',... }
+#  $data:   full part before any params
 ###########################################################################
 sub sip_uri2parts {
     my $uri = shift;
@@ -206,21 +202,83 @@ sub sip_uri2parts {
 	(?: (sips?)     : )?
 	(?: ([^\s\@]*) \@ )?
 	(
-	    (?:
-		\[ [^\]\s]+ \]
-		| [^:\s]+
-	    )
-	    ( : \w+)?
+	    \[ [^\]\s]+ \] ( : \w+)?          # [ipv46_or_host]:port
+	    | [^:\s]+ ( : \w+)?               # ipv4_or_host:port
+	    | (?:[a-f\d]*:){2}[a-f\d\.:]*     # ipv6
 	)
     $}ix ) {
 	my ($proto,$user,$domain) = ($1,$2,$3);
+	$domain = lc($domain);
 	$proto ||= 'sip';
 	return wantarray
-	    ? ($domain,$user,lc($proto),$data,$param)
+	    ? ($domain,$user,lc($proto),$param,$data)
 	    : $domain
     } else {
 	return;
     }
+}
+
+
+###########################################################################
+# reverse to sip_uri2parts, e.g. construct SIP URI
+# Args: ($domain,$user,$proto,$param)
+#  $domain: SIP domain maybe with port or [host,port,?family]
+#  $user:   user part
+#  $proto:  'sip'|'sips' - defaults to 'sip'
+#  $param:  hashref with params, e.g { transport => 'udp',... }
+# Args: $uri
+###########################################################################
+sub sip_parts2uri {
+    my ($domain,$user,$proto,$param) = @_;
+    return sip_parts2hdrval('uri',
+	($proto || 'sip'). ':' 
+	. ($user ? $user.'@' : '')
+	. (ref($domain) ? ip_parts2string(@$domain) : $domain),
+	$param
+    );
+}
+
+###########################################################################
+# Extract the parts from a URI which are relevant for creating the socket, i.e
+#   sips:host:port
+#   sip:host;transport=TCP
+# Args: $uri
+# Returns: ($proto,$host,$port,$family)
+#   $proto: udp|tcp|tls|undef
+#   $host: ip or hostname from URI
+#   $port: port from URI
+#   $family: family matching $host, i.e. AF_INET|AF_INET6|undef
+###########################################################################
+sub sip_uri2sockinfo {
+    my ($domain,undef,$proto,$param)  = sip_uri2parts(shift())
+	or return;
+    $proto =
+	($proto && $proto eq 'sips') ? 'tls' :           # sips -> tls
+	$param->{transport} ? lc($param->{transport}) :  # transport -> tcp|udp
+	undef;                                           # not restricted
+    return ($proto, ip_string2parts($domain));
+}
+
+###########################################################################
+# Reverse to sip_uri2sockinfo
+# Args: ($proto,$host,$port,$family)
+#   $proto: udp|tcp|tls|undef
+#   $host: ip or hostname from URI
+#   $port: port from URI
+#   $family: family matching $host, i.e. AF_INET|AF_INET6|undef
+# Returns: $uri
+###########################################################################
+sub sip_sockinfo2uri {
+    my ($proto,$host,$port,$family) = @_;
+    return sip_parts2uri(
+	ip_parts2string($host,$port,$family),
+	undef,
+	!defined $proto ? ('sip',  {}) :
+	$proto eq 'tls' ? ('sips', {}) :
+	$proto eq 'tcp' ? ('sip',  { transport => 'TCP' }) :
+	$proto eq 'udp' ? ('sip',  {}) :
+	die
+    )
 }
 
 ###########################################################################
@@ -244,6 +302,36 @@ sub sip_uri_eq {
 }
 
 ###########################################################################
+# fid out local address which is used when connecting to destination
+# Args: ($dst,@src)
+#  $dst: target IP (or ip:port)
+#  @src: optional list of source IP to try, if not given will use any source
+# Return: $ip|($ip,$family) - source IP used when reaching destination
+# Comment:
+#  A UDP socket will be created and connected and then the local address
+#  read from the socket. It is expected that the OS kernel will fill in
+#  the local address when connecting even though no packets are actually
+#  send to the peer
+###########################################################################
+sub laddr4dst {
+    my ($dst,@src) = @_;
+    my ($addr, $port, $fam) = ip_string2parts($dst);
+    $fam or return;  # no IP destination
+    for my $src (@src ? @src : (undef)) {
+	my $sock = INETSOCK(
+	    Proto => 'udp',
+	    Family => $fam,
+	    PeerAddr => $addr,
+	    PeerPort => $port || 5060,
+	    $src ? (LocalAddr => $src) : (),
+	) or next;
+	my @parts = ip_sockaddr2parts(getsockname($sock));
+	return wantarray ? @parts[0,2] : $parts[0];
+    }
+    return; # no route
+}
+
+###########################################################################
 # create socket preferable on port 5060 from which one might reach the given IP
 # Args: ($dst_addr;$proto)
 #  $dst_addr: the adress which must be reachable from this socket
@@ -262,48 +350,28 @@ sub create_socket_to {
     my ($dst_addr,$proto) = @_;
     $proto ||= 'udp';
 
-    my ($laddr,$fam);
-    {
-	($dst_addr, undef, $fam) = ip_string2parts($dst_addr);
-	my $sock = INETSOCK(
-	    Family => $fam,
-	    PeerAddr => $dst_addr,
-	    PeerPort => 5060,
-	    Proto => 'udp'
-	) || return; # No route?
-	$laddr = $sock->sockhost;
-    };
+    my ($laddr,$fam) = laddr4dst($dst_addr);
     DEBUG( "Local IP is $laddr" );
 
     # Bind to this IP
     # First try port 5060..5100, if they are all used use any port
     # I get from the system
-    my ($sock,$port);
-    for my $p ( 5060,5062..5100 ) {
-	DEBUG( "try to listen on $laddr:$p" );
-	$sock = INETSOCK(
+    for my $p ( 5060, 5062..5100, 0 ) {
+	$DEBUG && DEBUG( "try to listen on %s",
+	    ip_parts2string($laddr,$p,$fam));
+	my $sock = INETSOCK(
 	    Family => $fam,
 	    LocalAddr => $laddr,
-	    LocalPort => $p,
+	    $p ? (LocalPort => $p) : (),
 	    Proto => $proto,
-	);
-	if ( $sock ) {
-	    $port = $p;
-	    last
-	}
-    }
-    if ( ! $sock ) {
-	$sock = INETSOCK(
-	    Family => $fam,
-	    LocalAddr => $laddr, # use any port
-	    Proto => $proto,
-	) || return;
-	$port = $sock->sockport;
-    }
-    DEBUG("listen on %s",ip_parts2string($laddr,$port,$fam));
+	) or next;
 
-    return $sock if ! wantarray;
-    return ($sock,ip_parts2string($laddr,$port,$fam));
+	my $port = $p || (ip_sockaddr2parts(getsockname($sock)))[1];
+	$DEBUG && DEBUG("listen on %s",ip_parts2string($laddr,$port,$fam));
+	return $sock if ! wantarray;
+	return ($sock,ip_parts2string($laddr,$port,$fam));
+    }
+    die "even binding to port 0 failed: $!";
 }
 
 ###########################################################################
@@ -469,6 +537,7 @@ sub ip_string2parts {
 ###########################################################################
 sub ip_parts2string {
     my ($host,$port,$fam,$ipv6_brackets) = @_;
+    $host = lc($host);
     return $host if ! $port && !$ipv6_brackets;
     $fam ||= $host =~m{:} && AF_INET6;
 

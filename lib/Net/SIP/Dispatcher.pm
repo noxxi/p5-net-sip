@@ -67,14 +67,14 @@ sub new {
     # the SRV record
     $domain2proxy ||= {};
     foreach ( values %$domain2proxy ) {
-	if ( ref($_) ) { # should be \@list of [ prio,proto,ip,port ]
-	} elsif (m{^(?:(udp|tcp):)?(.+)}) {
-	    my @proto = $1 ? ( $1 ) : ( 'udp','tcp' );
-	    my ($host,$port) = ip_string2parts($2);
-	    $port ||= 5060;
-	    $_ = [ map { [ -1, $_, $host, $port ] } @proto ];
+	if ( ref($_) ) {
+	    # should be \@list of [ prio,proto,ip,port,?family ]
 	} else {
-	    croak( "invalid entry in domain2proxy: $_" );
+	    my ($proto,$host,$port,$family) = sip_uri2sockinfo($_)
+		or croak( "invalid entry in domain2proxy: $_" );
+	    $port ||= 5060;
+	    $_ = [ map { [ -1, $_, $host, $port, $family ] }
+		$proto ? ($proto) : ('udp','tcp') ];
 	}
     }
 
@@ -170,22 +170,14 @@ sub add_leg {
 
 	push @$legs, $leg;
 
-	if ( my $fd = $leg->fd ) {
+	if (my $socketpool = $leg->socketpool) {
 	    my $cb = sub {
 		# don't crash Dispatcher on bad or unexpected packets
 		eval {
-		    my ($self,$leg) = @_;
+		    my ($self,$leg,$packet,$from) = @_;
 		    $self || return;
 
-		    # leg->receive might return undef if the packet wasnt
-		    # read successfully. for tcp connections the receive
-		    # on a listening socket might cause a new leg to be added
-		    # which then will receive the packet (maybe over multiple
-		    # read attempts)
-		    my ($packet,$from) = $leg->receive or do {
-			DEBUG( 50,"failed to receive on leg" );
-			return;
-		    };
+		    ($packet,$from) = $leg->receive($packet,$from) or return;
 
 		    if ($packet->is_request) {
 			# add received and rport to top via
@@ -193,17 +185,16 @@ sub add_leg {
 			    my ($vref,$hdr) = @_;
 			    return if $$vref++;
 			    my ($d,$h) = sip_hdrval2parts(via => $hdr->{value});
-			    my ($host,$port) = $d =~m{^\S+\s+(\S+)$}
+			    my ($host,$port) = $d =~m{^SIP/2\S+\s+(\S+)$}
 				? ip_string2parts($1):();
-			    my ($addr,$rport) = ip_string2parts($from);
 			    my %nh;
 			    if ( exists $h->{rport} and ! defined $h->{rport}) {
-				$nh{rport} = $rport;
+				$nh{rport} = $from->[2];
 			    }
-			    if ( $host ne $addr or $nh{rport}) {
+			    if ( $host ne $from->[1] or $nh{rport}) {
 				# either hostname or different IP or required because
 				# rport was set
-				$nh{received} = $addr;
+				$nh{received} = $from->[1];
 			    }
 			    if (%nh) {
 				$hdr->{value} = sip_parts2hdrval('via',$d,{ %$h,%nh});
@@ -214,16 +205,13 @@ sub add_leg {
 
 		    # handle received packet
 		    $self->receive( $packet,$leg,$from );
-
-
-		};
-		if ($@) {
-		    DEBUG(1,"dispatcher croaked: $@");
-		}
+		    1;
+		} or DEBUG(1,"dispatcher croaked: $@");
 	    };
 	    $cb = [ $cb,$self,$leg ];
-	    weaken( $cb->[1] );
-	    $self->{eventloop}->addFD( $fd, $cb );
+	    weaken($cb->[1]);
+	    weaken($cb->[2]);
+	    $socketpool->attach_eventloop($self->{eventloop}, $cb);
 	}
     }
 }
@@ -239,8 +227,8 @@ sub remove_leg {
     my $legs = $self->{legs};
     foreach my $leg (@_) {
 	@$legs = grep { $_ != $leg } @$legs;
-	if ( my $fd = $leg->fd ) {
-	    $self->{eventloop}->delFD( $fd );
+	if ( my $pool = $leg->socketpool ) {
+	    $pool->attach_eventloop();
 	}
     }
 }
@@ -252,7 +240,6 @@ sub remove_leg {
 #    addr: leg must match addr
 #    port: leg must match port
 #    proto: leg must match proto
-#    sock: leg must match sock
 #    sub:  $sub->($leg) must return true
 # Returns: @legs
 #   @legs: all Legs matching the criteria
@@ -266,12 +253,7 @@ sub get_legs {
     my %args = @_;
     my @rv;
     foreach my $leg (@{ $self->{legs} }) {
-	next if $args{addr} && $args{addr} ne $leg->{addr};
-	next if $args{port} && $args{port} != $leg->{port};
-	next if $args{proto} && $args{proto} ne $leg->{proto};
-	next if $args{sock} && $args{sock} != $leg->{sock};
-	next if $args{sub} && !invoke_callback( $args{sub},$leg );
-	push @rv,$leg
+	push @rv,$leg if $leg->match(\%args);
     }
     return @rv;
 }
@@ -302,8 +284,8 @@ sub add_timer {
 #     callback:  [ \&sub,@arg ] for calling back on definite delivery
 #       success (tcp only) or error (timeout,no route,...)
 #     leg:       specify outgoing leg, needed for responses
-#     dst_addr:  specify outgoing addr [ip,port] or sockaddr, needed
-#       for responses
+#     dst_addr:  specify outgoing addr [proto,ip,port,family]
+#           needed for responses
 #     do_retransmits: if retransmits should be done, default from
 #        global value (see new())
 # Returns: NONE
@@ -398,7 +380,7 @@ sub cancel_delivery {
 # Args: ($self,$packet,$leg,$from)
 #   $packet: Net::SIP::Packet
 #   $leg:    through which leg it was received
-#   $from:   where the packet comes from (ip:port)
+#   $from:   where the packet comes from: [proto,ip,from,family]
 # Returns: NONE
 # Comment: if no receiver is defined using set_receiver the packet
 #   will be silently dropped
@@ -561,7 +543,9 @@ sub __deliver {
 
     # adds via on cloned packet, calls cb if definite success (tcp)
     # or error
-    DEBUG( 50,"deliver through leg ".$leg->dump." \@$dst_addr" );
+    #Carp::confess("expected reference, got $dst_addr") if !ref($dst_addr);
+    $DEBUG && DEBUG(50,"deliver through leg ".$leg->dump.' @'
+	.ip_parts2string(@{$dst_addr}[1..3]));
     weaken( my $rself = \$self );
     $cb = [ $cb,$self,$qentry ];
     weaken( $cb->[1] );
@@ -593,7 +577,7 @@ sub resolve_uri {
     my ($uri,$dst_addr,$legs,$callback,$allowed_proto,$allowed_legs) = @_;
 
     # packet should be a request packet (see constructor of *::Dispatcher::Packet)
-    my ($domain,$user,$sip_proto,undef,$param) = sip_uri2parts($uri);
+    my ($domain,$user,$sip_proto,$param) = sip_uri2parts($uri);
     $domain or do {
 	DEBUG( 50,"bad URI '$uri'" );
 	return invoke_callback($callback, EHOSTUNREACH );
@@ -695,13 +679,13 @@ sub resolve_uri {
     foreach my $addr ( @$dst_addr ) {
 	if ( ref($addr)) {
 	    push @resp,$addr; # right format: see domain2proxy
-	} elsif ($addr =~ m{^(?:(udp|tcp):)?(.+)}) {
-	    my @proto = $1 ? ( $1 ) : ( 'udp','tcp' );
-	    my ($host,$port) = ip_string2parts($2);
-	    $port ||= $default_port;
-	    push @resp, map { [ -1, $_, $host, $port ] } @proto;
 	} else {
-	    next;
+	    my ($proto,$host,$port,$family) = sip_uri2sockinfo($addr)
+		or next;
+	    $port ||= $default_port;
+	    $addr = [$proto, $host, $port, $family];
+	    push @resp, map { [ -1, $_, $host, $port, $family ] }
+		$proto ? ($proto) : @proto;
 	}
     }
 
@@ -733,7 +717,7 @@ sub __resolve_uri_final {
     return invoke_callback( $callback,EHOSTUNREACH )
 	unless $resp && @$resp;
 
-    # for A records we got no port, use default_port
+    # for A|AAAA records we got no port, use default_port
     $_->[3] ||= $default_port for(@$resp);
 
     # sort by prio
@@ -744,13 +728,14 @@ sub __resolve_uri_final {
     @$legs = ();
     foreach my $r ( @$resp ) {
 	my $leg = first { $_->can_deliver_to(
-	    proto => $r->[1],
-	    addr  => $r->[2],
-	    port  => $r->[3]
+	    proto  => $r->[1],
+	    addr   => $r->[2],
+	    port   => $r->[3],
+	    family => $r->[4],
 	)} @$allowed_legs;
 
 	if ( $leg ) {
-	    push @$dst_addr, "$r->[1]:".ip_parts2string($r->[2],$r->[3]);
+	    push @$dst_addr, [ @{$r}[1..4] ];
 	    push @$legs,$leg;
 	} else {
 	    DEBUG( 50,"no leg for $r->[1]:".ip_parts2string($r->[2],$r->[3]));
@@ -765,11 +750,15 @@ sub __resolve_uri_final {
 sub _find_leg4addr {
     my Net::SIP::Dispatcher $self = shift;
     my $dst_addr = shift;
-    my ($proto,$ip) = $dst_addr =~m{^(?:(tcp|udp):)?(\S+)};
-    ($ip) = ip_string2parts($ip);
+    $dst_addr = [ sip_uri2sockinfo($dst_addr) ] if ! ref($dst_addr);
     my @legs;
     foreach my $leg (@{ $self->{legs} }) {
-	push @legs,$leg if $leg->can_deliver_to( addr => $ip, proto => $proto );
+	push @legs,$leg if $leg->can_deliver_to(
+	    proto  => $dst_addr->[0],
+	    addr   => $dst_addr->[1],
+	    port   => $dst_addr->[2],
+	    family => $dst_addr->[3],
+	);
     }
     return @legs;
 }
@@ -829,10 +818,13 @@ sub dns_domain2srv {
     foreach my $proto ( @$protos ) {
 	if ( my $q = $dns->query( '_'.$sip_proto.'._'.$proto.'.'.$domain,'SRV' )) {
 	    foreach my $rr ( $q->answer ) {
-		if ( $rr->type eq 'A' or CAN_IPV6 && $rr->type eq 'AAAA' ) {
-		    push @{ $addr2ip{$rr->name} }, $rr->address;
-		} elsif ( $rr->type eq 'SRV' ) {
-		    push @resp,[ $rr->priority, $proto,$rr->target,$rr->port ]
+		if ( $rr->type eq 'SRV' ) {
+		    push @resp,
+			[ $rr->priority, $proto,$rr->target,$rr->port, undef ];
+		} elsif ( $rr->type eq 'A') {
+		    push @{ $addr2ip{$rr->name} }, [ $rr->address, AF_INET ];
+		} elsif (CAN_IPV6 && $rr->type eq 'AAAA' ) {
+		    push @{ $addr2ip{$rr->name} }, [ $rr->address, AF_INET6 ];
 		}
 	    }
 	}
@@ -843,20 +835,28 @@ sub dns_domain2srv {
     for my $r (@resp) {
 	if ( my $addr = $addr2ip{ $r->[2] } ) {
 	    for (@$addr) {
-		my @cp = @$r;
-		$cp[2] = $_;
-		push @resp_resolved, \@cp;
+		push @resp_resolved, [
+		    $r->[0],  # keep prio
+		    $r->[1],  # keep proto
+		    $_->[0],  # addr from addr2ip
+		    $r->[3],  # keep port
+		    $_->[1],  # family from addr2ip
+		]
 	    }
 	} else {
 	    # either already IP or no additional data for resolving -> later
-	    my @cp = @$r;
 	    # XXX fixme blocking DNS lookup
 	    my $ip = hostname2ip($r->[2]) or do {
 		DEBUG( 1,"cannot resolve $r->[2]" );
 		next;
 	    };
-	    $cp[2] = $ip;
-	    push @resp_resolved, \@cp;
+	    push @resp_resolved, [
+		$r->[0],  # keep prio
+		$r->[1],  # keep proto
+		$_->[0],  # addr from hostname2ip
+		$r->[3],  # keep port
+		$r->[4],  # keep family
+	    ],
 	}
     }
     @resp = @resp_resolved;
@@ -869,7 +869,7 @@ sub dns_domain2srv {
 	    foreach my $rr ($q->answer ) {
 		$rr->type eq 'AAAA' || next;
 		push @resp,map {
-		    [ -1, $_ , $rr->address,$default_port ]
+		    [ -1, $_ , $rr->address, $default_port, AF_INET6 ]
 		} @$protos;
 	    }
 	}
@@ -877,7 +877,7 @@ sub dns_domain2srv {
 	    foreach my $rr ($q->answer ) {
 		$rr->type eq 'A' || next;
 		push @resp,map {
-		    [ -1, $_ , $rr->address,$default_port ]
+		    [ -1, $_ , $rr->address, $default_port, AF_INET ]
 		} @$protos;
 	    }
 	}
@@ -896,7 +896,8 @@ use fields (
     'callid',       # callid, used for canceling all deliveries for this call
     'packet',       # the packet which nees to be delivered
     'dst_addr',     # to which adress the packet gets delivered, is array-ref because
-		    # the DNS/SRV lookup might return multiple addresses and protocols
+		    # the DNS/SRV lookup might return multiple addresses and protocols:
+		    # [ [proto,ip,port,family], [...]]
     'leg',          # through which leg the packet gets delivered, same number
 		    # of items like dst_addr
     'retransmits',  # array of retransmit time stamps, if undef no retransmit will be
@@ -908,7 +909,7 @@ use fields (
 );
 
 use Net::SIP::Debug;
-use Net::SIP::Util 'invoke_callback';
+use Net::SIP::Util ':all';
 
 ###########################################################################
 # create new Dispatcher::Packet
@@ -927,7 +928,9 @@ sub new {
     $self->{callid} ||= $self->{packet}->callid;
 
     if ( my $addr = $self->{dst_addr} ) {
-	$self->{dst_addr} = [ $addr ] if !ref($addr)
+	# accept string, [ proto, ip,... ] and convert it to the form we want
+	$self->{dst_addr} = [ ref($addr) ? $addr : [ sip_uri2sockinfo($addr) ] ]
+	    if !ref($addr) || !ref($addr->[0])
     }
     if ( my $leg = $self->{leg} ) {
 	$self->{leg} = [ $leg ] if UNIVERSAL::can( $leg,'deliver' );

@@ -157,7 +157,7 @@ sub run {
     };
 
     # enter ip,port into db
-    my ($ip,$port) = split(':',$from,2); # FIXME IPv4 only
+    my ($ip,$port) = @{$from}[1,2];
     $self->{data}{$ip}{$port}{ time() }++;
     $self->savedb();
 

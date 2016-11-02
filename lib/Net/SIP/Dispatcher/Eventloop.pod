@@ -34,12 +34,12 @@ Creates new event loop, returns created object
 
 =over 4
 
-=item addFD ( HANDLE, CALLBACK, ?NAME )
+=item addFD (HANDLE, RW, CALLBACK, [NAME])
 
 Adds file handle HANDLE to the event loop, so that CALLBACK gets triggered
-if HANDLE is readable. CALLBACK is a callback accepted by B<invoke_callback>
-in L<Net::SIP::Util>. The callback will be invoked with HANDLE as an additional
-argument.
+if HANDLE is readable (B<RW> 0) or writeable (B<RW> 1).
+CALLBACK is a callback accepted by B<invoke_callback> in L<Net::SIP::Util>.
+The callback will be invoked with HANDLE as an additional argument.
 
 NAME can be used to aid debugging, it will be shown in the debug messages
 once the FD gets ready.
@@ -54,9 +54,12 @@ or select(2)). So if 2 bytes come in at the handle and one reads only
 You have to watch this, if you want to integrate L<Net::SIP> with your
 existing event loop.
 
-=item delFD ( HANDLE )
+=item delFD (HANDLE, [RW])
 
-Removes HANDLE from loop, e.g. no more checking for readability will be done.
+If B<RW> is 0 no more checking for readability of B<HANDLE> will be done.
+If B<RW> is 1 no more checking for writeability of B<HANDLE> will be done.
+If B<RW> is not given it will remove B<HANDLE> from the loop completly, i.e.
+for both read and write.
 
 =item add_timer( WHEN, CALLBACK, [ REPEAT ] )
 

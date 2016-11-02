@@ -67,7 +67,7 @@ sub _update_callbacks {
 	    # unchanged
 	} else {
 	    # new callback
-	    $loop->addFD( $socket,$callback )
+	    $loop->addFD($socket, 0, $callback)
 	}
     }
     # delete unused callbacks

@@ -6,10 +6,11 @@ use Data::Dumper;
 use Time::HiRes 'gettimeofday';
 use Scalar::Util 'looks_like_number';
 use base 'Exporter';
-our @EXPORT = qw( DEBUG DEBUG_DUMP LEAK_TRACK );
+our @EXPORT = qw( DEBUG DEBUG_DUMP LEAK_TRACK $DEBUG );
 our @EXPORT_OK = qw( debug stacktrace );
 
 
+our $DEBUG = 0; # exported fast check: if false no kind of debugging is done
 our $level = 0; # needed global for source filter
 
 my %level4package;           # package specific level
@@ -75,9 +76,11 @@ sub level {
 		}
 	    }
 	}
+	$DEBUG = grep { $_>0 } ($level, values(%level4package));
 
     } else {
 	# check
+	$DEBUG or return 0;
 	if ( %level4package ) {
 	    # check if there is a specific level for this package
 	    my $pkg;
@@ -124,6 +127,7 @@ sub set_prefix {
 ################################################################
 sub DEBUG { goto &debug }
 sub debug {
+    $DEBUG or return;
     my $level = __PACKAGE__->level || return;
     my $prefix = $debug_prefix;
     if (@_>1 and looks_like_number($_[0])) {
@@ -168,6 +172,7 @@ sub debug {
 # Returns: NONE
 ################################################################
 sub DEBUG_DUMP {
+    $DEBUG or return;
     my $level = __PACKAGE__->level || return;
     my $when;
     if (@_>1 and looks_like_number($_[0])) {

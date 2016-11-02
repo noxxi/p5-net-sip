@@ -54,9 +54,9 @@ sub uac {
 	my $expect = shift;
 	my $fd = newfd();
 	my $fn = fileno($fd)-1;
+	system( "lsof -n -p$$" ) if $fn+1-$fnbase != $expect;
 	printf "allocated %d sockets %s\n", $fn+1-$fnbase, $fn == $fnbase ? "($fn)" :
 	    $fn > $fnbase  ? "($fnbase..$fn)" : "";
-	system( "lsof -n -p$$" ) if $fn+1-$fnbase != $expect;
     };
 
     # this should allocate 1 socket for SIP

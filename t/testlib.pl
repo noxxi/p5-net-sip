@@ -49,7 +49,12 @@ sub killall {
     my $sig = shift || 9;
     kill $sig, @pids;
     #note( "killed @pids with $sig" );
-    while ( wait() >= 0 ) {} # collect all
+    while (1) {
+	# collect all
+	wait() >= 0 and next;
+	$!{EINTR} and next;
+	last;
+    }
     @pids = ();
 }
 
@@ -126,8 +131,8 @@ sub fd_grep {
 
 	# if not found try to read new data
 	$timeout = $end - time() if $end;
-	return @bad if $timeout < 0;
-	select( my $rout = $rin,undef,undef,$timeout );
+	return @bad if $timeout <= 0;
+	my $n = select( my $rout = $rin,undef,undef,$timeout );
 	$rout || return @bad; # not found
 	foreach my $fd (@fd) {
 	    my $name = $fd2name{$fd} || "$fd";
@@ -200,7 +205,7 @@ sub sip_dump_media {
 # return socket and ip:port
 ############################################################################
 sub create_socket {
-    my ($addr,$port,$proto) = @_;
+    my ($proto,$addr,$port) = @_;
     $addr ||= $DEFAULT_LADDR;
     $proto ||= 'udp';
     $port ||= 0;
@@ -219,11 +224,14 @@ sub create_socket {
 ############################################################################
 # do we support IPv6
 ############################################################################
-sub do_ipv6 {
+sub do_ipv6 { use_ipv6(1) }
+sub use_ipv6 {
     $DEFAULT_LADDR = '127.0.0.1';
-    return if ! CAN_IPV6;
-    return if ! INETSOCK(LocalAddr => '::1', Proto => 'udp');
-    $DEFAULT_LADDR = '::1';
+    if ($_[0]) {
+	return if ! CAN_IPV6;
+	return if ! INETSOCK(LocalAddr => '::1', Proto => 'udp');
+	$DEFAULT_LADDR = '::1';
+    }
     return 1;
 }
 
@@ -235,8 +243,7 @@ sub do_ipv6 {
 package TestLeg;
 use base 'Net::SIP::Leg';
 use fields qw( can_deliver_to dump_incoming dump_outgoing );
-use Net::SIP 'invoke_callback';
-use Net::SIP::Util qw(ip_string2parts);
+use Net::SIP::Util ':all';
 
 sub new {
     my ($class,%args) = @_;
@@ -281,7 +288,8 @@ sub receive {
 
 sub deliver {
     my ($self,$packet,$to,$callback) = @_;
-    invoke_callback( $self->{dump_outgoing},$packet,$to );
+    invoke_callback($self->{dump_outgoing}, $packet,
+	ip_parts2string(@{$to}[1..3]));
     return $self->SUPER::deliver( $packet,$to,$callback );
 }
 

@@ -67,7 +67,7 @@ sub uac {
     my ($lsock,$paddr) = @_;
 
     my $ua = Simple->new(
-	leg => $lsock->{leg},
+	leg => $lsock,
 	outgoing_proxy => $paddr,
 	from => "sip:uac\@$paddr",
     );
@@ -101,7 +101,7 @@ sub uas {
 	domain => $paddr,
 	registrar => $paddr,
 	outgoing_proxy => $paddr,
-	leg => $lsock->{leg},
+	leg => $lsock,
 	from => "sip:uas\@$paddr",
     );
 

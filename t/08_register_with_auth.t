@@ -7,22 +7,31 @@
 
 use strict;
 use warnings;
-use Test::More tests => 7*2;
+use Test::More tests => 7*4;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 use Digest::MD5 'md5_hex';
 
-for my $proto (qw(ip4 ip6)) {
+my @tests;
+for my $transport (qw(udp tcp)) {
+    for my $family (qw(ip4 ip6)) {
+	push @tests, [ $transport, $family ];
+    }
+}
+
+for my $t (@tests) {
+    my ($transport,$family) = @$t;
     SKIP: {
-	if ($proto eq 'ip6' && !do_ipv6()) {
+	if (!use_ipv6($family eq 'ip6')) {
 	    skip "no IPv6 support",7;
 	    next;
 	}
-	note("----- test with $proto");
 
-	my ($csock,$caddr) = create_socket();
-	my ($ssock,$saddr) = create_socket();
+	note("------- test with family $family transport $transport");
+
+	my ($csock,$caddr) = create_socket($transport);
+	my ($ssock,$saddr) = create_socket($transport);
 
 	# start Registrar
 	my $registrar = fork_sub( 'registrar',$ssock,$saddr );

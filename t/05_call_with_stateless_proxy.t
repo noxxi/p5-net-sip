@@ -9,7 +9,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 63*2;
+use Test::More tests => 63*4;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -20,24 +20,36 @@ use IO::Socket;
 use File::Temp;
 use List::Util;
 
-for my $proto (qw(ip4 ip6)) {
+my @tests;
+for my $transport (qw(udp tcp)) {
+    for my $family (qw(ip4 ip6)) {
+	push @tests, [ $transport, $family ];
+    }
+}
+
+for my $t (@tests) {
+    my ($transport,$family) = @$t;
     SKIP: {
-	if ($proto eq 'ip6' && !do_ipv6()) {
+	if (!use_ipv6($family eq 'ip6')) {
 	    skip "no IPv6 support",63;
 	    next;
 	}
-	note("----- test with $proto");
-	do_test()
+	note("------- test with family $family transport $transport");
+	do_test($transport)
     }
 }
 
 killall();
 
 sub do_test {
+    my $transport = shift;
     my ($luac,$luas,@lproxy);
     for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
-	my ($sock,$addr) = create_socket();
-	$_ = { sock => $sock, addr => $addr };
+	my ($sock,$addr) = create_socket($transport);
+	my $uri = sip_parts2uri($addr, undef, 'sip', {
+	    $transport eq 'tcp' ? ( transport => 'tcp' ) :()
+	});
+	$_ = { sock => $sock, addr => $addr, uri  => $uri };
     }
 
     note( "UAS on $luas->{addr} " );
@@ -58,7 +70,7 @@ sub do_test {
     }
 
     # socket for nathelper server
-    my ($nath_sock,$nath_addr) = create_socket(undef,undef,'tcp') or die $!;
+    my ($nath_sock,$nath_addr) = create_socket('tcp') or die $!;
 
     foreach my $spec ( qw( no-nat inline-nat remote-nat )) {
 
@@ -71,13 +83,13 @@ sub do_test {
 	}
 
 	# start proxy and UAS and wait until they are ready
-	my $proxy = fork_sub( 'proxy', @lproxy,$luas->{addr},$natcb );
+	my $proxy = fork_sub( 'proxy', @lproxy,$luas->{uri},$natcb );
 	my $uas   = fork_sub( 'uas', $luas );
 	fd_grep_ok( 'ready',10,$proxy ) || die;
 	fd_grep_ok( 'ready',10,$uas ) || die;
 
 	# UAC: invite and transfer RTP data
-	my $uac   = fork_sub( 'uac', $luac, $lproxy[0]{addr} );
+	my $uac   = fork_sub( 'uac', $luac, $lproxy[0]{uri} );
 	fd_grep_ok( 'ready',10,$uac ) || die;
 	my $uac_invite  = fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},5,$uac ) || die;
 	my $pin_invite  = fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},5,$proxy ) || die;
@@ -101,14 +113,15 @@ sub do_test {
 	# top via must be from lproxy[1], next via from UAC
 	# this is to show that the request went through the proxy
 	fd_grep_ok( 'call created',10,$uas );
-	fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $lproxy[1]{addr};}i,1,$uas );
-	fd_grep_ok( qr{\Qvia: SIP/2.0/UDP $luac->{addr};}i,1,$uas );
+	fd_grep_ok( qr{\Qvia: SIP/2.0/$transport $lproxy[1]{addr};}i,1,$uas );
+	fd_grep_ok( qr{\Qvia: SIP/2.0/$transport $luac->{addr};}i,1,$uas );
 
 	# done
 	fd_grep_ok( 'RTP done',10,$uac );
 	fd_grep_ok( 'RTP ok',10,$uas );
 	fd_grep_ok( 'END',10,$uac );
 	fd_grep_ok( 'END',10,$uas );
+	killall();
     }
 }
 
@@ -117,7 +130,7 @@ sub do_test {
 # Proxy
 # --------------------------------------------------------------
 sub proxy {
-    my ($lsock_c,$lsock_s,$proxy_addr,$natcb) = @_;
+    my ($lsock_c,$lsock_s,$proxy_uri,$natcb) = @_;
 
     # need loop separately
     my $loop = Dispatcher_Eventloop->new;
@@ -127,7 +140,7 @@ sub proxy {
     my $proxy = Simple->new(
 	loop => $loop,
 	legs => [ $lsock_c->{leg}, $lsock_s->{leg} ],
-	domain2proxy => { 'example.com' => $proxy_addr },
+	domain2proxy => { 'example.com' => $proxy_uri },
     );
     $proxy->create_stateless_proxy(
 	nathelper => $nathelper
@@ -140,7 +153,7 @@ sub proxy {
 # UAC
 # --------------------------------------------------------------
 sub uac {
-    my ($lsock,$proxy) = @_;
+    my ($lsock,$proxy_uri) = @_;
 
     my $packets = 100;
     my $send_something = sub {
@@ -154,7 +167,7 @@ sub uac {
     my $uac = Simple->new(
 	from => 'me.uac@example.com',
 	leg  => $lsock->{leg},
-	outgoing_proxy => $proxy,
+	outgoing_proxy => $proxy_uri,
     ) || die;
     print "ready\n";
 

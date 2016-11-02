@@ -36,6 +36,8 @@ lib/Net/SIP/Redirect.pm
 lib/Net/SIP/Redirect.pod
 lib/Net/SIP/Registrar.pm
 lib/Net/SIP/Registrar.pod
+lib/Net/SIP/SocketPool.pm
+lib/Net/SIP/SocketPool.pod
 lib/Net/SIP/StatelessProxy.pm
 lib/Net/SIP/StatelessProxy.pod
 lib/Net/SIP/Blocker.pm

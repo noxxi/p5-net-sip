@@ -1,5 +1,39 @@
 Revision history for Net::SIP
 
+0.700 2016-11-17
+- support for TCP
+- major API changes !!!
+  - proxies, registrars etc are no longer given with udp:/tcp: prefix to signal
+    which protocol gets used but instead SIP URL's are used:
+      sip:...  - SIP over UDP
+      sip:...;transport=TCP - SIP over TCP
+      sips:... - SIP over TLS
+    the simplified syntax without protocol specification still works and is
+    considered as before as SIP over UDP
+  - Util: result of sip_uri2parts changed
+    from (domain,user,proto,param,data)
+    to   (domain,user,proto,data,param)
+  - Eventloop - addFD, delFD now take argument $rw to specify if the handler is
+    for read or for write. If omitted in delFD it will remove all handlers for
+    fd as before. Wrong (old) usage with addFD will result in Carp::confess.
+    !!! When integrating with its own eventloop this is also the interface this
+    loop is expected to provide !!!
+  - Dispatcher::deliver: arguments dst_addr now [proto,ip,port,family] instead
+    of string. Using string with SIP URI is also still supported but not
+    official API but existing code without protocol specification in string
+    should thus still work.
+  - Endpoint::register expects SIP URI, i.e. no longer adds 'sip:' prefix
+  - fields or meaning of fields in Leg, Packet, Dispatcher::Packet changed but
+    nobody should have accessed these internals anyway
+  - Leg::deliver: destination given as [proto,ip,port,family] instead of
+    ip:port string
+  - Leg::sendto takes packet object instead of packet string, dst as single
+    argument with [host,port,family] instead of separate addr and port arguments
+  - Leg::receive now gets (packet,from) and returns the same (might modify data
+    but currently doesn't). Previously reading of the packet was done inside
+    this function but now reading is done by SocketPool and Leg just has the
+    option to process packet.
+
 0.691 2016-10-31
 - various smaller enhancements
 - added spelling fixes from Debian, RT#118564
