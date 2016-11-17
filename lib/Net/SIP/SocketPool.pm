@@ -429,7 +429,8 @@ sub _handle_read_tcp_co {
 sub _tcp_connect {
     my Net::SIP::SocketPool $self = shift;
     my ($fo,$peer,$callback,$xxfd) = @_;
-    while (1) {
+    # if called from loop: write handler already set up, already connected
+    while (!$xxfd) {
 	$fo->{didit} = $self->{loop}->looptime;
 	my $rv = connect($fo->{fd},$peer);
 	$DEBUG && DEBUG(100,"tcp connect: ".($rv || $!));
@@ -440,7 +441,6 @@ sub _tcp_connect {
 	}
 	next if $!{EINTR};
 	if ($!{EALREADY} || $!{EINPROGRESS}) {
-	    return if $xxfd; # called from loop: write handler already set up
 	    # insert write handler
 	    $DEBUG && DEBUG(100,"tcp connect: add write handler for async connect");
 	    $self->{loop}->addFD($fo->{fd},1, 
