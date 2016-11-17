@@ -12,6 +12,8 @@ use fields qw(loop proto dst fds tids cb timeout_timer);
 use Net::SIP::Util ':all';
 use Net::SIP::Packet;
 use Net::SIP::Debug;
+use Socket qw(SOL_SOCKET SO_ERROR);
+use Errno 'EINVAL';
 
 # RFC does not specify some fixed limit for the SIP header and body so we have
 # to make up some limits we think are useful.
@@ -429,8 +431,9 @@ sub _handle_read_tcp_co {
 sub _tcp_connect {
     my Net::SIP::SocketPool $self = shift;
     my ($fo,$peer,$callback,$xxfd) = @_;
-    # if called from loop: write handler already set up, already connected
+
     while (!$xxfd) {
+	# direct call, no connect done yet
 	$fo->{didit} = $self->{loop}->looptime;
 	my $rv = connect($fo->{fd},$peer);
 	$DEBUG && DEBUG(100,"tcp connect: ".($rv || $!));
@@ -455,8 +458,23 @@ sub _tcp_connect {
 	return;
     }
 
-    # connect done: remove write handler if we are called from loop
-    $self->{loop}->delFD($xxfd,1) if $xxfd;
+    if ($xxfd) {
+	# we are called from loop and hopefully async connect was succesful:
+	# use getsockopt to check
+	my $err = getsockopt($xxfd, SOL_SOCKET, SO_ERROR);
+	$err = $err ? unpack('i',$err) : EINVAL;
+	if ($err) {
+	    # connection failed
+	    $! = $err;
+	    $self->_del_socket($fo,
+		"connect to ".ip_sockaddr2string($peer)." failed: $!");
+	    invoke_callback($callback,$err);
+	    return;
+	}
+
+	# connect done: remove write handler
+	$self->{loop}->delFD($xxfd,1);
+    }
 
     _addreader2loop($self,$fo);
     
