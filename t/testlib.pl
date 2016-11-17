@@ -3,6 +3,8 @@ use warnings;
 use IO::Socket;
 use Net::SIP::Util qw(CAN_IPV6 INETSOCK ip_parts2string);
 
+$SIG{PIPE} = 'IGNORE';
+
 ############################################################################
 #
 #    small test lib for common tasks:
