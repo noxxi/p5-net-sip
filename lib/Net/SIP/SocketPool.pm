@@ -13,7 +13,6 @@ use Net::SIP::Util ':all';
 use Net::SIP::Packet;
 use Net::SIP::Debug;
 use Socket qw(SOL_SOCKET SO_ERROR);
-use Errno 'EINVAL';
 
 # RFC does not specify some fixed limit for the SIP header and body so we have
 # to make up some limits we think are useful.
@@ -462,7 +461,7 @@ sub _tcp_connect {
 	# we are called from loop and hopefully async connect was succesful:
 	# use getsockopt to check
 	my $err = getsockopt($xxfd, SOL_SOCKET, SO_ERROR);
-	$err = $err ? unpack('i',$err) : EINVAL;
+	$err = $err ? unpack('i',$err) : $!;
 	if ($err) {
 	    # connection failed
 	    $! = $err;
