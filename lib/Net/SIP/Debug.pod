@@ -5,7 +5,7 @@ Net::SIP::Debug - debugging of Net::SIP
 
 =head1 SYNOPSIS
 
-  use Net::SIP::Debug 1;
+  use Net::SIP::Debug '1';
   use Net::SIP::Debug qw( Net::SIP*=0 Registrar=1 );
   Net::SIP::Debug->level(1);
 
