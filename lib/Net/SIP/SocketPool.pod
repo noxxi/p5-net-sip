@@ -117,4 +117,8 @@ timeout.
 
 The timeout used for establishing a TCP connection. Default to 10 (seconds).
 
+=item TCP_READSIZE
+
+The amount of data it tries to read within a single sysread, default 2**16.
+
 =back

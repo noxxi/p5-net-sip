@@ -26,6 +26,7 @@ my $MAX_TIDLIST = 30;
 my $MIN_EXPIRE = 15;      # wait at least this time before closing on inactivity
 my $MAX_EXPIRE = 120;     # wait at most this time
 my $CONNECT_TIMEOUT = 10; # max time for TCP connect
+my $TCP_READSIZE = 2**16; # size of TCP read
 
 sub import {
     my %m = (
@@ -35,6 +36,7 @@ sub import {
 	MIN_EXPIRE      => \$MIN_EXPIRE,
 	MAX_EXPIRE      => \$MAX_EXPIRE,
 	CONNECT_TIMEOUT => \$CONNECT_TIMEOUT,
+	TCP_READSIZE    => \$TCP_READSIZE,
     );
     for(my $i=1;$i<@_;$i+=2) {
 	my $ref = $m{$_[$i]} or die "no such config key '$_[$i]'";
@@ -357,10 +359,13 @@ sub _handle_read_tcp_m {
 sub _handle_read_tcp_co {
     my Net::SIP::SocketPool $self = shift;
     my ($fd,$from) = @_;
+    my $fo = $self->{fds}{ fileno($fd) } or die "no fd for read";
 
-    my $fo = $self->{fds}{ fileno($fd) } or die;
+    $DEBUG && $fo->{rbuf} ne '' && DEBUG(20,
+	"continue reading SIP packet, offset=%d",length($fo->{rbuf}));
+
     retry:
-    my $n = sysread($fd, $fo->{rbuf}, 2**16, length($fo->{rbuf}));
+    my $n = sysread($fd, $fo->{rbuf}, $TCP_READSIZE, length($fo->{rbuf}));
     if (!defined $n) {
 	goto retry if $!{EINTR};
 	return if $!{EAGAIN} || $!{EWOULDBLOCK};
@@ -407,8 +412,9 @@ sub _handle_read_tcp_co {
 	    "drop packet from %s since SIP body is too big: %d>%d",
 	    ip_sockaddr2string($from), $clen, $MAX_SIP_BODY);
     }
-    if ($hdrpos + $clen < length($fo->{rbuf})) {
-	$DEBUG && DEBUG(20,"need more data for SIP body");
+    if ($hdrpos + $clen > length($fo->{rbuf})) {
+	$DEBUG && DEBUG(20,"need %d more bytes for SIP body",
+	    $hdrpos + $clen - length($fo->{rbuf}));
 	return;
     }
 
