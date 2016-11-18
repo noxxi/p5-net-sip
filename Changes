@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.702 2016-11-18
+- fix wrong TCP connect timeout triggered long after successful connect
+- fix reading of partial SIP packet with TCP
+- various small improvements based on feedback from BLUHM
 0.701 2016-11-17
 - fix TCP async connect
 0.700 2016-11-17
