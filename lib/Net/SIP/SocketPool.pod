@@ -108,13 +108,13 @@ This defaults to 30.
 
 =item MIN_EXPIRE, MAX_EXPIRE
 
-The minimal time for socket expiration and the maximum time. These default to 5
+The minimal time for socket expiration and the maximum time. These default to 15
 and 120 (seconds). The exact time for expiration depends on the number of
 sockets in the socketgroup, i.e. the more sockets the shorter the expiration
 timeout.
 
 =item CONNECT_TIMEOUT
 
-The timeout used for establishing a TCP connection. Default to 5 (seconds).
+The timeout used for establishing a TCP connection. Default to 10 (seconds).
 
 =back

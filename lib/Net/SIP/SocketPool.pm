@@ -23,9 +23,9 @@ my $MAX_SIP_BODY   = 2**16;   # 64k body
 # how many requests we can associate with a socket at the same time
 my $MAX_TIDLIST = 30;
 
-my $MIN_EXPIRE = 5;      # wait at least this time before closing on inactivity
-my $MAX_EXPIRE = 120;    # wait at most this time
-my $CONNECT_TIMEOUT = 5; # max time for TCP connect
+my $MIN_EXPIRE = 15;      # wait at least this time before closing on inactivity
+my $MAX_EXPIRE = 120;     # wait at most this time
+my $CONNECT_TIMEOUT = 10; # max time for TCP connect
 
 sub import {
     my %m = (
@@ -483,6 +483,7 @@ sub _tcp_connect {
 
 	# connect done: remove write handler
 	$self->{loop}->delFD($xxfd, EV_WRITE);
+	delete $fo->{inside_connect};
     }
 
     _addreader2loop($self,$fo);
