@@ -16,6 +16,7 @@ use Net::SIP::Util qw(invoke_callback ip_sockaddr2parts ip_parts2string);
 use Socket;
 use Net::SIP::Debug;
 use Net::SIP::DTMF;
+use Net::SIP::Dispatcher::Eventloop;
 
 
 # on MSWin32 non-blocking sockets are not supported from IO::Socket
@@ -76,7 +77,7 @@ sub media_recv_echo {
 		}
 	    };
 
-	    $call->{loop}->addFD($sock, 0,
+	    $call->{loop}->addFD($sock, EV_READ,
 		[ $echo_back,$s_sock,$addr,\@delay_buffer,$delay || 0,$writeto,{
 		    dtmf_gen => $args->{dtmf_events},
 		    dtmf_xtract => $mdtmf && $mdtmf->[$i] && $args->{cb_dtmf}
@@ -160,7 +161,7 @@ sub media_send_recv {
 		    CAN_NONBLOCKING or return;
 		}
 	    };
-	    $call->{loop}->addFD($sock, 0,
+	    $call->{loop}->addFD($sock, EV_READ,
 		[
 		    $receive,
 		    $writeto,

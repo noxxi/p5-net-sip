@@ -37,6 +37,9 @@ use Net::SIP::Debug;
 use Scalar::Util 'weaken';
 
 
+use constant SRV_PRIO_UNDEF => -1;
+
+
 ###########################################################################
 # create new dispatcher
 # Args: ($class,$legs,$eventloop;%args)
@@ -73,7 +76,7 @@ sub new {
 	    my ($proto,$host,$port,$family) = sip_uri2sockinfo($_)
 		or croak( "invalid entry in domain2proxy: $_" );
 	    $port ||= 5060;
-	    $_ = [ map { [ -1, $_, $host, $port, $family ] }
+	    $_ = [ map { [ SRV_PRIO_UNDEF, $_, $host, $port, $family ] }
 		$proto ? ($proto) : ('udp','tcp') ];
 	}
     }
@@ -684,7 +687,7 @@ sub resolve_uri {
 		or next;
 	    $port ||= $default_port;
 	    $addr = [$proto, $host, $port, $family];
-	    push @resp, map { [ -1, $_, $host, $port, $family ] }
+	    push @resp, map { [ SRV_PRIO_UNDEF, $_, $host, $port, $family ] }
 		$proto ? ($proto) : @proto;
 	}
     }
@@ -868,17 +871,17 @@ sub dns_domain2srv {
 	if ( CAN_IPV6 and my $q = $dns->query( $domain,'AAAA' )) {
 	    foreach my $rr ($q->answer ) {
 		$rr->type eq 'AAAA' || next;
-		push @resp,map {
-		    [ -1, $_ , $rr->address, $default_port, AF_INET6 ]
-		} @$protos;
+		push @resp,map { [
+		    SRV_PRIO_UNDEF, $_ , $rr->address, $default_port, AF_INET6
+		] } @$protos;
 	    }
 	}
 	if ( my $q = $dns->query( $domain,'A' )) {
 	    foreach my $rr ($q->answer ) {
 		$rr->type eq 'A' || next;
-		push @resp,map {
-		    [ -1, $_ , $rr->address, $default_port, AF_INET ]
-		} @$protos;
+		push @resp,map { [
+		    SRV_PRIO_UNDEF, $_ , $rr->address, $default_port, AF_INET
+		] } @$protos;
 	    }
 	}
     }

@@ -277,7 +277,7 @@ sub sip_sockinfo2uri {
 	$proto eq 'tls' ? ('sips', {}) :
 	$proto eq 'tcp' ? ('sip',  { transport => 'TCP' }) :
 	$proto eq 'udp' ? ('sip',  {}) :
-	die
+	die "invalid proto: '$proto'"
     )
 }
 

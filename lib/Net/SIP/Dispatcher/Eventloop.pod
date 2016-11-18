@@ -37,7 +37,8 @@ Creates new event loop, returns created object
 =item addFD (HANDLE, RW, CALLBACK, [NAME])
 
 Adds file handle HANDLE to the event loop, so that CALLBACK gets triggered
-if HANDLE is readable (B<RW> 0) or writeable (B<RW> 1).
+if HANDLE is readable (B<RW> 0) or writeable (B<RW> 1). Instead of C<0> and C<1>
+one can also use the exported constants C<EV_READ> and C<EV_WRITE>.
 CALLBACK is a callback accepted by B<invoke_callback> in L<Net::SIP::Util>.
 The callback will be invoked with HANDLE as an additional argument.
 
@@ -56,8 +57,9 @@ existing event loop.
 
 =item delFD (HANDLE, [RW])
 
-If B<RW> is 0 no more checking for readability of B<HANDLE> will be done.
-If B<RW> is 1 no more checking for writeability of B<HANDLE> will be done.
+If B<RW> is 0 (EV_READ) no more checking for readability of B<HANDLE> will be
+done. If B<RW> is 1 (EV_WRITE) no more checking for writeability of B<HANDLE>
+will be done.
 If B<RW> is not given it will remove B<HANDLE> from the loop completly, i.e.
 for both read and write.
 

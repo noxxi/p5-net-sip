@@ -11,6 +11,7 @@ use warnings;
 package Net::SIP::NATHelper::Local;
 use Net::SIP::Debug;
 use Net::SIP::NATHelper::Base;
+use Net::SIP::Dispatcher::Eventloop;
 use fields qw( helper loop callbacks );
 
 sub new {
@@ -67,7 +68,7 @@ sub _update_callbacks {
 	    # unchanged
 	} else {
 	    # new callback
-	    $loop->addFD($socket, 0, $callback)
+	    $loop->addFD($socket, EV_READ, $callback)
 	}
     }
     # delete unused callbacks

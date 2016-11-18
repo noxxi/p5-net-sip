@@ -12,6 +12,7 @@ use fields qw(loop proto dst fds tids cb timeout_timer);
 use Net::SIP::Util ':all';
 use Net::SIP::Packet;
 use Net::SIP::Debug;
+use Net::SIP::Dispatcher::Eventloop;
 use Socket qw(SOL_SOCKET SO_ERROR);
 
 # RFC does not specify some fixed limit for the SIP header and body so we have
@@ -255,18 +256,22 @@ sub _error {
 
 {
     my %type2cb = (
+	# unconnected UDP socket: receive and send
 	udp_m  => sub { 
 	    my Net::SIP::SocketPool $self = shift;
 	    return $self->{dst}
 		? sub { _handle_read_udp(@_,1) }
 		: sub { _handle_read_udp(@_) }
 	},
+	# connected UDP socket: receive and send with fixed peer
 	udp_co => sub { 
 	    return \&_handle_read_udp 
 	},
+	# unconnected TCP socket: listen, accept and create tcp_co
 	tcp_m  => sub { 
 	    return \&_handle_read_tcp_m 
 	},
+	# connected TCP socket: receive and send with fixed peer
 	tcp_co => sub { 
 	    my (undef,$fd) = @_;
 	    my $from = getpeername($fd);
@@ -276,9 +281,10 @@ sub _error {
     sub _addreader2loop {
 	my Net::SIP::SocketPool $self = shift;
 	my $fo = shift;
+	# proto_co: connected socket, proto_m: (unconnected) master socket
 	my $type = $self->{proto} . ($fo->{peer} ? '_co':'_m');
-	$self->{loop}->addFD($fo->{fd}, 0, [
-	    $type2cb{$type}($self,$fo->{fd}) || die, 
+	$self->{loop}->addFD($fo->{fd}, EV_READ, [
+	    $type2cb{$type}($self,$fo->{fd}),
 	    $self
 	]);
     }
@@ -367,6 +373,7 @@ sub _handle_read_tcp_co {
 	return $self->_del_socket($fo);
     }
 
+    process_packet:
     # ignore any leading \r\n according to RFC 3261 7.5
     $fo->{rbuf} =~s{\A(\r\n)+}{};
 
@@ -425,6 +432,9 @@ sub _handle_read_tcp_co {
     $fo->{didit} = $self->{loop}->looptime if $self->{loop};
     invoke_callback($self->{cb},$pkt,
 	[$self->{proto}, ip_sockaddr2parts($from)]);
+
+    # continue with processing any remaining data in the buffer
+    goto process_packet if $fo->{rbuf} ne '';
 }
 
 sub _tcp_connect {
@@ -445,7 +455,7 @@ sub _tcp_connect {
 	if ($!{EALREADY} || $!{EINPROGRESS}) {
 	    # insert write handler
 	    $DEBUG && DEBUG(100,"tcp connect: add write handler for async connect");
-	    $self->{loop}->addFD($fo->{fd},1, 
+	    $self->{loop}->addFD($fo->{fd}, EV_WRITE,
 		[ \&_tcp_connect, $self,$fo,$peer,$callback ]);
 	    return;
 	}
@@ -472,7 +482,7 @@ sub _tcp_connect {
 	}
 
 	# connect done: remove write handler
-	$self->{loop}->delFD($xxfd,1);
+	$self->{loop}->delFD($xxfd, EV_WRITE);
     }
 
     _addreader2loop($self,$fo);
@@ -498,7 +508,7 @@ sub _tcp_send {
 	if ($!{EAGAIN} || $!{EWOULDBLOCK}) {
 	    return if $xxfd; # called from loop: write handler already set up
 	    # insert write handler
-	    $self->{loop}->addFD($fo->{fd},1, 
+	    $self->{loop}->addFD($fo->{fd}, EV_WRITE,
 		[ \&_tcp_send, $self,$fo,$callback ]);
 	    return;
 	}
@@ -512,7 +522,7 @@ sub _tcp_send {
 
     # write done: remove write handler if we are called from loop
     $DEBUG && DEBUG(90,"everything has been sent");
-    $self->{loop}->delFD($xxfd,1) if $xxfd;
+    $self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
 
     # signal success via callback
     invoke_callback($callback,0)

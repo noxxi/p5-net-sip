@@ -17,6 +17,13 @@ use Net::SIP::Debug;
 use Carp 'confess';
 use Errno 'EINTR';
 
+
+# constants for read/write events
+use Exporter 'import';
+our @EXPORT = qw(EV_READ EV_WRITE);
+use constant EV_READ  => 0;
+use constant EV_WRITE => 1;
+
 ###########################################################################
 # creates new event loop
 # Args: $class
@@ -74,6 +81,8 @@ sub delFD {
 	delete $self->{fd}[$fn];
 	vec($self->{vec}[0],$fn,1) = 0;
 	vec($self->{vec}[1],$fn,1) = 0;
+	# mark both read and write as dropped so we don't process events for the
+	# fd inside the same loop
 	$self->{just_dropped}[$fn] = [1,1] if $self->{just_dropped};
 
     } else {
@@ -82,6 +91,8 @@ sub delFD {
 		. eval { ip_sockaddr2string(getsockname($fd)) });
 	    delete $self->{fd}[$fn][$rw];
 	    vec($self->{vec}[$rw],$fn,1) = 0;
+	    # mark $rw handler as dropped so we don't process events for the fd
+	    # inside the same loop
 	    $self->{just_dropped}[$fn][$rw] = 1 if $self->{just_dropped};
 	}
     }
