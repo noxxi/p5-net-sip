@@ -60,7 +60,7 @@ existing event loop.
 If B<RW> is 0 (EV_READ) no more checking for readability of B<HANDLE> will be
 done. If B<RW> is 1 (EV_WRITE) no more checking for writeability of B<HANDLE>
 will be done.
-If B<RW> is not given it will remove B<HANDLE> from the loop completly, i.e.
+If B<RW> is not given it will remove B<HANDLE> from the loop completely, i.e.
 for both read and write.
 
 =item add_timer( WHEN, CALLBACK, [ REPEAT ] )

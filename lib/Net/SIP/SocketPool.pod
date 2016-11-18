@@ -36,7 +36,7 @@ specific party, like an outgoing SIP proxy.
 In the common case that B<CONNECTED> is false the optional B<DST>
 given as C<< [ip, port, family] >> will be interpreted as restriction for the
 communication, i.e. it will be forced as destination in B<sendto> no matter what
-was given and it will be checked that any received data orgin from the expected
+was given and it will be checked that any received data origin from the expected
 peer B<DST>.
 
 =back

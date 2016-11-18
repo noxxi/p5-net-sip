@@ -147,7 +147,7 @@ B<get_legs> in L<Net::SIP::Dispatcher> to get all legs matching specific
 criteria. The B<SPEC> can contain the keys C<addr>, C<port> and C<proto>
 which match the arguments given during construction of the leg or are obtained
 from the legs socket.
-Additionally C<sub> can be used to specifiy a function which gets called with
+Additionally C<sub> can be used to specify a function which gets called with
 the leg object and must return true on match only.
 
 The method returns true if there was a full match and false otherwise.
