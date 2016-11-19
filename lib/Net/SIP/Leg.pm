@@ -18,7 +18,7 @@ use Net::SIP::Request;
 use Net::SIP::Response;
 use Errno qw(EHOSTUNREACH EINVAL);
 
-use fields qw(contact branch via proto src dst socketpool);
+use fields qw(contact branch via proto src socketpool);
 
 # sock: the socket for the leg
 # src: [addr,port,family] where it receives data and sends data from
@@ -108,6 +108,7 @@ sub new {
 	    Proto     => $self->{proto},
 	    Family    => $src->[2],
 	    LocalAddr => $src->[0],
+	    Reuse     => 1,
 	);
 	if ($self->{proto} eq 'tcp') {
 	    # with TCP we create a listening socket

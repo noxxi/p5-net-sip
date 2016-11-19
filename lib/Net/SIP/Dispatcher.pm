@@ -806,7 +806,7 @@ sub dns_host2ip {
 #   $proto: which protocols to check
 #   $sip_proto: sip|sips
 #   $callback: gets called with result once finished
-#      result is \@list of [ prio,proto,name,port ]
+#      result is \@list of [ prio,proto,name,port,?family ]
 # Returns: NONE
 ###########################################################################
 sub dns_domain2srv {

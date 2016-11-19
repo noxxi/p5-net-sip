@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.703 2016-11-20
+- fix to support Perl 5.14.x and lower
 0.702 2016-11-18
 - fix wrong TCP connect timeout triggered long after successful connect
 - fix reading of partial SIP packet with TCP

@@ -50,7 +50,7 @@ BEGIN {
 	*AF_INET6 = sub() { Carp::confess("no support for IPv6") };
     }
 
-    constant->import(CAN_IPV6 => $mod6);
+    *CAN_IPV6 = $mod6 ? sub() { 1 } : sub() { 0 };
     Socket->import(qw(unpack_sockaddr_in6 pack_sockaddr_in6)) if $mod6;
 }
 
