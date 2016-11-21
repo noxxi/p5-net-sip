@@ -184,7 +184,7 @@ B<sip_hdrval2parts>.
 Returns URI from parts, i.e. the reverse to B<sip_uri2parts>.
 For the meaning of the parameters see there.
 
-=item sip_uri2sockinfo(URI) -> (PROTO, HOST, PORT, FAMILY)
+=item sip_uri2sockinfo(URI; OPAQUE) -> (PROTO, HOST, PORT, FAMILY)
 
 This extracts information from B<URI> which are needed for creating the socket:
 B<HOST> is the IP address or host name, B<PORT> the port (undef if not given)
@@ -193,6 +193,9 @@ IP address.
 B<PROTO> will be set based on the SIP protocol and parameters, i.e. C<tls> for
 C<sips> URI, C<tcp> or C<udp> for C<sip> URI with explicit C<transport>
 parameter and C<undef> otherwise.
+
+If B<OPAQUE> the host name is not required to be a valid name.
+See B<OPAQUE> in C<ip_string2parts> for more information.
 
 =item sip_sockinfo2uri(PROTO, HOST, PORT, FAMILY) -> URI
 
@@ -206,7 +209,7 @@ This compares user part case sensitive, domain part case insensitive (does
 no DNS resolution) protocol and ports in domain (assumes default ports
 for protocol if no port is given).
 
-=item ip_string2parts(STR;OPAQUE) -> (HOST, PORT, FAMILY)
+=item ip_string2parts(STR;OPAQUE) -> (HOST, PORT, FAMILY) | \%HASH
 
 This will parse the given string STR and split it into the parts as follows:
 
@@ -224,6 +227,10 @@ hostname but some identifier with more allowed characters than a hostname then
 OPAQUE should be set and in this way no strict checking and no canonicalization
 is done.
 
+If the function is called with a scalar context it will return the result as
+a hash ref with the keys C<host>, C<addr>, C<port>, C<family> where C<addr> is
+only set if it is IP address.
+
 =item ip_parts2string(HOST, [ PORT, FAMILY, IPv6_BRCKT]) -> STR
 
 This is the reverse to ip_string2parts. If family is not given it will be
@@ -234,15 +241,24 @@ determined by checking if ip_or_host contains ':' (i.e IPv6 address):
   (ipv6,port)               -> [ipv6]:port
   (ipv6,undef,*,true)       -> [ipv6]
 
-=item ip_parts2sockaddr(IP, PORT, [FAMILY]) -> SOCKADDR
-
-This will create a sockaddr_in or sockaddr_in6 from IP and PORT. FAMILY will be
-determined by checking the IP if not given.
+If the first argument is a hash ref it will be treated as a hash ref as returned
+by B<ip_string2parts>.
 
 =item ip_sockaddr2parts(SOCKADDR, [FAMILY]) -> (IP, PORT, FAMILY)
 
 This will return the IP, PORT and FAMILY from a sockaddr_in or sockaddr_in6.
 If FAMILY is not given it will be determined based on the size of SOCKADDR.
+
+If the function is called with a scalar context it will return the result as a
+hash ref as described for B<ip_string2parts>.
+
+=item ip_parts2sockaddr(IP, PORT, [FAMILY]) -> SOCKADDR
+
+This will create a sockaddr_in or sockaddr_in6 from IP and PORT. FAMILY will be
+determined by checking the IP if not given.
+
+If the first argument is a hash ref it will be treated as a hash ref as returned
+by B<ip_sockaddr2parts>.
 
 =item ip_sockaddr2string(SOCKADDR, [FAMILY]) -> STR
 

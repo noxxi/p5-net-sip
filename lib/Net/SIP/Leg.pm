@@ -17,11 +17,13 @@ use Net::SIP::Packet;
 use Net::SIP::Request;
 use Net::SIP::Response;
 use Errno qw(EHOSTUNREACH EINVAL);
+use Hash::Util 'lock_ref_keys';
+use Carp;
 
 use fields qw(contact branch via proto src socketpool);
 
 # sock: the socket for the leg
-# src: [addr,port,family] where it receives data and sends data from
+# src: hash addr,port,family where it receives data and sends data from
 # proto: udp|tcp
 # contact: to identify myself (default from addr:port)
 # branch: base for branch-tag for via header
@@ -31,11 +33,13 @@ use fields qw(contact branch via proto src socketpool);
 # create a new leg
 # Args: ($class,%args)
 #   %args: hash, the following keys will be used and deleted from hash
-#      proto: udp|tcp. If not given will be determined from 'sock' or will
-#        default to 'udp'
-#      addr,port,family: source, i.e. where to receive data and send data from.
-#        if not given will be determined from 'sock'
-#        port will default to 5060, family determined from addr syntax
+#      proto: udp|tcp|tls. If not given will be determined from 'sock' or will
+#        default to 'udp' or 'tls' (if 'tls' arg is used)
+#      host,addr,port,family: source of outgoing and destination of
+#        incoming data.
+#        If IP address addr not given these values will be determined from
+#        'sock'. Otherwise port will default to 5060 or 5061 (tls) and family
+#        will be determined from addr syntax. host will default to addr
 #      dst: destination for this leg in case a fixed destination is used
 #        if not given 'sock' will be checked if connected
 #      sock: socket which can just be used
@@ -45,6 +49,8 @@ use fields qw(contact branch via proto src socketpool);
 #        if not given a new SocketPool object will be created based on the given
 #        'sock' or the created socket (addr, port...). 'sock' and 'socketpool'
 #        must not be given both.
+#      tls: optional configuration parameters for IO::Socket::SSL. Implies
+#        use of proto 'tls'.
 #      contact: contact information
 #        default will be based on addr and port
 #      branch: branch informaton
@@ -55,10 +61,16 @@ sub new {
     my ($class,%args) = @_;
     my $self = fields::new($class);
 
-    $self->{proto} = delete $args{proto};
+    my $proto = delete $args{proto};
     my $dst = delete $args{dst};
+    my $tls = delete $args{tls};
+    $proto ||= 'tls' if $tls;
+
+    my ($sip_proto,$default_port) = $proto && $proto eq 'tls'
+	? ('sips',5061) : ('sip',5060);
 
     my $family;
+    my $host = delete $args{host};
     if (my $addr = delete $args{addr}) {
 	my $port = delete $args{port};
 	my $family = delete $args{family};
@@ -69,21 +81,24 @@ sub new {
 	    $port = $port_a if $port_a;
 	}
 	# port defined and 0 -> get port from system
-	$port = 5060 if ! defined $port;
-	$self->{src} = [ $addr,$port,$family ];
+	$port = $default_port if ! defined $port;
+	$self->{src} = lock_ref_keys({
+	    host   => $host || $addr,
+	    addr   => $addr,
+	    port   => $port,
+	    family => $family
+	});
     }
 
-    if ($dst) {
-	if (!ref($dst)) {
-	    $dst = [ ip_string2parts($dst) ];
-	} elsif (!$dst->[2]) {
-	    # get family from IP if not given
-	    my @p = ip_string2parts($dst->[0]);
-	    $p[2] or die "need IP address not hostname in dst";
-	    $dst->[0] = $p[0];
-	    $dst->[1] ||= $p[1];
-	    $dst->[2] = $p[2];
-	}
+    if ($dst && !ref($dst)) {
+	my ($ip,$port,$family) = ip_string2parts($dst);
+	$family or die "destination must contain IP address";
+	$dst = lock_ref_keys({
+	    host   => $ip,
+	    addr   => $ip,
+	    port   => $port,
+	    family => $family,
+	});
     }
 
     my $sock = delete $args{sock};
@@ -94,86 +109,103 @@ sub new {
     my $sockpeer = undef;
     if (!$sock) {
 	# create new socket
-	$self->{proto} ||= 'udp';
+	$proto ||= 'udp';
 	my $src = $self->{src};
 	if (!$src) {
 	    # no src given, try to get useable soure from dst
 	    die "neither source, destination nor socket given" if !$dst;
-	    my $srcip = laddr4dst($dst->[0]) or die
-		"cannot find local IP when connecting to $dst->[0]";
-	    $src = $self->{src} = [ $srcip,0,$dst->[2] ];
+	    my $srcip = laddr4dst($dst->{addr}) or die
+		"cannot find local IP when connecting to $dst->{addr}";
+	    $src = $self->{src} = lock_ref_keys({
+		host   => $host || $srcip,
+		addr   => $srcip,
+		port   => 0,
+		family => $dst->{family},
+	    });
 	}
 
+	croak("addr must be IP address") if ! ip_is_v46($src->{addr});
+
 	my %sockargs = (
-	    Proto     => $self->{proto},
-	    Family    => $src->[2],
-	    LocalAddr => $src->[0],
+	    Proto     => $proto eq 'tls' ? 'tcp' : $proto,
+	    Family    => $src->{family},
+	    LocalAddr => $src->{addr},
 	    Reuse     => 1,
 	);
-	if ($self->{proto} eq 'tcp') {
+	if ($proto eq 'tcp' or $proto eq 'tls') {
 	    # with TCP we create a listening socket
 	    $sockargs{Listen} = 100;
 	} elsif ($dst) {
 	    # with UDP we can create a connected socket if dst is given
-	    $sockargs{PeerAddr} = $dst->[0];
-	    $sockargs{PeerPort} = $dst->[1];
+	    $sockargs{PeerAddr} = $dst->{addr};
+	    $sockargs{PeerPort} = $dst->{port};
 	    $sockpeer = $dst;
 	}
 
 	# create a socket with the given local port
 	# if no port is given try 5060,5062.. or let the system pick one
-	for my $port ($src->[1] ? $src->[1] : (5060,5062..5100,0)) {
+	for my $port ($src->{port}
+	    ? $src->{port}
+	    : ($default_port, 5062..5100, 0)) {
 	    last if $sock = INETSOCK(%sockargs, LocalPort => $port);
 	}
 
-	$sock or die "failed to bind to "
-	    . ip_parts2string(@{$src}[0,1,2]).": $!";
-	$src->[1] ||= $sock->sockport;
-	DEBUG(90,"created socket on ".ip_parts2string(@$src));
+	$sock or die "failed to bind to " . ip_parts2string($src).": $!";
+	$src->{port} ||= $sock->sockport;
+	DEBUG(90,"created socket on ".ip_parts2string($src));
 
     } else {
 	# get proto from socket
-	$self->{proto} ||= $sock->socktype == SOCK_DGRAM ? 'udp':'tcp';
+	$proto ||= $sock->socktype == SOCK_DGRAM ? 'udp':'tcp';
 
 	# get src from socket
 	if (!$self->{src}) {
 	    my $saddr = getsockname($sock) or die
 		"cannot get local name from provided socket: $!";
-	    $self->{src} = [ ip_sockaddr2parts($saddr) ];
+	    $self->{src} = ip_sockaddr2parts($saddr);
 	}
 	if (!$dst and my $saddr = getpeername($sock)) {
 	    # set dst from connected socket
-	    $sockpeer = $dst = [ ip_sockaddr2parts($saddr) ];
+	    $sockpeer = $dst = ip_sockaddr2parts($saddr);
 	}
     }
 
     # create socketpool and add primary socket of leg to it if needed
     $self->{socketpool} = $socketpool ||= Net::SIP::SocketPool->new(
-	$self->{proto}, $sock, $dst, $sockpeer);
+	$proto, $sock, $dst, $sockpeer, $tls);
 
-    my ($non_default_port,$sip_proto) =
-	$self->{src}[1] == 5060 ? (0,'sip') :
-	($self->{src}[1] == 5061 and $self->{proto} eq 'tcp') ? (0,'sips') :
-	($self->{src}[1],'sip');
-
-    my $leg_addr = ip_parts2string(
-	$self->{src}[0],
-	$non_default_port,
-	$self->{src}[2],
-	1,  # use "[ipv6]" even if no port is given
-    );
+    my $leg_addr = ip_parts2string({
+	%{$self->{src}},
+	addr => $self->{src}{host}, # prefer hostname
+	default_port => $default_port
+    }, 1);  # use "[ipv6]" even if no port is given
     $self->{contact}  = delete $args{contact} || "$sip_proto:$leg_addr";
 
     $self->{branch} = 'z9hG4bK'. (
 	delete $args{branch}
-	|| md5_hex(@{$self->{src}}, $self->{proto})  # ip, port, family, proto
+	|| md5_hex(@{$self->{src}}{qw(addr port)}, $proto)  # ip, port, proto
     );
 
     $self->{contact} =~m{^\w+:(.*)};
     $self->{via} =  sprintf( "SIP/2.0/%s %s;branch=",
-	uc($self->{proto}),$leg_addr );
+	uc($proto),$leg_addr );
+    $self->{proto} = $proto;
+
+    die "unhandled arguments: ".join(", ", keys %args) if %args;
 
     return $self;
+}
+
+###########################################################################
+# do we need retransmits on this leg?
+# Args: $self
+# Returns: 1|0
+#   1: need retransmits (UDP)
+#   0: don't need retransmits (TCP, TLS)
+###########################################################################
+sub do_retransmits {
+    my Net::SIP::Leg $self = shift;
+    return $self->{proto} eq 'udp' ? 1 : 0;
 }
 
 ###########################################################################
@@ -331,7 +363,7 @@ sub forward_outgoing {
 # add local Via header to requests
 # Args: ($self,$packet,$dst;$callback)
 #   $packet: Net::SIP::Packet
-#   $dst:    target for delivery as [ proto, ip, port, family ]
+#   $dst:    target for delivery as hash host,addr,port,family
 #   $callback: optional callback, if an error occurred the callback will
 #      be called with $! as argument. If no error occurred and the
 #      proto is tcp the callback will be called with error=0 to show
@@ -386,23 +418,24 @@ sub deliver {
 	$packet->insert_header( supported => '' );
     }
 
-    $dst->[2] ||= $dst->[0] && $dst->[0] eq 'tls' ? 5061 : 5060;
+    die "target protocol $dst->{proto} does not match leg $self->{proto}"
+	if exists $dst->{proto} && $dst->{proto} ne $self->{proto};
+    $dst->{port} ||= $self->{proto} eq 'tls' ? 5061 : 5060;
 
     $DEBUG && DEBUG( 2, "delivery with %s from %s to %s:\n%s",
 	$self->{proto},
-	ip_parts2string(@{$self->{src}}),
-	ip_parts2string(@{$dst}[1,2,3]),
+	ip_parts2string($self->{src}),
+	ip_parts2string($dst),
 	$packet->dump( Net::SIP::Debug->level -2 ) );
 
-    # XXXXX we just assume here that the protocol $dst->[0] matches $self->{proto} !!
-    return $self->sendto( $packet, [ @{$dst}[1,2,3] ], $callback );
+    return $self->sendto($packet,$dst,$callback);
 }
 
 ###########################################################################
 # send data to peer
 # Args: ($self,$packet,$dst,$callback)
 #   $packet: SIP packet object
-#   $dst:   target [$host,$port,$family]
+#   $dst:   target as hash host,addr,port,family
 #   $callback: callback for error|success, see method deliver
 # Returns: $success
 #   $success: true if no problems occurred while sending (this does not
@@ -422,18 +455,18 @@ sub sendto {
 # Currently just passes through the packet
 # Args: ($self,$packet,$from)
 #   $packet: packet object
-#   $from: [proto,ip,port,family] where the packet came from
+#   $from: hash with proto,addr,port,family where the packet came from
 # Returns: ($packet,$from)|()
 #   $packet: packet object
-#   $from: [proto,ip,port,family] where the packet came from
+#   $from: hash with proto,ip,port,family where the packet came from
 ###########################################################################
 sub receive {
     my Net::SIP::Leg $self = shift;
     my ($packet,$from) = @_;
 
     $DEBUG && DEBUG( 2,"received packet on %s from %s:\n%s",
-	sip_sockinfo2uri($self->{proto},@{$self->{src}}),
-	sip_sockinfo2uri(@$from),
+	sip_sockinfo2uri($self->{proto},@{$self->{src}}{qw(addr port family)}),
+	sip_sockinfo2uri(@{$from}{qw(proto addr port family)}),
 	$packet->dump( Net::SIP::Debug->level -2 )
     );
     return ($packet,$from);
@@ -507,12 +540,14 @@ sub can_deliver_to {
     if (@_>1) {
 	%spec = @_;
     } else {
-	@spec{ qw(proto addr port family) } = sip_uri2sockinfo(shift());
+	@spec{ qw(proto host port family) } = sip_uri2sockinfo(shift());
+	$spec{addr} = $spec{family} ? $spec{host} : undef;
     }
 
     # return false if proto or family don't match
     return if $spec{proto} && $spec{proto} ne $self->{proto};
-    return if $spec{family} && $self->{src} && $self->{src}[2] != $spec{family};
+    return if $spec{family} && $self->{src}
+	&& $self->{src}{family} != $spec{family};
 
     # XXXXX dont know how to find out if I can deliver to this addr from this
     # leg without lookup up route
@@ -530,8 +565,8 @@ sub can_deliver_to {
 sub match {
     my Net::SIP::Leg $self = shift;
     my $args = shift;
-    return if $args->{addr}  && $args->{addr}  ne $self->{src}[0];
-    return if $args->{port}  && $args->{port}  != $self->{src}[1];
+    return if $args->{addr}  && $args->{addr}  ne $self->{src}{addr};
+    return if $args->{port}  && $args->{port}  != $self->{src}{port};
     return if $args->{proto} && $args->{proto} ne $self->{proto};
     return if $args->{sub}   && !invoke_callback($args->{sub},$self);
     return 1;
@@ -553,12 +588,21 @@ sub socketpool {
 #  $parts: number of parts to include
 #     0 -> address only
 #     1 -> address:port
+#     2 -> host:port
 # Returns: string
 ###########################################################################
 sub laddr {
     my Net::SIP::Leg $self = shift;
-    return $self->{src}[0] if ! $_[0];
-    return ip_parts2string(@{$self->{src}}[0,1,2]);
+    my $parts = shift;
+    ! $parts and return $self->{src}{addr};
+    $parts == 1 and return ip_parts2string($self->{src});
+    $parts == 2 and return ip_parts2string({
+	%{ $self->{src} },
+	# prefer use of host
+	addr => $self->{src}{host} || $self->{src}{addr},
+    });
+    die "invalid parts specification $parts";
+
 }
 
 
@@ -570,7 +614,7 @@ sub laddr {
 sub dump {
     my Net::SIP::Leg $self = shift;
     return ref($self)." $self->{proto}:"
-	. ip_parts2string(@{$self->{src}}[0,1,2]);
+	. ip_parts2string($self->{src});
 }
 
 
@@ -581,7 +625,8 @@ sub dump {
 ###########################################################################
 sub key {
     my Net::SIP::Leg $self = shift;
-    return ref($self).' '.join(':',,$self->{proto},@{$self->{src}});
+    return ref($self).' '.join(':',$self->{proto},
+	@{$self->{src}}{qw(addr port)});
 }
 
 1;

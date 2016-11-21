@@ -1,5 +1,24 @@
 Revision history for Net::SIP
 
+0.800 2016-11-23
+- added support for TLS (SIPS) when IO::Socket::SSL >= 1.956 is installed
+- make the requirement for Net::DNS optional, i.e. only needed if actually used
+  for DNS lookups.
+- fully non-blocking DNS lookups in Dispatcher (dns_host2ip, dns_domain2srv)
+- new/extended API
+  - easy way to do own DNS resolving with dnsresolv argument to Dispatcher
+  - new function Util::ip_is_v46
+  - Util ip_string2parts, ip_sockaddr2parts return hash on wantarray and the
+    reverse functions ip_parts2string, ip_parts2sockaddr accept hash reference
+  - Leg->laddr(2) uses hostname instead of IP address
+- important, partly incompatible API changes
+  - Leg::new and Simple::new now croak when unexpected arguments are given
+  - Internals changed for more code reability and to take care of TLS where the
+    hostname is needed for certificate validatin. Lots of structures are now
+    managed by (restricted) hashes which were previously implemented as arrays.
+    Anybody grabbing in the internals will probably need to adjust code. i
+    Affects partly the more public functions of Leg and Dispatcher too.
+
 0.703 2016-11-20
 - fix to support Perl 5.14.x and lower
 0.702 2016-11-18

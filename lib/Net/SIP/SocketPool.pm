@@ -7,7 +7,7 @@
 use strict;
 use warnings;
 package Net::SIP::SocketPool;
-use fields qw(loop proto dst fds tids cb timeout_timer);
+use fields qw(loop proto tls dst fds tids cb timeout_timer);
 
 use Net::SIP::Util ':all';
 use Net::SIP::Packet;
@@ -44,11 +44,56 @@ sub import {
     }
 }
 
+my %TLSDefault = (
+    SSL_verifycn_scheme => 'sip',
+);
+
+# will be defined on first use of SSL depending if IO::Socket::SSL is available
+my $CAN_TLS;
+my ($SSL_WANT_READ, $SSL_WANT_WRITE);
+our $SSL_ERROR;
+
+
+###########################################################################
+# create a new SocketPool
+# Args: ($class,$proto,$fd,$peer,$connected,$tls)
+#  $proto: udp|tcp|tls
+#  $fd: the file descriptor for the master socket (i.e. listener)
+#  $peer: optional hash with addr,port,family of destination if restricted
+#  $connected: true if $fd is connected to $peer (useful with UDP only)
+#  $tls: \%options for IO::Socket::SSL when proto is tls
+# Returns: $self
+###########################################################################
 sub new {
-    my ($class,$proto,$fd,$peer,$connected) = @_;
-    $proto eq 'tls' and die "TLS not supported yet";
+    my ($class,$proto,$fd,$peer,$connected,$tls) = @_;
     my $self = fields::new($class);
     $self->{proto} = $proto || die "no protocol given";
+    if ($proto eq 'tls') {
+	# the underlying proto is still TCP and we remember to use TLS by
+	# having a true self.tls
+	$self->{proto} = 'tcp';
+	$CAN_TLS //= eval "use IO::Socket::SSL;1" && eval {
+	    # 1.956 defines the 'sip' scheme for hostname validation
+	    IO::Socket::SSL->VERSION >= 1.956
+		or die "need at least version 1.956";
+	    $SSL_WANT_READ  = IO::Socket::SSL::SSL_WANT_READ();
+	    $SSL_WANT_WRITE = IO::Socket::SSL::SSL_WANT_WRITE();
+	    *SSL_ERROR = \$IO::Socket::SSL::SSL_ERROR;
+	    1;
+	} || die "no SSL support using IO::Socket::SSL: $@";
+
+	# create different contexts for [m]aster and [c]lient
+	$tls ||= {};
+	$self->{tls}{c} = { %TLSDefault, %$tls };
+	$self->{tls}{m} = { %TLSDefault, %$tls, SSL_server => 1 };
+	for(qw(m c)) {
+	    $self->{tls}{$_}{SSL_reuse_ctx} and next;
+	    my $ctx = IO::Socket::SSL::SSL_Context->new($self->{tls}{$_})
+		|| die "failed to create SSL context: $SSL_ERROR";
+	    $self->{tls}{$_}{SSL_reuse_ctx} = $ctx;
+	}
+    }
+
     $self->{fds}   = {};
     $self->{tids}  = {};
     if (!$connected) {
@@ -73,6 +118,14 @@ sub DESTROY {
     }
 }
 
+###########################################################################
+# attaches SocketPool to EventLoop
+# Args: ($self,$loop,$callback)
+#  $loop: Net::SIP::Dispatcher::Eventloop or API compatible
+#  $callback: should be called for each new SIP packet received
+# Comment:
+#  If $loop is empty it just detaches from the current loop
+###########################################################################
 sub attach_eventloop {
     my Net::SIP::SocketPool $self = shift;
     my ($loop,$cb) = @_;
@@ -91,6 +144,12 @@ sub attach_eventloop {
     }
 }
 
+###########################################################################
+# returns master socket
+# Args: $self
+# Returns: $fd
+#  $fd: master socket
+###########################################################################
 sub master {
     my Net::SIP::SocketPool $self = shift;
     my @fo = grep { $_->{master} } values %{$self->{fds}};
@@ -99,13 +158,21 @@ sub master {
     return $fo[0]{fd};
 }
 
+###########################################################################
+# send packet via SocketPool
+# Args: ($self,$packet,$dst,$callback)
+#  $packet: Net::SIP::Packet
+#  $dst: where to send as hash with addr,port,family]
+#  $callback: callback to call on definite successful delivery (TCP/TLS only)
+#    or on error
+###########################################################################
 sub sendto {
     my Net::SIP::SocketPool $self = shift;
     my ($packet,$dst,$callback) = @_;
     if ($self->{dst}) {
 	$dst = $self->{dst}; # override destination
     } elsif (!ref($dst)) {
-	$dst = [ ip_string2parts($dst) ];
+	$dst = ip_string2parts($dst);
     }
 
     # select all sockets which are connected to the target
@@ -126,8 +193,8 @@ sub sendto {
 	    # any socket connected to dst?
 	    if ( my @s = grep {
 		$_->{peer} &&
-		$_->{peer}[0] eq $dst->[0] &&    # ip
-		$_->{peer}[1] == $dst->[1]       # port
+		$_->{peer}{addr} eq $dst->{addr} &&
+		$_->{peer}{port} == $dst->{port}
 	    } @$fos) {
 		$match |= 2;
 		$fos = \@s;
@@ -145,19 +212,21 @@ sub sendto {
 	if ($fo->{peer}) {
 	    # send over connected UDP socket
 	    my $rv = send($fo->{fd},$data,0);
-	    invoke_callback($callback, defined($rv) ? $! : 0);
+	    invoke_callback($callback, $!) if ! defined($rv);
 	    return;
 	} else {
 	    # sendto over unconnected UDP socket
-	    my $rv = send($fo->{fd},$data,0, ip_parts2sockaddr(@$dst[0,1,2]));
-	    invoke_callback($callback, defined($rv) ? $! : 0);
+	    my $rv = send($fo->{fd},$data,0, ip_parts2sockaddr($dst));
+	    invoke_callback($callback, $!) if ! defined($rv);
 	    return;
 	}
     }
 
     if ($self->{proto} eq 'tcp') {
 	if ($fo->{peer}) {
-	    $DEBUG && DEBUG(40,"send tcp data to @$dst via @{$fo->{peer}}");
+	    $DEBUG && DEBUG(40,"send tcp data to %s via %s",
+		ip_parts2string($dst),
+		ip_parts2string($fo->{peer}));
 	    # send over this connected socket
 	    $fo->{wbuf} .= $data;
 	    _tcp_send($self,$fo,$callback);
@@ -165,7 +234,8 @@ sub sendto {
 	}
 
 	# TCP listener: we need to ceate a new connected socket first
-	$DEBUG && DEBUG(40,"need new tcp socket to @$dst");
+	$DEBUG && DEBUG(40,"need new tcp socket to %s",
+	    ip_parts2string($dst));
 	my $clfd = INETSOCK(
 	    Proto => 'tcp',
 	    Reuse => 1,
@@ -180,7 +250,7 @@ sub sendto {
 	    didit => $self->{loop}->looptime,
 	    inside_connect => 1,
 	});
-	_tcp_connect($self,$fo,ip_parts2sockaddr(@{$dst}[0,1,2]),$callback);
+	_tcp_connect($self,$fo,ip_parts2sockaddr($dst),$callback);
 	return;
     }
 
@@ -296,11 +366,11 @@ sub _check_from {
     my Net::SIP::SocketPool $self = shift;
     my $dst = $self->{dst} or return;
     my ($ip,$port) = ip_sockaddr2parts(shift());
-    if ($ip ne $dst->[0] or $port ne $dst->[1]) {
+    if ($ip ne $dst->{addr} or $port ne $dst->{port}) {
 	$DEBUG && DEBUG(1,
 	    "drop packet received from %s since expecting only from %s",
 	    ip_parts2string($ip,$port),
-	    ip_parts2string(@{$dst}[0,1])
+	    ip_parts2string($dst)
 	);
 	return 0;
     }
@@ -329,8 +399,10 @@ sub _handle_read_udp {
 	    ip_sockaddr2string($from), $@
 	);
 
-    invoke_callback($self->{cb},$pkt,
-	[$self->{proto}, ip_sockaddr2parts($from)]);
+    invoke_callback($self->{cb},$pkt, {
+	%{ ip_sockaddr2parts($from) },
+	proto => $self->{proto},
+    });
 }
 
 # read from unconnected TCP socket:
@@ -343,13 +415,15 @@ sub _handle_read_tcp_m {
     my $srvfo = $self->{fds}{ fileno($srvfd) } or die;
     my $from = accept(my $clfd, $srvfd) or return;
     $self->{dst} && ! _check_from($self,$from) && return;
-    $self->_add_socket({
+    my $clfo = $self->_add_socket({
 	fd => $clfd,
-	peer => [ ip_sockaddr2parts($from) ],
+	peer => scalar(ip_sockaddr2parts($from)),
 	rbuf => '',
 	wbuf => '',
 	didit => $self->{loop}->looptime,
+	inside_connect => $self->{tls} && 1,
     });
+    _tls_accept($self,$clfo) if $self->{tls};
 }
 
 
@@ -365,7 +439,11 @@ sub _handle_read_tcp_co {
 	"continue reading SIP packet, offset=%d",length($fo->{rbuf}));
 
     retry:
-    my $n = sysread($fd, $fo->{rbuf}, $TCP_READSIZE, length($fo->{rbuf}));
+    my $n = sysread($fd, $fo->{rbuf},
+	# read max size of TLS frame when tls so that we don't get any awkward
+	# effects with user space buffering in TLS stack and select(2)
+	$self->{tls} ? 2**14 : $TCP_READSIZE,
+	length($fo->{rbuf}));
     if (!defined $n) {
 	goto retry if $!{EINTR};
 	return if $!{EAGAIN} || $!{EWOULDBLOCK};
@@ -436,8 +514,10 @@ sub _handle_read_tcp_co {
     }
 
     $fo->{didit} = $self->{loop}->looptime if $self->{loop};
-    invoke_callback($self->{cb},$pkt,
-	[$self->{proto}, ip_sockaddr2parts($from)]);
+    invoke_callback($self->{cb},$pkt, {
+	%{ ip_sockaddr2parts($from) },
+	proto => $self->{tls} ? 'tls' : $self->{proto},
+    });
 
     # continue with processing any remaining data in the buffer
     goto process_packet if $fo->{rbuf} ne '';
@@ -454,6 +534,7 @@ sub _tcp_connect {
 	$DEBUG && DEBUG(100,"tcp connect: ".($rv || $!));
 	if ($rv) {
 	    # successful connect
+	    return _tls_connect($self,$fo,$callback) if $self->{tls};
 	    delete $fo->{inside_connect};
 	    last;
 	}
@@ -489,6 +570,7 @@ sub _tcp_connect {
 
 	# connect done: remove write handler
 	$self->{loop}->delFD($xxfd, EV_WRITE);
+	return _tls_connect($self,$fo,$callback) if $self->{tls};
 	delete $fo->{inside_connect};
     }
 
@@ -533,6 +615,82 @@ sub _tcp_send {
 
     # signal success via callback
     invoke_callback($callback,0)
+}
+
+sub _tls_accept {
+    my Net::SIP::SocketPool $self = shift;
+    my ($fo,$xxfd) = @_;
+    if (!$xxfd) {
+	$DEBUG && DEBUG(40,"upgrade to SSL server");
+	IO::Socket::SSL->start_SSL($fo->{fd},
+	    %{$self->{tls}{m}},
+	    SSL_startHandshake => 0,
+	) or die "upgrade to SSL socket failed: $SSL_ERROR";
+    }
+
+    if ($fo->{fd}->accept_SSL) {
+	$DEBUG && DEBUG(40,"TLS accept success");
+	delete $fo->{inside_connect};
+	$self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
+	_addreader2loop($self,$fo);
+	return;
+    }
+
+    if ($SSL_ERROR == $SSL_WANT_READ) {
+	$DEBUG && DEBUG(40,"TLS accept - want read");
+	$self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
+	$self->{loop}->addFD($fo->{fd}, EV_READ, [ \&_tls_accept, $self, $fo ]);
+    } elsif ($SSL_ERROR == $SSL_WANT_WRITE) {
+	$DEBUG && DEBUG(40,"TLS accept - want write");
+	$self->{loop}->delFD($xxfd, EV_READ) if $xxfd;
+	$self->{loop}->addFD($fo->{fd}, EV_WRITE,
+	    [ \&_tls_accept, $self, $fo ]);
+    } else {
+	# permanent error
+	_del_socket($self, $fo,
+	    "SSL accept failed: $SSL_ERROR");
+    }
+}
+
+
+sub _tls_connect {
+    my Net::SIP::SocketPool $self = shift;
+    my ($fo,$callback,$xxfd) = @_;
+    if (!$xxfd) {
+	$DEBUG && DEBUG(40,"upgrade to SSL client");
+	IO::Socket::SSL->start_SSL($fo->{fd},
+	    %{$self->{tls}{c}},
+	    SSL_startHandshake => 0,
+	    SSL_verifycn_name => $fo->{peer}{host},
+	    SSL_hostname => $fo->{peer}{host},
+	) or die "upgrade to SSL socket failed: $SSL_ERROR";
+    }
+
+    if ($fo->{fd}->connect_SSL) {
+	$DEBUG && DEBUG(40,"TLS connect success");
+	delete $fo->{inside_connect};
+	$self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
+	_addreader2loop($self,$fo);
+	return _tcp_send($self,$fo,$callback) if $fo->{wbuf} ne '';
+	invoke_callback($callback,0);
+	return;
+    }
+
+    if ($SSL_ERROR == $SSL_WANT_READ) {
+	$DEBUG && DEBUG(40,"TLS connect - want read");
+	$self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
+	$self->{loop}->addFD($fo->{fd}, EV_READ,
+	    [ \&_tls_connect, $self, $fo, $callback ]);
+    } elsif ($SSL_ERROR == $SSL_WANT_WRITE) {
+	$DEBUG && DEBUG(40,"TLS connect - want write");
+	$self->{loop}->delFD($xxfd, EV_READ) if $xxfd;
+	$self->{loop}->addFD($fo->{fd}, EV_WRITE,
+	    [ \&_tls_connect, $self, $fo, $callback ]);
+    } else {
+	# permanent error
+	_del_socket($self, $fo,
+	    "SSL connect failed: $SSL_ERROR");
+    }
 }
 
 

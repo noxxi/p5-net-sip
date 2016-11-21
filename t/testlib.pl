@@ -2,6 +2,7 @@ use strict;
 use warnings;
 use IO::Socket;
 use Net::SIP::Util qw(CAN_IPV6 INETSOCK ip_parts2string);
+#Net::SIP::Debug->level(100);
 
 $SIG{PIPE} = 'IGNORE';
 
@@ -32,13 +33,72 @@ $SIG{ __DIE__ } = sub {
     exit(1);
 };
 
+
 ############################################################################
-# return the default LADDR, usually 127.0.0.1 or ::1 (if do_ipv6)
+# setup config for IPv6, TLS...
 ############################################################################
+
+my $LEG_ARGS_SUB  = sub {};
 my $DEFAULT_LADDR = '127.0.0.1';
-sub DEFAULT_LADDR {
-    return $DEFAULT_LADDR
+my $TRANSPORT = 'udp';
+my $NO_TLS;
+
+sub test_use_config {
+    my ($family,$transport) = @_;
+
+    if ($family =~m{6}) {
+	return if ! CAN_IPV6;
+	return if ! INETSOCK(LocalAddr => '::1', Proto => 'udp');
+	$DEFAULT_LADDR = '::1';
+    } else {
+	$DEFAULT_LADDR = '127.0.0.1';
+    }
+
+    $TRANSPORT = $transport if $transport;
+    if ($transport eq 'tls') {
+	$NO_TLS //= eval {
+	    local $SIG{__DIE__} = undef;
+	    eval "use IO::Socket::SSL;1"
+		|| die "failed to load IO::Socket::SSL";
+	    IO::Socket::SSL->VERSION >= 1.956
+		or die "need at least version 1.956";
+	    1;
+	} ? '' : $@;
+	$NO_TLS && return "no support for $transport: $NO_TLS";
+	my ($certdir) = grep { -f "$_/ca.pem" } qw(certs/ t/certs/)
+	    or die "cannot find certificates";
+	$LEG_ARGS_SUB = sub {
+	    my $who = shift;
+	    my $cert = "$certdir/$who.pem";
+	    -f $cert or die "no cert for $who";
+	    return (
+		tls => {
+		    SSL_cert_file => $cert,
+		    SSL_key_file  => $cert,
+		    SSL_ca_file   => "$certdir/ca.pem",
+		    # don't validate hostname
+		    SSL_verifycn_scheme => 'none',
+		}
+	    );
+	};
+    }
+    return;
 }
+
+sub test_leg_args { goto &$LEG_ARGS_SUB }
+sub test_sip_uri {
+    my ($addr,$param) = @_;
+    $param ||= {};
+    $param->{transport} = 'tcp' if $TRANSPORT eq 'tcp';
+    my $user = $addr =~s{^(.*)\@}{} ? $1 : undef;
+    return sip_parts2uri($addr,$user,
+	$TRANSPORT eq 'tls' ? 'sips' : 'sip',
+	$param,
+    );
+}
+
+sub use_ipv6 { test_use_config('', shift() ? 'ip6' : 'ip4') }
+
 
 ############################################################################
 # kill all process collected by fork_sub
@@ -77,6 +137,7 @@ sub fork_sub {
     defined( my $pid = fork() ) || die $!;
     if ( ! $pid ) {
 	# CHILD, exec sub
+	$SIG{ __DIE__ } = undef;
 	close($rh);
 	open( STDOUT,'>&'.fileno($wh) ) || die $!;
 	close( $wh );
@@ -210,6 +271,7 @@ sub create_socket {
     my ($proto,$addr,$port) = @_;
     $addr ||= $DEFAULT_LADDR;
     $proto ||= 'udp';
+    $proto = 'tcp' if $proto eq 'tls';
     $port ||= 0;
     my $sock = INETSOCK(
 	Proto => $proto,
@@ -222,20 +284,6 @@ sub create_socket {
 	ip_parts2string($sock->sockhost,$sock->sockport,$sock->sockdomain));
 }
 
-
-############################################################################
-# do we support IPv6
-############################################################################
-sub do_ipv6 { use_ipv6(1) }
-sub use_ipv6 {
-    $DEFAULT_LADDR = '127.0.0.1';
-    if ($_[0]) {
-	return if ! CAN_IPV6;
-	return if ! INETSOCK(LocalAddr => '::1', Proto => 'udp');
-	$DEFAULT_LADDR = '::1';
-    }
-    return 1;
-}
 
 ############################################################################
 # redefined Leg for Tests:
@@ -273,11 +321,8 @@ sub can_deliver_to {
 }
 
 sub _parse_addr {
-    my $addr = shift;
-    $addr =~m{^(?:(udp|tcp):)?(\S+)$} || die $addr;
-    my %rv = (proto => $1);
-    @rv{qw(host port family)} = ip_string2parts($2)
-	or die $addr;
+    my %rv;
+    @rv{ qw(proto host port family) } = sip_uri2sockinfo(shift());
     return \%rv;
 }
 
@@ -291,7 +336,7 @@ sub receive {
 sub deliver {
     my ($self,$packet,$to,$callback) = @_;
     invoke_callback($self->{dump_outgoing}, $packet,
-	ip_parts2string(@{$to}[1..3]));
+	ip_parts2string($to));
     return $self->SUPER::deliver( $packet,$to,$callback );
 }
 

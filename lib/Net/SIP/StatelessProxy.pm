@@ -15,6 +15,7 @@ use Net::SIP::Util ':all';
 use Digest::MD5 qw(md5_hex md5);
 use Carp 'croak';
 use List::Util 'first';
+use Hash::Util 'lock_ref_keys';
 use Net::SIP::Debug;
 
 ###########################################################################
@@ -251,13 +252,19 @@ sub __forward_response {
     $first =~m{^SIP/\d\.\d(?:/(\S+))?\s+(.*)};
     my $proto = lc($1) || 'udp';
     my ($addr,$port,$family) = ip_string2parts($2);
-    $port ||= 5060; # FIXME default for sip, not sips!
+    $port ||= $proto eq 'tls' ? 5061 : 5060;
     $addr = $param->{maddr} if $param->{maddr};
     $addr = $param->{received} if $param->{received}; # where it came from
     $port = $param->{rport} if $param->{rport}; # where it came from
-    @{ $entry->{dst_addr}} = [ $proto,$addr,$port,$family ];
+    @{ $entry->{dst_addr}} = lock_ref_keys({
+	proto  => $proto,
+	host   => $addr,
+	addr   => $family ? $addr : undef,
+	port   => $port,
+	family => $family
+    });
     $DEBUG && DEBUG(50, "get dst_addr from via header: %s -> %s",
-	$first, ip_parts2string(@{$entry->{dst_addr}[0]}[1..3]));
+	$first, ip_parts2string($entry->{dst_addr}[0]));
 
     if ( $addr !~m{^[0-9\.]+$|:} ) {
 	$self->{dispatcher}->dns_host2ip(
@@ -278,14 +285,14 @@ sub __forward_response_1 {
     my Net::SIP::StatelessProxy $self = shift;
     my $entry = shift;
     if ( @_ ) {
-	my ($errno,$ip) = @_;
+	my ($ip) = @_;
 	unless ( $ip ) {
 	    $DEBUG && DEBUG( 10,"cannot resolve address %s ",
-		ip_parts2string(@{$entry->{dst_addr}[0]}[1..3]));
+		ip_parts2string($entry->{dst_addr}[0]));
 	    return;
 	}
-	# replace host part in dst_addr with ip
-	$entry->{dst_addr}[0][1] = $ip;
+	# set addr dst_addr to ip
+	$entry->{dst_addr}[0]{addr} = $ip;
     }
 
     __forward_packet_final( $self,$entry );
@@ -319,12 +326,11 @@ sub __forward_request_getleg {
 	}
     } else {
 	my ($data,$param) = sip_hdrval2parts( route => $route );
-	my ($addr,$port) = ip_string2parts(
-	    (sip_uri2parts($data))[0],
-	    $param->{maddr} ? 1:0,   # accept anything as addr if we have maddr
-	);
-	$port ||= 5060; # FIXME sips
-	my @legs = $self->{dispatcher}->get_legs(addr => $addr, port => $port);
+	my ($proto, $addr, $port, $family) =
+	    sip_uri2sockinfo($data, $param->{maddr} ? 1:0);
+	$port ||= $proto eq 'tls' ? 5061 : 5060;
+	my @legs = $self->{dispatcher}->get_legs(
+	    addr => $addr, port => $port, family => $family);
 	if ( ! @legs and $param->{maddr} ) {
 	    @legs = $self->{dispatcher}->get_legs( 
 		addr => $param->{maddr}, 
@@ -343,11 +349,9 @@ sub __forward_request_getleg {
 	# still routing infos. Use next route as nexthop
 	my $route = $route[0] =~m{<([^\s>]+)>} && $1 || $route[0];
 	my ($data,$param) = sip_hdrval2parts( route => $route );
-	my ($addr,$port) = ip_string2parts(
-	    (sip_uri2parts($data))[0],
-	    $param->{maddr} ? 1:0,   # accept anything as addr if we have maddr
-	);
-	$port ||= 5060; # FIXME sips
+	my ($proto, $addr, $port, $family) =
+	    sip_uri2sockinfo($data, $param->{maddr} ? 1:0);
+	$port ||= $proto eq 'tls' ? 5061 : 5060;
 	$entry->{nexthop} = ip_parts2string($param->{maddr} || $addr,$port);
 	DEBUG( 50, "setting nexthop from route $route to $entry->{nexthop}" );
     }
@@ -396,7 +400,7 @@ sub __forward_request_1 {
     my %hostnames;
     foreach (@$dst_addr) {
 	ref($_) or Carp::confess("expected reference: $_");
-	$hostnames{$_->[0]} = $_->[0] if ! $_->[2];
+	$hostnames{$_->{host}} = $_->{host} if ! $_->{addr};
     }
     if ( %hostnames ) {
 	$self->{dispatcher}->dns_host2ip(
@@ -420,11 +424,11 @@ sub __forward_request_2 {
     while ( my ($host,$ip) = each %$host2ip ) {
 	unless ( $ip ) {
 	    DEBUG( 10,"cannot resolve address $host" );
-	    @$dst_addr = grep { $_->[1] ne $host } @$dst_addr;
+	    @$dst_addr = grep { $_->{host} ne $host } @$dst_addr;
 	    next;
 	} else {
 	    DEBUG( 50,"resolved $host -> $ip" );
-	    $_->[1] = $ip for grep { $_->[1] eq $host } @$dst_addr;
+	    $_->{addr} = $ip for grep { $_->{host} eq $host } @$dst_addr;
 	}
     }
 
@@ -454,12 +458,7 @@ sub __forward_packet_final {
 	@$legs = ();
 	my @addr;
 	foreach my $addr (@$dst_addr) {
-	    my $leg = first { $_->can_deliver_to(
-		proto  => $addr->[0],
-		addr   => $addr->[1],
-		port   => $addr->[2],
-		family => $addr->[3],
-	    ) } @all_legs;
+	    my $leg = first { $_->can_deliver_to(%$addr) } @all_legs;
 	    if ( ! $leg ) {
 		DEBUG( 50,"no leg for $addr" );
 		next;

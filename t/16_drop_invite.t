@@ -49,6 +49,7 @@ $host = inet_ntoa( $host );
 pipe( my $read,my $write); # to sync UAC with UAS
 my $pid = fork();
 if ( defined($pid) && $pid == 0 ) {
+    $SIG{__DIE__} = undef;
     close($read);
     $write->autoflush;
     uas( $sock_uas, $write, $host );
@@ -104,6 +105,7 @@ sub uac {
 
     # done
     ok( ! $dropping,'UAC got no answer from UAS' );
+    $uac->cleanup;
 }
 
 

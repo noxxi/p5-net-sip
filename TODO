@@ -1,4 +1,5 @@
 
+
 = TODO later
 
 - forward keep-alive \r\n in TCP in stateless proxy. See RFC 5626 4.4.1
@@ -6,7 +7,6 @@
 - Redirect only specific domains, ignore rest so that it can be
   chained with proxy for the rest
 - document dns_host2ip and dns_domain2srv in Net::SIP::Dispatcher
-  and make it truly asnychronous
 - do not look up tcp in Dispatcher::resolve_uri  if we have no leg
   which can do tcp
 - more tests

@@ -24,21 +24,21 @@ use fields (
     'queue',          # \@list of outstanding Net::SIP::Dispatcher::Packet
     'response_cache', # Cache of responses, used to reply to retransmits
     'disp_expire',    # expire/retransmit timer
+    'dnsresolv',      # optional external DNS resolver
 );
 
 use Net::SIP::Leg;
 use Net::SIP::Util ':all';
-use Errno qw(EHOSTUNREACH ETIMEDOUT ENOPROTOOPT EINVAL);
+use Net::SIP::Dispatcher::Eventloop;
+use Errno qw(EHOSTUNREACH ETIMEDOUT ENOPROTOOPT);
 use IO::Socket;
 use List::Util 'first';
-use Net::DNS;
+use Hash::Util 'lock_ref_keys';
 use Carp 'croak';
 use Net::SIP::Debug;
 use Scalar::Util 'weaken';
 
-
 use constant SRV_PRIO_UNDEF => -1;
-
 
 ###########################################################################
 # create new dispatcher
@@ -51,17 +51,19 @@ use constant SRV_PRIO_UNDEF => -1;
 #       defaults to true
 #   domain2proxy: mappings { domain => proxy } if a fixed proxy is used
 #       for specific domains, otherwise lookup will be done per DNS
-#       proxy can be ip,ip:port or \@list of [ prio,proto,ip,port ] like
-#       in the DNS SRV record.
+#       proxy can be ip,ip:port or \@list of hash with keys prio, proto, host,
+#       port and family like in the DNS SRV record
 #       with special domain '*' a default can be specified, so that DNS
 #       will not be used at all
+#   dnsresolv: DNS resolver function with interface sub->(type,domain,callback)
+#       which then calls callback->([{ prio, host, addr, port, family }])
 # Returns: $self
 ###########################################################################
 sub new {
     my ($class,$legs,$eventloop,%args) = @_;
 
-    my ($outgoing_proxy,$do_retransmits,$domain2proxy)
-	= delete @args{qw( outgoing_proxy do_retransmits domain2proxy )};
+    my ($outgoing_proxy,$do_retransmits,$domain2proxy,$dnsresolv) = delete
+	@args{qw( outgoing_proxy do_retransmits domain2proxy dnsresolv)};
     die "bad args: ".join( ' ',keys %args ) if %args;
 
     $eventloop ||= Net::SIP::Dispatcher::Eventloop->new;
@@ -75,9 +77,15 @@ sub new {
 	} else {
 	    my ($proto,$host,$port,$family) = sip_uri2sockinfo($_)
 		or croak( "invalid entry in domain2proxy: $_" );
-	    $port ||= 5060;
-	    $_ = [ map { [ SRV_PRIO_UNDEF, $_, $host, $port, $family ] }
-		$proto ? ($proto) : ('udp','tcp') ];
+	    $port ||= $proto && $proto eq 'tls' ? 5061:5060;
+	    $_ = [ map { lock_ref_keys({
+		prio   => SRV_PRIO_UNDEF,
+		proto  => $_,
+		host   => $host,
+		addr   => $family ? $host : undef,
+		port   => $port,
+		family => $family
+	    }) } $proto ? ($proto) : ('udp','tcp') ];
 	}
     }
 
@@ -88,18 +96,14 @@ sub new {
 	outgoing_proxy => undef,
 	response_cache => {},
 	do_retransmits => defined( $do_retransmits ) ? $do_retransmits : 1,
-	eventloop => $eventloop,
-	domain2proxy => $domain2proxy,
+	eventloop      => $eventloop,
+	domain2proxy   => $domain2proxy,
+	dnsresolv      => $dnsresolv,
     );
 
     $self->add_leg( @$legs );
 
-    if ( $outgoing_proxy ) {
-	my $leg = $self->_find_leg4addr( $outgoing_proxy )
-	    || die "cannot find leg for destination $outgoing_proxy";
-	$self->{outgoing_proxy} = $outgoing_proxy;
-    }
-
+    $self->outgoing_proxy($outgoing_proxy) if $outgoing_proxy;
 
     # regularly prune queue
     my $sub = sub {
@@ -116,6 +120,37 @@ sub new {
 
     return $self;
 }
+
+###########################################################################
+# get or set outgoing proxy
+# Args: ($self;$proxy)
+#  $proxy: optional new proxy or undef if proxy should be none
+# Returns:
+#  $proxy: current setting, i.e. after possible update
+###########################################################################
+sub outgoing_proxy {
+    my Net::SIP::Dispatcher $self = shift;
+    return $self->{outgoing_proxy} if ! @_;
+    my $outgoing_proxy = shift;
+    my $leg = $self->_find_leg4addr( $outgoing_proxy )
+	|| die "cannot find leg for destination $outgoing_proxy";
+    $self->{outgoing_proxy} = $outgoing_proxy;
+}
+
+
+###########################################################################
+# get or set the event loop
+# Args: ($self;$loop)
+#  $loop: optional new loop
+# Returns:
+#  $loop: current setting, i.e. after possible update
+###########################################################################
+sub loop {
+    my Net::SIP::Dispatcher $self = shift;
+    return $self->{eventloop} if ! @_;
+    $self->{eventloop} = shift;
+}
+
 
 ###########################################################################
 # set receiver, e.g the upper layer which gets the incoming packets
@@ -192,12 +227,12 @@ sub add_leg {
 				? ip_string2parts($1):();
 			    my %nh;
 			    if ( exists $h->{rport} and ! defined $h->{rport}) {
-				$nh{rport} = $from->[2];
+				$nh{rport} = $from->{port};
 			    }
-			    if ( $host ne $from->[1] or $nh{rport}) {
+			    if ( $host ne $from->{port} or $nh{rport}) {
 				# either hostname or different IP or required because
 				# rport was set
-				$nh{received} = $from->[1];
+				$nh{received} = $from->{addr};
 			    }
 			    if (%nh) {
 				$hdr->{value} = sip_parts2hdrval('via',$d,{ %$h,%nh});
@@ -287,8 +322,8 @@ sub add_timer {
 #     callback:  [ \&sub,@arg ] for calling back on definite delivery
 #       success (tcp only) or error (timeout,no route,...)
 #     leg:       specify outgoing leg, needed for responses
-#     dst_addr:  specify outgoing addr [proto,ip,port,family]
-#           needed for responses
+#     dst_addr:  specify outgoing addr as hash with keys
+#         proto,addr,port,family,host. Needed for responses.
 #     do_retransmits: if retransmits should be done, default from
 #        global value (see new())
 # Returns: NONE
@@ -402,7 +437,10 @@ sub receive {
 
 	    if ( my $response = $cache->{$cid} ) {
 		# I have a cached response, use it
-		$self->deliver($response->{packet}, leg => $leg, dst_addr => $from);
+		$self->deliver($response->{packet},
+		    leg => $leg,
+		    dst_addr => $from,
+		);
 		return;
 	    }
 	}
@@ -533,6 +571,10 @@ sub __deliver {
 	);
     }
 
+    if ($qentry->{retransmits} && ! $leg->do_retransmits) {
+	$qentry->{retransmits} = undef;
+    }
+
     # I have leg and addr, send packet thru leg to addr
     my $cb = sub {
 	my ($self,$qentry,$error) = @_;
@@ -548,7 +590,7 @@ sub __deliver {
     # or error
     #Carp::confess("expected reference, got $dst_addr") if !ref($dst_addr);
     $DEBUG && DEBUG(50,"deliver through leg ".$leg->dump.' @'
-	.ip_parts2string(@{$dst_addr}[1..3]));
+	.ip_parts2string($dst_addr));
     weaken( my $rself = \$self );
     $cb = [ $cb,$self,$qentry ];
     weaken( $cb->[1] );
@@ -570,8 +612,8 @@ sub __deliver {
 #   $legs: reference to list where to put leg
 #   $callback: called with () if resolved successfully, else called
 #      with @error
-#   $allowed_proto: optional \@list of protocols (default udp,tcp). If given only
-#      only these protocols will be considered and in this order.
+#   $allowed_proto: optional \@list of protocols (default udp, tcp, tls).
+#      If given only only these protocols will be considered and in this order.
 #   $allowed_legs: optional list of legs which are allowed
 # Returns: NONE
 ###########################################################################
@@ -588,10 +630,9 @@ sub resolve_uri {
 
     my @proto;
     my $default_port = 5060;
-    # XXXX hack, better would be to really parse URI, see *::Util::sip_hdrval2parts
     if ( $sip_proto eq 'sips' ) {
 	$default_port = 5061;
-	@proto = 'tcp';
+	@proto = 'tls';
     } elsif ( my $p = $param->{transport} ) {
 	# explicit spec of proto
 	@proto = lc($p)
@@ -674,10 +715,11 @@ sub resolve_uri {
 
     # is param maddr set?
     if ( my $ip = $param->{maddr} ) {
-	@$dst_addr = ($ip) if ip_is_v4($ip) || ip_is_v6($ip);
+	@$dst_addr = ($ip) if ip_is_v46($ip);
     }
 
-    # entries in form [ prio,proto,ip,port ]
+
+    # entries are hashes of prio,proto,host,addr,port,family
     my @resp;
     foreach my $addr ( @$dst_addr ) {
 	if ( ref($addr)) {
@@ -685,20 +727,46 @@ sub resolve_uri {
 	} else {
 	    my ($proto,$host,$port,$family) = sip_uri2sockinfo($addr)
 		or next;
-	    $port ||= $default_port;
-	    $addr = [$proto, $host, $port, $family];
-	    push @resp, map { [ SRV_PRIO_UNDEF, $_, $host, $port, $family ] }
-		$proto ? ($proto) : @proto;
+	    $addr = lock_ref_keys({
+		proto  => $proto,
+		host   => $host,
+		addr   => $family ? $host : undef,
+		port   => $port || $default_port,
+		family => $family
+	    });
+	    push @resp, map { lock_ref_keys({
+		%$addr,
+		proto => $_,
+		prio  => SRV_PRIO_UNDEF,
+	    }) } $proto ? ($proto) : @proto;
 	}
     }
 
     # should we use a fixed transport?
     if ( my $proto = $param->{transport} ) {
-	@resp = grep { lc($_->[1]) eq lc($proto) } @resp;
+	$proto = lc($proto);
+	if ($proto eq 'udp') {
+	    @resp = grep { $_->{proto} eq 'udp' } @resp
+	} elsif ($proto eq 'tcp') {
+	    # accept proto tcp and tls
+	    @resp = grep { $_->{proto} ne 'udp' } @resp
+	} elsif ($proto eq 'tls') {
+	    @resp = grep { $_->{proto} eq 'tls' } @resp
+	} else {
+	    # no matching proto available
+	    @resp = ();
+	}
+	return invoke_callback($callback, ENOPROTOOPT) if ! @resp;
     }
 
     my @param = ( $dst_addr,$legs,$allowed_legs,$default_port,$callback );
-    return __resolve_uri_final( @param,0,\@resp ) if @resp;
+    if (@resp) {
+	# directly call __resolve_uri_final if all names are resolved
+	return __resolve_uri_final( @param,\@resp )
+	    if ! grep { ! $_->{addr} } @resp;
+	return $self->dns_host2ip(\@resp,
+	    [ \&__resolve_uri_final, @param ]);
+    }
 
     # If no fixed mapping DNS needs to be used
 
@@ -706,42 +774,40 @@ sub resolve_uri {
     # but query instead directly for _sip._udp.domain.. like in
     # RFC2543 specified
 
-    return $self->dns_domain2srv(
-	$domain, \@proto, $sip_proto,
-	[ \&__resolve_uri_final, @param ]
-    );
+    return $self->dns_domain2srv($domain, \@proto,
+	[ \&__resolve_uri_final, @param ]);
 }
 
 sub __resolve_uri_final {
+    my ($dst_addr,$legs,$allowed_legs,$default_port,$callback,$resp) = @_;
+    $DEBUG && DEBUG_DUMP( 100,$resp );
 
-    my ($dst_addr,$legs,$allowed_legs,$default_port,$callback,$error,$resp) = @_;
-
-    DEBUG_DUMP( 100,$resp );
     return invoke_callback( $callback,EHOSTUNREACH )
 	unless $resp && @$resp;
 
     # for A|AAAA records we got no port, use default_port
-    $_->[3] ||= $default_port for(@$resp);
+    $_->{port} ||= $default_port for(@$resp);
 
     # sort by prio
     # FIXME: can contradict order in @proto
-    @$resp = sort { $a->[0] <=> $b->[0] } @$resp;
+    @$resp = sort { $a->{prio} <=> $b->{prio} } @$resp;
 
     @$dst_addr = ();
     @$legs = ();
     foreach my $r ( @$resp ) {
 	my $leg = first { $_->can_deliver_to(
-	    proto  => $r->[1],
-	    addr   => $r->[2],
-	    port   => $r->[3],
-	    family => $r->[4],
+	    proto  => $r->{proto},
+	    host   => $r->{host},
+	    addr   => $r->{addr},
+	    port   => $r->{port},
+	    family => $r->{family},
 	)} @$allowed_legs;
 
 	if ( $leg ) {
-	    push @$dst_addr, [ @{$r}[1..4] ];
+	    push @$dst_addr, $r;
 	    push @$legs,$leg;
 	} else {
-	    DEBUG( 50,"no leg for $r->[1]:".ip_parts2string($r->[2],$r->[3]));
+	    DEBUG(50,"no leg with $r->{proto} to %s", ip_parts2string($r));
 	}
     }
 
@@ -753,141 +819,326 @@ sub __resolve_uri_final {
 sub _find_leg4addr {
     my Net::SIP::Dispatcher $self = shift;
     my $dst_addr = shift;
-    $dst_addr = [ sip_uri2sockinfo($dst_addr) ] if ! ref($dst_addr);
-    my @legs;
-    foreach my $leg (@{ $self->{legs} }) {
-	push @legs,$leg if $leg->can_deliver_to(
-	    proto  => $dst_addr->[0],
-	    addr   => $dst_addr->[1],
-	    port   => $dst_addr->[2],
-	    family => $dst_addr->[3],
-	);
+    if (!ref($dst_addr)) {
+	my @si = sip_uri2sockinfo($dst_addr);
+	$dst_addr = lock_ref_keys({
+	    proto  => $si[0],
+	    host   => $si[1],
+	    addr   => $si[3] ? $si[1] : undef,
+	    port   => $si[2],
+	    family => $si[3],
+	});
     }
-    return @legs;
+    return grep { $_->can_deliver_to(%$dst_addr) } @{ $self->{legs} };
 }
 
 ###########################################################################
 # resolve hostname to IP using DNS
-# FIXME: should work asynchronously
 # Args: ($self,$host,$callback)
-#   $host: hostname or hash with hostname as keys
-#   $callback: gets called with (EINVAL) or (undef,result) once finished
-#     result is IP for single hosts or the input hash ref where the
-#     IPs are filled in as values
+#   $host: hostname or hash with hostname as keys or list of hashes which have
+#     a host value but miss an addr value
+#   $callback: gets called with (result)|() once finished
+#     result is @IP for single hosts or the input hash ref where the
+#     IPs are filled in as values or the list filled with addr, family
 # Returns: NONE
 ###########################################################################
 sub dns_host2ip {
     my Net::SIP::Dispatcher $self = shift;
     my ($host,$callback) = @_;
-    if ( ref($host)) {
-	my $err;
-	foreach ( keys %$host ) {
-	    if ( my $addr = hostname2ip($_)) {
-		$host->{$_} = $addr;
+
+    my (@rec,$cb);
+    if (!ref($host)) {
+	# scalar: return ip(s)
+	@rec = { host => $host };
+	my $transform = sub {
+	    my ($callback,$res) = @_;
+	    invoke_callback($callback,
+		grep { $_ } map { $_->{addr} } @$res);
+	};
+	$cb = [ $transform, $callback ];
+
+    } elsif (ref($host) eq 'HASH') {
+	# hash: fill hash values
+	@rec = map { (host => $_) } keys(%$host);
+	return invoke_callback($callback, $host) if ! @rec;
+	my $transform = sub {
+	    my ($host,$callback,$res) = @_;
+	    $host->{$_->{host}} = $_->{addr} for @$res;
+	    invoke_callback($callback, $host);
+	};
+	$cb = [ $transform, $host, $callback ];
+
+    } else {
+	# list of hashes: fill in addr and family in place
+	my @hasip;
+	for(@$host) {
+	    if ($_->{addr}) {
+		push @hasip, $_;
 	    } else {
-		$err = EINVAL;
+		push @rec, $_;
 	    }
 	}
-	invoke_callback( $callback, $err,$host );
-    } else {
-	my $addr = hostname2ip($host);
-	invoke_callback(
-	    $callback,
-	    $addr ? ( undef,$addr ) : ( $? )
-	);
+	return invoke_callback($callback, $host) if ! @rec;
+
+	my $transform = sub {
+	    my ($hasip,$callback,$res) = @_;
+	    # original order might be changed !!!
+	    push @$res, @$hasip;
+	    invoke_callback($callback, $res);
+	};
+	$cb = [ $transform, \@hasip, $callback ];
     }
+
+    my @queries;
+    for (@rec) {
+	my %q = (name => $_->{host}, rec => $_);
+	push @queries, { type  => 'AAAA', %q } if CAN_IPV6;
+	push @queries, { type  => 'A',    %q };
+    }
+
+    my $res = $self->{dnsresolv} || __net_dns_resolver($self->{eventloop});
+    __generic_resolver({
+	queries  => \@queries,
+	callback => $cb,
+	resolver => $res,
+    });
 }
 
 ###########################################################################
 # get SRV records using DNS
-# FIXME: should work asynchronously
 # Args: ($self,$domain,$proto,$sip_proto,$callback)
 #   $domain: domain for SRV query
-#   $proto: which protocols to check
-#   $sip_proto: sip|sips
+#   $proto: which protocols to check: list of udp|tcp|tls
 #   $callback: gets called with result once finished
-#      result is \@list of [ prio,proto,name,port,?family ]
+#      result is \@list of hashes with prio, proto, host ,port, family
 # Returns: NONE
 ###########################################################################
 sub dns_domain2srv {
     my Net::SIP::Dispatcher $self = shift;
-    my ($domain,$protos,$sip_proto,$callback) = @_;
-
-    # FIXME: don't do blocking DNS queries
-    my $dns = Net::DNS::Resolver->new;
+    my ($domain,$protos,$callback) = @_;
 
     # Try to get SRV records for _sip._udp.domain or _sip._tcp.domain
-    my (@resp,%addr2ip);
-    foreach my $proto ( @$protos ) {
-	if ( my $q = $dns->query( '_'.$sip_proto.'._'.$proto.'.'.$domain,'SRV' )) {
-	    foreach my $rr ( $q->answer ) {
-		if ( $rr->type eq 'SRV' ) {
-		    push @resp,
-			[ $rr->priority, $proto,$rr->target,$rr->port, undef ];
-		} elsif ( $rr->type eq 'A') {
-		    push @{ $addr2ip{$rr->name} }, [ $rr->address, AF_INET ];
-		} elsif (CAN_IPV6 && $rr->type eq 'AAAA' ) {
-		    push @{ $addr2ip{$rr->name} }, [ $rr->address, AF_INET6 ];
+    my @queries;
+    for(@$protos) {
+	push @queries, {
+	    type  => 'SRV',
+	    name  => $_ eq 'tls' ? "_sips._tcp.$domain" : "_sip._$_.$domain",
+	    rec => { host => $domain, proto => $_ },
+	}
+    }
+
+    # If we have any results for SRV we can break,
+    # otherwise continue with with A|AAAA
+    push @queries, { type => 'BREAK-IF-RESULTS' };
+    for(@$protos) {
+	my %r = (
+	    name => $domain,
+	    rec => {
+		prio => SRV_PRIO_UNDEF,
+		host => $domain,
+		proto => $_,
+		port => undef,
+	    }
+	);
+	push @queries, { type => 'AAAA', %r } if CAN_IPV6;
+	push @queries, { type => 'A', %r };
+    }
+
+    my $res = $self->{dnsresolv} || __net_dns_resolver($self->{eventloop});
+    __generic_resolver({
+	queries  => \@queries,
+	callback => $callback,
+	resolver => $res,
+    });
+}
+
+
+# generic internal resolver helper
+# expects to be initially called as
+#   __generic_resolver({
+#	queries  => \@queries,
+#	callback => $callback,
+#	resolver => $res,
+#   });
+#
+# where queries are a list of tasks for DNS lookup with
+#  type: SRV|A|AAAA
+#  name: the name to lookup
+#  rec:  the record to enrich with
+#         SRV: prio, proto, host, addr, port, family
+#         A|AAAA: addr, family
+#
+# resolver is a function to do the actual resolving.
+# An implementation using Net::DNS is done in __net_dns_resolver.
+# It will be called as
+#  resolver->(type,name,callback) where
+#  type:     SRV|A|AAAA
+#  name:     the name to lookup
+#  callback: callback to invoke after lookup is done with the list of
+#    answers, i.e. list-ref containing
+#    [ 'SRV',  prio, proto, host, port ]
+#    [ 'A',    addr, name ]
+#    [ 'AAAA', addr, name ]
+#
+# callback is invoked when all queries are done with the list of
+# enriched records
+
+sub __generic_resolver {
+    my ($state,$qid,$ans) = @_;
+    $DEBUG && DEBUG_DUMP(100,[$qid,$ans]) if $qid;
+
+    my $queries = $state->{queries};
+    my $results = $state->{results} ||= [];
+    goto after_answers if !$qid;
+
+    for(my $i=0; $i<@$queries; $i++) {
+	my $q = $queries->[$i];
+	if ($q->{type} eq 'BREAK-IF-RESULTS') {
+	    if (@$results) {
+		# skip remaining queries
+		@$queries = ();
+		last;
+	    }
+	    splice(@$queries,$i,1);
+	    $i--;
+	    next;
+	}
+
+	"$q->{type}:$q->{name}" eq $qid or next;
+
+	# query matches qid of answer, remove from @$queries
+	splice(@$queries,$i,1);
+	$i--;
+
+	if ($q->{type} eq 'SRV') {
+	    my (%addr2ip,@res);
+	    for(@$ans) {
+		my $type = shift(@$_);
+		if ($type eq 'A' or CAN_IPV6 ? $type eq 'AAAA' : 0) {
+		    # supplemental data
+		    my ($ip,$name) = @_;
+		    push @{ $addr2ip{$name}}, [$ip, $type];
+		    next;
+		}
+		next if $type ne 'SRV';
+		my ($prio,$host,$port) = @$_;
+		my $family = ip_is_v46($host);
+		push @res, lock_ref_keys({
+		    %{$q->{rec}},
+		    prio   => $prio,
+		    host   => $host,
+		    addr   => $family ? $host : undef,
+		    port   => $port,
+		    family => $family,
+		});
+	    }
+	    for(my $i=0; $i<@res; $i++) {
+		$res[$i]{family} and next;
+		my $ipt = $addr2ip{$res[$i]{host}} or next;
+		my $r = splice(@res,$i,1);
+		for(@$ipt) {
+		    my ($ip,$type) = @$_;
+		    splice(@res,$i,0, lock_ref_keys({
+			%$r,
+			addr => $ip,
+			family => $type eq 'A' ? AF_INET : AF_INET6,
+		    }));
+		    $i++;
+		}
+		$i--;
+	    }
+	    for my $r (@res) {
+		if ($_->{family}) {
+		    # done: host in SRV record is already IP address
+		    push @$results, $r;
+		    next;
+		}
+
+		# need to resolve host in SRV record - put queries on top
+		for my $type (CAN_IPV6 ? qw(AAAA A) : qw(A)) {
+		    unshift @$queries, {
+			type => $type,
+			name => $r->{host},
+			rec => lock_ref_keys({
+			    %$r,
+			    family => $type eq 'A' ? AF_INET : AF_INET6,
+			})
+		    };
 		}
 	    }
-	}
-    }
 
-    # name to addr based on additional records in DNS answer
-    my @resp_resolved;
-    for my $r (@resp) {
-	if ( my $addr = $addr2ip{ $r->[2] } ) {
-	    for (@$addr) {
-		push @resp_resolved, [
-		    $r->[0],  # keep prio
-		    $r->[1],  # keep proto
-		    $_->[0],  # addr from addr2ip
-		    $r->[3],  # keep port
-		    $_->[1],  # family from addr2ip
-		]
+	} elsif ($q->{type} eq 'AAAA' || $q->{type} eq 'A') {
+	    for(@$ans) {
+		my ($type,$ip) = @$_;
+		push @$results, lock_ref_keys({
+		    %{$q->{rec}},
+		    addr   => $ip,
+		    family => $type eq 'A' ? AF_INET : AF_INET6,
+		});
 	    }
 	} else {
-	    # either already IP or no additional data for resolving -> later
-	    # XXX fixme blocking DNS lookup
-	    my $ip = hostname2ip($r->[2]) or do {
-		DEBUG( 1,"cannot resolve $r->[2]" );
-		next;
-	    };
-	    push @resp_resolved, [
-		$r->[0],  # keep prio
-		$r->[1],  # keep proto
-		$_->[0],  # addr from hostname2ip
-		$r->[3],  # keep port
-		$r->[4],  # keep family
-	    ],
+	    die "unknown type $q->{type}";
 	}
     }
-    @resp = @resp_resolved;
 
-    # if no SRV records try to resolve address directly
-    unless (@resp) {
-	# try addr directly
-	my $default_port = $sip_proto eq 'sips' ? 5061:5060;
-	if ( CAN_IPV6 and my $q = $dns->query( $domain,'AAAA' )) {
-	    foreach my $rr ($q->answer ) {
-		$rr->type eq 'AAAA' || next;
-		push @resp,map { [
-		    SRV_PRIO_UNDEF, $_ , $rr->address, $default_port, AF_INET6
-		] } @$protos;
-	    }
-	}
-	if ( my $q = $dns->query( $domain,'A' )) {
-	    foreach my $rr ($q->answer ) {
-		$rr->type eq 'A' || next;
-		push @resp,map { [
-		    SRV_PRIO_UNDEF, $_ , $rr->address, $default_port, AF_INET
-		] } @$protos;
-	    }
-	}
+    after_answers:
+    if (!@$queries) {
+	# no more queries -> done
+	invoke_callback($state->{callback}, @$results && $results);
+	return;
     }
-    my $error = @resp ? 0 : EINVAL;
-    invoke_callback( $callback,$error,\@resp );
+
+    # still queries -> send next to resolver
+    my $q = $queries->[0];
+    DEBUG(52,'issue lookup for %s %s',$q->{type}, $q->{name});
+    $state->{resolver}($q->{type}, $q->{name}, [
+	\&__generic_resolver,
+	$state,
+	"$q->{type}:$q->{name}"
+    ]);
 }
+
+my $NetDNSResolver;
+sub __net_dns_resolver {
+    my $eventloop = shift;
+
+    # Create only a single resolver.
+    $NetDNSResolver ||= eval {
+	require Net::DNS;
+	Net::DNS->VERSION >= 0.56 or die "version too old, need 0.56+";
+	Net::DNS::Resolver->new;
+    } || die "cannot create resolver: Net::DNS not available?: $@";
+
+    my $dnsread = sub {
+	my ($sock,$callback) = @_;
+	my $q = $NetDNSResolver->bgread($sock);
+	$eventloop->delFD($sock);
+	my @ans;
+	for my $rr ( $q->answer ) {
+	    if ($rr->type eq 'SRV' ) {
+		push @ans, [
+		    'SRV',
+		    $rr->priority,
+		    $rr->target,
+		    $rr->port,
+		];
+	    } elsif ($rr->type eq 'A' || $rr->type eq 'AAAA') {
+		push @ans, [ $rr->type, $rr->address, $rr->name ];
+	    }
+	}
+	invoke_callback($callback,\@ans);
+    };
+
+    return sub {
+	my ($type,$name,$callback) = @_;
+	my $sock = $NetDNSResolver->bgsend($name,$type);
+	$eventloop->addFD($sock, EV_READ,
+	    [$dnsread, $sock, $callback],
+	    'dns'
+	);
+    };
+}
+
 
 ###########################################################################
 # Net::SIP::Dispatcher::Packet
@@ -900,7 +1151,7 @@ use fields (
     'packet',       # the packet which nees to be delivered
     'dst_addr',     # to which adress the packet gets delivered, is array-ref because
 		    # the DNS/SRV lookup might return multiple addresses and protocols:
-		    # [ [proto,ip,port,family], [...]]
+		    # [ { hash: proto, addr, port, family, host }, { ... }, ...]
     'leg',          # through which leg the packet gets delivered, same number
 		    # of items like dst_addr
     'retransmits',  # array of retransmit time stamps, if undef no retransmit will be
@@ -913,6 +1164,7 @@ use fields (
 
 use Net::SIP::Debug;
 use Net::SIP::Util ':all';
+use Hash::Util 'lock_ref_keys';
 
 ###########################################################################
 # create new Dispatcher::Packet
@@ -930,10 +1182,19 @@ sub new {
     $self->{id} ||= $self->{packet}->tid;
     $self->{callid} ||= $self->{packet}->callid;
 
-    if ( my $addr = $self->{dst_addr} ) {
-	# accept string, [ proto, ip,... ] and convert it to the form we want
-	$self->{dst_addr} = [ ref($addr) ? $addr : [ sip_uri2sockinfo($addr) ] ]
-	    if !ref($addr) || !ref($addr->[0])
+    my $addr = $self->{dst_addr};
+    if (!$addr) {
+    } elsif (!ref($addr)) {
+	my @si = sip_uri2sockinfo($addr);
+	$self->{dst_addr} = [ lock_ref_keys({
+	    proto  => $si[0],
+	    host   => $si[1],
+	    addr   => $si[3] ? $si[1] : undef,
+	    port   => $si[2],
+	    family => $si[3],
+	}) ];
+    } elsif (ref($addr) ne 'ARRAY') {
+	$self->{dst_addr} = [ $addr ];
     }
     if ( my $leg = $self->{leg} ) {
 	$self->{leg} = [ $leg ] if UNIVERSAL::can( $leg,'deliver' );
@@ -941,14 +1202,6 @@ sub new {
 
     $self->{dst_addr} ||= [];
     $self->{leg} ||= [];
-
-    # figure out retransmit times
-    my $p = $self->{packet} || die "no packet for delivery";
-    if ( $p->is_response ) {
-	unless ( $self->{leg} && $self->{dst_addr} ) {
-	    die "Response packet needs leg and dst_addr"
-	}
-    }
     return $self;
 }
 
@@ -960,6 +1213,8 @@ sub new {
 ###########################################################################
 sub prepare_retransmits {
     my Net::SIP::Dispatcher::Packet $self = shift;
+    return if $self->{leg}[0] && ! $self->{leg}[0]->do_retransmits;
+
     my $now = shift;
     my $p = $self->{packet};
 

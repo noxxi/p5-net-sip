@@ -54,6 +54,7 @@ use Net::SIP::Debug;
 #                      leg can be (derived from) Net::SIP::Leg, a IO::Handle (socket),
 #                      a hash reference for constructing Net::SIP::Leg or a string
 #                      with a SIP address (i.e. sip:ip:port;transport=TCP)
+#     tls            - common TLS settings used when creating a leg
 #     outgoing_proxy - specify outgoing proxy, will create leg if necessary
 #     proxy          - alias to outgoing_proxy
 #     route|routes   - \@list with SIP routes in right syntax "<sip:host:port;lr>"...
@@ -81,16 +82,7 @@ sub new {
     my ($class,%args) = @_;
     my $auth = delete $args{auth};
     my $registrar = delete $args{registrar};
-
-    my $from = delete $args{from};
-    my $contact = delete $args{contact};
-    my $domain = delete $args{domain};
-    if ($from) {
-	$domain = $1 if !defined($domain)
-	    && $from =~m{\bsips?:[^@]+\@([\w\-\.]+)};
-	$from = "$from <sip:$from\@$domain>"
-	    if $from !~m{\s} && $from !~m{\@};
-    }
+    my $tls = delete $args{tls};
 
     my $ua_cleanup = [];
     my $self = fields::new( $class );
@@ -110,55 +102,79 @@ sub new {
 	}
     }
 
+    my $disp = delete $args{dispatcher};
+    my $loop = $disp && $disp->loop
+	|| delete $args{loop}
+	|| Net::SIP::Dispatcher::Eventloop->new;
+    my $ob   = delete $args{outgoing_proxy} || delete $args{proxy};
+    my $d2p  = delete $args{domain2proxy}   || delete $args{d2p};
+    $disp ||= Net::SIP::Dispatcher->new(
+	[],
+	$loop,
+	domain2proxy => $d2p,
+    );
 
     my $legs = delete $args{legs} || delete $args{leg};
     $legs = [ $legs ] if $legs && ref($legs) ne 'ARRAY';
     $legs ||= [];
+
+    my $host2ip = sub {
+	my $host = shift;
+	my $ip;
+	$disp->dns_host2ip($host,sub { $ip = shift // \0 });
+	$loop->loop(15,\$ip);
+	die "failed to resolve $host ".($ip ? '':' - timed out')
+	    if ! defined $ip || ref($ip);
+	return ($ip,ip_is_v46($ip));
+    };
 
     foreach ($legs ? @$legs : ()) {
 	if ( UNIVERSAL::isa( $_, 'Net::SIP::Leg' )) {
 	    # keep
 	} elsif ( UNIVERSAL::isa( $_, 'IO::Handle' )) {
 	    # socket
-	    $_ = Net::SIP::Leg->new( sock => $_ )
+	    $_ = Net::SIP::Leg->new(
+		sock => $_,
+		tls => $tls
+	    )
 	} elsif ( UNIVERSAL::isa( $_, 'HASH' )) {
 	    # create leg from hash
-	    $_ = Net::SIP::Leg->new( %$_ )
+	    $_ = Net::SIP::Leg->new(tls => $tls, %$_)
 	} elsif (my ($proto,$host,$port,$family) = sip_uri2sockinfo($_)) {
-	    $_ = Net::SIP::Leg->new(proto => $proto, 
-		addr => $host, port => $port, family => $family);
+	    (my $addr,$family) = $family ? ($host,$family) : $host2ip->($host);
+	    $_ = Net::SIP::Leg->new(
+		proto  => $proto,
+		tls    => $tls,
+		host   => $host,
+		addr   => $addr,
+		port   => $port,
+		family => $family
+	    );
 	} else {
 	    die "invalid leg specification: $_";
 	}
     }
 
-    my $ob = delete $args{outgoing_proxy}
-	|| delete $args{proxy};
     for my $dst ($registrar, $ob) {
-	$_ or next;
+	$dst or next;
 	first { $_->can_deliver_to($dst) } @$legs and next;
-	my ($proto,$addr,$port,$family) = sip_uri2sockinfo($dst);
+	my ($proto,$host,$port,$family) = sip_uri2sockinfo($dst);
+	(my $addr,$family) = $family ? ($host,$family) : $host2ip->($host);
 	push @$legs, Net::SIP::Leg->new(
 	    proto  => $proto,
-	    dst    => [ $addr, $port, $family ],
+	    tls    => $tls,
+	    dst    => {
+		host   => $host,
+		addr   => $addr,
+		port   => $port,
+		family => $family,
+	    }
 	);
     }
 
-    my $loop = delete $args{loop}
-	|| Net::SIP::Dispatcher::Eventloop->new;
+    $disp->add_leg(@$legs) if @$legs;
+    $disp->outgoing_proxy($ob) if $ob;
 
-    my $d2p = delete $args{domain2proxy} || delete $args{d2p};
-    my $disp;
-    if ( $disp = delete $args{dispatcher} ) {
-	$disp->add_leg( @$legs );
-    } else {
-	$disp =  Net::SIP::Dispatcher->new(
-	    $legs,
-	    $loop,
-	    outgoing_proxy => $ob,
-	    domain2proxy => $d2p,
-	);
-    }
     push @$ua_cleanup, [
 	sub {
 	    my ($self,$legs) = @_;
@@ -170,6 +186,22 @@ sub new {
     my $endpoint = Net::SIP::Endpoint->new( $disp );
 
     my $routes = delete $args{routes} || delete $args{route};
+    my $from = delete $args{from};
+    my $contact = delete $args{contact};
+    my $domain = delete $args{domain};
+
+    if ($from) {
+	if (!defined($domain) && $from =~m{\bsips?:[^@]+\@([\w\-\.]+)}) {
+	    $domain = $1;
+	}
+	if ($from !~m{\s} && $from !~m{\@}) {
+	    my $sip_proto = $disp->get_legs(proto => 'tls') ? 'sips' : 'sip';
+	    $from = "$from <$sip_proto:$from\@$domain>";
+	}
+    }
+
+    die "unhandled arguments: ".join(", ", keys %args) if %args;
+
     %$self = (
 	auth => $auth,
 	from => $from,
@@ -305,7 +337,7 @@ sub register {
     my $contact = delete $args{contact} || $self->{contact};
     if ( ! $contact) {
 	$contact = $from;
-	my $local = $leg->laddr(1);
+	my $local = $leg->laddr(2);
 	$contact.= '@'.$local unless $contact =~s{\@([^\s;,>]+)}{\@$local};
     }
 
@@ -376,7 +408,9 @@ sub invite {
     $to || croak( "need peer of call" );
     if ( $to !~m{\s} && $to !~m{\@} ) {;
 	croak( "no domain and no fully qualified to" ) if ! $self->{domain};
-	$to = "$to <sip:$to\@$self->{domain}>";
+	my $sip_proto = $self->{dispatcher}->get_legs(proto => 'tls')
+	    ? 'sips' : 'sip';
+	$to = "$to <$sip_proto:$to\@$self->{domain}>";
 	$ctx->{to} = $to if $ctx;
     }
     my $call = Net::SIP::Simple::Call->new( $self,$ctx||$to );

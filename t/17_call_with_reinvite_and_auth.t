@@ -2,13 +2,13 @@
 
 use strict;
 use warnings;
-use Test::More tests => 11*4;
+use Test::More tests => 11*6;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 
 my @tests;
-for my $transport (qw(udp tcp)) {
+for my $transport (qw(udp tcp tls)) {
     for my $family (qw(ip4 ip6)) {
 	push @tests, [ $transport, $family ];
     }
@@ -17,8 +17,8 @@ for my $transport (qw(udp tcp)) {
 for my $t (@tests) {
     my ($transport,$family) = @$t;
     SKIP: {
-	if (!use_ipv6($family eq 'ip6')) {
-	    skip "no IPv6 support",11;
+	if (my $err = test_use_config($family,$transport)) {
+	    skip $err,11;
 	    next;
 	}
 
@@ -57,14 +57,17 @@ killall();
 
 sub uac {
     my ($lsock,$laddr,$peer) = @_;
-    my $ua = Simple->new(
-	leg => $lsock,
-	from => "sip:me\@$laddr",
+    my $ua = Net::SIP::Simple->new(
+	from => 'me\@$laddr',
 	auth => [ 'me','secret' ],
+	leg => Net::SIP::Leg->new(
+	    sock => $lsock,
+	    test_leg_args('caller.sip.test'),
+	)
     );
 
     print "Started\n";
-    my $call = $ua->invite( "sip:me\@$peer") or die;
+    my $call = $ua->invite(test_sip_uri("me\@$peer")) or die;
 
     sleep(1);
     print "Starting ReInvite\n";
@@ -90,10 +93,13 @@ sub uac {
 
 sub uas {
     my ($lsock,$laddr,$peer) = @_;
-    my $ua = Simple->new(
-	leg => $lsock,
-	from => "sip:me\@$laddr",
-    );
+    my $ua = Net::SIP::Simple->new(
+	from => "me\@$laddr",
+	leg => Net::SIP::Leg->new(
+	    sock => $lsock,
+	    test_leg_args('listen.sip.test'),
+	)
+    ) || die $!;
 
     # accept call
     my $invite = my $reinvite = my $bye = 0;

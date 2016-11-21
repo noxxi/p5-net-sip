@@ -74,7 +74,7 @@ sub addFD {
 sub delFD {
     my Net::SIP::Dispatcher::Eventloop $self = shift;
     my $fd = shift;
-    defined( my $fn = fileno($fd)) || return;
+    defined( my $fn = $fd && fileno($fd)) || return;
     if (!@_) {
 	$DEBUG && DEBUG(99, "$self delete fn=$fn sock="
 	    . eval { ip_sockaddr2string(getsockname($fd)) });
@@ -195,7 +195,11 @@ sub loop {
 	# wait for selected fds
 	my $fds = $self->{fd};
 	my @vec = @{$self->{vec}};
+	$DEBUG && DEBUG(100,"BEFORE read=%s write=%s",
+	    unpack("b*",$vec[0]), unpack("b*",$vec[1]));
 	my $nfound = select($vec[0],$vec[1], undef, $to);
+	$DEBUG && DEBUG(100,"AFTER  read=%s write=%s nfound=%d",
+	    unpack("b*",$vec[0]), unpack("b*",$vec[1]), $nfound);
 	if ($nfound<0) {
 	    next if $! == EINTR;
 	    die $!

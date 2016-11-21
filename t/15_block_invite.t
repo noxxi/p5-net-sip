@@ -35,6 +35,7 @@ my $uas_addr = do {
 pipe( my $read,my $write); # to sync UAC with UAS
 my $pid = fork();
 if ( defined($pid) && $pid == 0 ) {
+    $SIG{__DIE__} = undef;
     close($read);
     $write->autoflush;
     uas( $sock_uas, $write );
@@ -90,7 +91,7 @@ sub uac {
     } else {
 	print $pipe "call closed by timeout not stopvar\n";
     }
-
+    $uac->cleanup;
 }
 
 ###############################################

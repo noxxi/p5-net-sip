@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 9*4;
+use Test::More tests => 9*6;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -16,7 +16,7 @@ use IO::Socket;
 use File::Temp;
 
 my @tests;
-for my $transport (qw(udp tcp)) {
+for my $transport (qw(udp tcp tls)) {
     for my $family (qw(ip4 ip6)) {
 	push @tests, [ $transport, $family ];
     }
@@ -25,8 +25,8 @@ for my $transport (qw(udp tcp)) {
 for my $t (@tests) {
     my ($transport,$family) = @$t;
     SKIP: {
-	if (!use_ipv6($family eq 'ip6')) {
-	    skip "no IPv6 support",9;
+	if (my $err = test_use_config($family,$transport)) {
+	    skip $err,9;
 	    next;
 	}
 
@@ -42,6 +42,7 @@ for my $t (@tests) {
 
 	if ( $pid == 0 ) {
 	    # CHILD = UAS
+	    $SIG{ __DIE__ } = undef;
 	    close($from_uas);
 	    $to_uac->autoflush;
 	    uas( $sock_uas, $to_uac );
@@ -52,17 +53,16 @@ for my $t (@tests) {
 	close($sock_uas);
 	close($to_uac);
 
-	alarm(40);
-	$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
+	alarm(60);
+	local $SIG{__DIE__} = sub { kill 9,$pid; ok( 0,'died' ) };
+	local $SIG{ALRM} =    sub { kill 9,$pid; ok( 0,'timed out' ) };
 
-	my $uas_uri = sip_parts2uri($uas_addr, undef, 'sip', {
-	    $transport eq 'tcp' ? ( transport => 'tcp' ) :()
-	});
-	uac( $uas_uri,$from_uas );
+	uac(test_sip_uri($uas_addr), $from_uas);
 
 	my $uas = <$from_uas>;
+	killall();
+
 	is( $uas, "UAS finished events=1 2 D # 3 4 B *\n", "UAS finished with DTMF" );
-	wait;
     }
 }
 
@@ -87,10 +87,13 @@ sub uac {
     my ($transport) = sip_uri2sockinfo($peer_uri);
     my ($lsock,$laddr) = create_socket($transport);
     diag( "UAC on $laddr" );
-    my $uac = Simple->new(
-	from         => 'me.uac@example.com',
-	leg          => $lsock,
+    my $uac = Net::SIP::Simple->new(
+	from => 'me.uac@example.com',
 	domain2proxy => { 'example.com' => $peer_uri },
+	leg => Net::SIP::Leg->new(
+	    sock => $lsock,
+	    test_leg_args('caller.sip.test'),
+	)
     );
     ok( $uac, 'UAC created' );
 
@@ -101,7 +104,7 @@ sub uac {
     # Call UAS
     my @events;
     my $call = $uac->invite(
-	'you.uas@example.com',
+	test_sip_uri('you.uas@example.com'),
 	init_media  => $uac->rtp( 'send_recv', $send_something ),
 	cb_rtp_done => \$rtp_done,
 	cb_dtmf => sub {
@@ -126,6 +129,7 @@ sub uac {
     is( $uas,"UAS RTP ok\n","UAS RTP ok" );
     # DTMF echoed back
     is( "@events","1 2 D # 3 4 B *", "UAC DTMF received");
+    $uac->cleanup;
 }
 
 ###############################################
@@ -135,9 +139,12 @@ sub uac {
 sub uas {
     my ($sock,$to_uac) = @_;
     Debug->set_prefix( "DEBUG(uas):" );
-    my $uas = Simple->new(
+    my $uas = Net::SIP::Simple->new(
 	domain => 'example.com',
-	leg => $sock
+	leg => Net::SIP::Leg->new(
+	    sock => $sock,
+	    test_leg_args('listen.sip.test'),
+	)
     ) || die $!;
 
     # store received RTP data in array

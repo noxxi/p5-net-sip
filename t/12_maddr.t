@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 8*4;
+use Test::More tests => 8*6;
 
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
@@ -17,7 +17,7 @@ use Net::SIP::Util ':all';
 use IO::Socket;
 
 my @tests;
-for my $transport (qw(udp tcp)) {
+for my $transport (qw(udp tcp tls)) {
     for my $family (qw(ip4 ip6)) {
 	push @tests, [ $transport, $family ];
     }
@@ -26,8 +26,8 @@ for my $transport (qw(udp tcp)) {
 for my $t (@tests) {
     my ($transport,$family) = @$t;
     SKIP: {
-	if (!use_ipv6($family eq 'ip6')) {
-	    skip "no IPv6 support",8;
+	if (my $err = test_use_config($family,$transport)) {
+	    skip $err,8;
 	    next;
 	}
 
@@ -41,6 +41,7 @@ for my $t (@tests) {
 	pipe( my $read,my $write); # to sync UAC with UAS
 	my $pid = fork();
 	if ( defined($pid) && $pid == 0 ) {
+	    $SIG{__DIE__} = undef;
 	    close($read);
 	    $write->autoflush;
 	    uas( $sock_uas, $write );
@@ -54,10 +55,7 @@ for my $t (@tests) {
 	alarm(15);
 	$SIG{__DIE__} = $SIG{ALRM} = sub { kill 9,$pid; ok( 0,'died' ) };
 
-	my $uas_uri = sip_parts2uri($uas_addr, undef, 'sip', {
-	    $transport eq 'tcp' ? ( transport => 'tcp' ) :()
-	});
-	uac( $uas_uri,$read );
+	uac(test_sip_uri($uas_addr), $read);
 
 	ok( <$read>, "UAS finished" );
 	wait;
@@ -77,15 +75,19 @@ sub uac {
 	= sip_uri2sockinfo($peer_uri);
     my $uac = Net::SIP::Simple->new(
 	from => 'me.uac@example.com',
-	leg => (create_socket($transport))[0],
+	leg => Net::SIP::Leg->new(
+	    sock => (create_socket($transport))[0],
+	    test_leg_args('caller.sip.test'),
+	)
     );
     ok( $uac, 'UAC created' );
 
     ok( <$pipe>, "UAS ready\n" ); # wait until UAS is ready
     my $ringing = 0;
-    my $call = $uac->invite(
-	"<sip:you.uas\@example.com:$peer_port;maddr=$peer_addr>",
-    );
+    my $call = $uac->invite( test_sip_uri(
+	"you.uas\@example.com:$peer_port",
+	{ maddr => $peer_addr }
+    ));
     my $stop;
     if ( $call ) {
 	ok( $call, 'Call established' );
@@ -94,6 +96,7 @@ sub uac {
 	$call->loop( \$stop,10 );
     }
     ok( $stop, 'UAS down' );
+    $uac->cleanup;
 }
 
 ###############################################
@@ -105,7 +108,10 @@ sub uas {
     Net::SIP::Debug->set_prefix( "DEBUG(uas):" );
     my $uas = Net::SIP::Simple->new(
 	domain => 'example.com',
-	leg => $sock
+	leg => Net::SIP::Leg->new(
+	    sock => $sock,
+	    test_leg_args('listen.sip.test'),
+	)
     ) || die $!;
     print $pipe "UAS created\n";
 

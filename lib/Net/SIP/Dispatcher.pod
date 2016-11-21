@@ -43,10 +43,7 @@ event loop package.
 =item outgoing_proxy
 
 Specifies C<< "ip:port" >> of outgoing proxy, e.g the proxy which will
-be used for all outgoing packets.
-
-If no leg but an outgoing proxy is specified a leg will be created
-which can reach the outgoing proxy by udp.
+be used for all outgoing packets. A leg to reach this proxy need to exist.
 
 =item do_retransmits
 
@@ -66,6 +63,15 @@ pairs. Special domain '*' can be used to specify a fallback
 and '*.domain' to include not only the domain but the subdomains
 too.
 See sub B<deliver> for more details.
+
+=item dnsresolv
+
+Optional function to be used for DNS resolving instead of Net::DNS. This is
+intended for testing or for interfacing with own resolver code.
+The function is called with C<< (type,name,callback) >> and is expected to
+invoke the callback with the answer. C<type> can be SRV, A or AAAA and the
+answer is expected to be a list consisting of C<< ['SRV',prio,host,port] >>,
+C<< ['A',ip,host] >> and C<< ['AAAA',ip,host] >>.
 
 =back
 
@@ -144,7 +150,7 @@ REPEAT is the optional repeat interval for the timer.
 =item deliver ( PACKET, %ARGS )
 
 Delivers B<Net::SIP::Packet> PACKET.
-%ARGS can speciffy hints for delivery:
+%ARGS can specify hints for delivery:
 
 =over 8
 
@@ -174,8 +180,9 @@ incoming leg for the request.
 
 =item dst_addr
 
-Destionation, i.e. where to deliver the packet as C<< [ip, port, family] >>.
-This is necessary for responses, for requests it can be find out based on the
+Destination, i.e. where to deliver the packet.  This should be given as a hash
+with the keys C<proto> (udp|tcp|tls), C<host>, C<addr>, C<port> and C<family>.
+This is necessary for responses, for requests it can be found out based on the
 requests URI.
 
 =item do_retransmits

@@ -120,6 +120,11 @@ objects.
 Hash with mapping between domain and upstream proxy. See same key in the constructor
 of L<Net::SIP::Dispatcher> for more details.
 
+=item tls
+
+Common TLS settings for all legs which will be created by this object. See
+C<new> in L<Net::SIP::Leg> for more details.
+
 =back
 
 =back

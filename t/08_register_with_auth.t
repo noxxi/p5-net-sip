@@ -7,14 +7,14 @@
 
 use strict;
 use warnings;
-use Test::More tests => 7*4;
+use Test::More tests => 7*6;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
 use Digest::MD5 'md5_hex';
 
 my @tests;
-for my $transport (qw(udp tcp)) {
+for my $transport (qw(udp tcp tls)) {
     for my $family (qw(ip4 ip6)) {
 	push @tests, [ $transport, $family ];
     }
@@ -23,8 +23,8 @@ for my $transport (qw(udp tcp)) {
 for my $t (@tests) {
     my ($transport,$family) = @$t;
     SKIP: {
-	if (!use_ipv6($family eq 'ip6')) {
-	    skip "no IPv6 support",7;
+	if (my $err = test_use_config($family,$transport)) {
+	    skip $err,7;
 	    next;
 	}
 
@@ -61,14 +61,17 @@ killall();
 sub uac {
     my ($lsock,$laddr,$peer) = @_;
     my $ua = Simple->new(
-	leg => $lsock,
-	from => 'sip:me@example.com',
+	from => test_sip_uri('me@example.com'),
+	leg => Net::SIP::Leg->new(
+	    sock => $lsock,
+	    test_leg_args('caller.sip.test'),
+	)
     );
     print "Started\n";
 
     my $realm = '';
     $ua->register(
-	registrar => $peer,
+	registrar => test_sip_uri($peer),
 	auth => sub {
 	    $realm = shift;
 	    return [ 'wolf','lobo' ],
@@ -78,7 +81,7 @@ sub uac {
 
     $realm = '';
     $ua->register(
-	registrar => $peer,
+	registrar => test_sip_uri($peer),
 	auth => sub {
 	    $realm = shift;
 	    return [ '007','secret' ],
@@ -88,8 +91,8 @@ sub uac {
 
     $realm = '';
     $ua->register(
-	from => 'sip:noauth@example.com',
-	registrar => $peer,
+	from => test_sip_uri('noauth@example.com'),
+	registrar => test_sip_uri($peer),
 	auth => sub {
 	    $realm = shift;
 	    return [ '007','secret' ],
@@ -113,7 +116,12 @@ sub uac {
 
 sub registrar {
     my ($lsock,$laddr,$peer) = @_;
-    my $ua = Simple->new( leg => $lsock );
+    my $ua = Simple->new(
+	leg => Net::SIP::Leg->new(
+	    sock => $lsock,
+	    test_leg_args('proxy.sip.test'),
+	)
+    );
     my $auth = Authorize->new(
 	dispatcher => $ua->{dispatcher},
 	user2a1   => { '007' => md5_hex('007:REALM.example.com:secret') },

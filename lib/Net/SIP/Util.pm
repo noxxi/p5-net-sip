@@ -47,7 +47,7 @@ BEGIN {
     } else {
 	*INETSOCK = sub { return IO::Socket::INET->new(@_) };
 	no warnings 'redefine';
-	*AF_INET6 = sub() { Carp::confess("no support for IPv6") };
+	*AF_INET6 = sub() { 10 }
     }
 
     *CAN_IPV6 = $mod6 ? sub() { 1 } : sub() { 0 };
@@ -62,7 +62,7 @@ our @EXPORT_OK = qw(
     ip_string2parts ip_parts2string
     ip_parts2sockaddr ip_sockaddr2parts
     ip_sockaddr2string
-    ip_is_v4 ip_is_v6
+    ip_is_v4 ip_is_v6 ip_is_v46
     ip_ptr ip_canonical
     hostname2ip
     CAN_IPV6
@@ -230,19 +230,22 @@ sub sip_uri2parts {
 ###########################################################################
 sub sip_parts2uri {
     my ($domain,$user,$proto,$param) = @_;
-    return sip_parts2hdrval('uri',
+    my $uri = sip_parts2hdrval('uri',
 	($proto || 'sip'). ':' 
 	. ($user ? $user.'@' : '')
 	. (ref($domain) ? ip_parts2string(@$domain) : $domain),
 	$param
     );
+    return $param && %$param ? "<$uri>" : $uri;
 }
 
 ###########################################################################
 # Extract the parts from a URI which are relevant for creating the socket, i.e
 #   sips:host:port
 #   sip:host;transport=TCP
-# Args: $uri
+# Args: $uri,?$opaque
+#   $uri:  SIP URI
+#   $opaque: don't enforce that host part of URI looks like hostname or IP
 # Returns: ($proto,$host,$port,$family)
 #   $proto: udp|tcp|tls|undef
 #   $host: ip or hostname from URI
@@ -256,7 +259,7 @@ sub sip_uri2sockinfo {
 	($proto && $proto eq 'sips') ? 'tls' :           # sips -> tls
 	$param->{transport} ? lc($param->{transport}) :  # transport -> tcp|udp
 	undef;                                           # not restricted
-    return ($proto, ip_string2parts($domain));
+    return ($proto, ip_string2parts($domain, shift()));
 }
 
 ###########################################################################
@@ -335,13 +338,13 @@ sub laddr4dst {
 # create socket preferable on port 5060 from which one might reach the given IP
 # Args: ($dst_addr;$proto)
 #  $dst_addr: the adress which must be reachable from this socket
-#  $proto: tcp|udp, default udp
+#  $proto: udp|tcp|tls, default udp
 # Returns: ($sock,$ip_port) || $sock || ()
 #  $sock: the created socket
 #  $ip_port: ip:port of socket, only given if called in array context
 # Comment: the IP it needs to come from works by creating a udp socket
 #  to this host and figuring out it's IP by calling getsockname. Then it
-#  tries to create a socket on this IP using port 5060 and if this does
+#  tries to create a socket on this IP using port 5060/5061 and if this does
 #  not work it tries the port 5062..5100 and if this does not work too
 #  it let the system use a random port
 #  If creating of socket fails it returns () and $! is set
@@ -356,14 +359,14 @@ sub create_socket_to {
     # Bind to this IP
     # First try port 5060..5100, if they are all used use any port
     # I get from the system
-    for my $p ( 5060, 5062..5100, 0 ) {
+    for my $p ( $proto eq 'tls' ? 5061:5060, 5062..5100, 0 ) {
 	$DEBUG && DEBUG( "try to listen on %s",
 	    ip_parts2string($laddr,$p,$fam));
 	my $sock = INETSOCK(
 	    Family => $fam,
 	    LocalAddr => $laddr,
 	    $p ? (LocalPort => $p) : (),
-	    Proto => $proto,
+	    Proto => $proto eq 'tls' ? 'tcp' : $proto,
 	) or next;
 
 	my $port = $p || (ip_sockaddr2parts(getsockname($sock)))[1];
@@ -473,34 +476,32 @@ sub invoke_callback {
 #  $addr: ip_or_host, ipv4_or_host:port, [ip_or_host]:port
 #  $opaque: optional argument, if true it will not enforce valid syntax
 #     for the hostname and will not return canonicalized data
-# Returns: ($host,$port,$family)
+# Returns: (\%hash|$host,$port,$family)
 #  $host:   canonicalized IP address or hostname
 #  $port:   the port or undef if no port was given in string
 #  $family: AF_INET or AF_INET6 or undef (hostname not IP given)
+#  %hash:   hash with addr, port, family - used if !wantarray
 ###########################################################################
 sub ip_string2parts {
     my ($addr,$opaque) = @_;
-    my @rv;
+    my ($host,$port,$family);
     if ($addr =~m{:[^:\s]*(:)?}) {
 	if (!$1) {
 	    # (ipv4|host):port
-	    ($addr,my $port) = split(':',$addr,2);
-	    @rv = ($addr,$port,AF_INET);
+	    ($host,$port) = split(':',$addr,2);
+	    $family = AF_INET;
 	} elsif ($addr =~m{^\[(?:(.*:.*)|([^:]*))\](?::(\w+))?\z}) {
-	    if ($1) {
-		# [ipv6](:port)?
-		 @rv = ($1,$3,AF_INET6);
-	    } else {
-		# [ipv4|host](:port)?
-		@rv = ($2,$3,AF_INET);
-	    }
+	    $port = $3;
+	    ($host,$family) = $1
+		? ($1, AF_INET6) # [ipv6](:port)?
+		: ($2, AF_INET); # [ipv4|host](:port)?
 	} else {
 	    # ipv6
-	    @rv = ($addr,undef,AF_INET6);
+	    ($host,$family) = ($addr, AF_INET6);
 	}
     } else {
 	# ipv4|host
-	@rv = ($addr,undef,AF_INET);
+	($host,$family) = ($addr, AF_INET);
     }
 
     # we now have:
@@ -508,35 +509,60 @@ sub ip_string2parts {
     # AF_INET  otherwise, i.e. IPv4 or hostname or smthg invalid
 
     # check if this is an IP address from the expected family
-    if (my $addr = inet_pton($rv[2],$rv[0])) {
+    if (my $addr = inet_pton($family,$host)) {
 	# valid IP address
-	return @rv if $opaque;
-	return (inet_ntop($rv[2],$addr), @rv[1,2]); # canonicalized form
+	$addr = $opaque ? $host
+	    : inet_ntop($family, $addr); # canonicalized form
+    } elsif ($opaque) {
+	# not a valid IP address - pass through because opaque
+	$family = $addr = undef;
+    } elsif ($host =~m{^[a-z\d\-\_]+(?:\.[a-z\d\-\_]+)*\.?\z}) {
+	# not a valid IP address but valid hostname
+	$family = $addr = undef;
+    } else {
+	# neither IP nor valid hostname
+	Carp::confess("invalid hostname '$host' in '$_[0]'");
+	die("invalid hostname '$host' in '$_[0]'");
     }
 
-    return (@rv[0,1],undef) if $opaque;
-
     # make sure that it looks like a valid hostname and return it lower case
-    return (lc($rv[0]), $rv[1], undef)
-	if $rv[0] =~m{^[a-z\d\-\_]+(?:\.[a-z\d\-\_]+)*\.?\z};
+    $host = lc($host) if ! $opaque;
+    return ($host,$port,$family) if wantarray;
+    return {
+	host   => $host,
+	addr   => $addr,
+	port   => $port,
+	family => $family
+    };
 
-    #Carp::confess("invalid hostname '$rv[0]' in '$_[0]'");
-    die "invalid hostname '$rv[0]' in '$_[0]'";
 }
 
 ###########################################################################
 # concat ip/host and port to string, i.e. reverse to ip_string2parts
-# Args: ($host;$port,$family)
+# Args: ($host;$port,$family,$ipv6_brackets)
 #  $host:   the IP address or hostname
 #  $port:   optional port
 #  $family: optional, will be detected from $host if not given
 #  $ipv6_brackets: optional, results in [ipv6] if true and no port given
+# alternative Args: (\%hash,$ipv6_brackets)
+#  %hash:   hash containing addr|host, port and family and opt. default_port
 # Returns: $addr
 #  $addr: ip_or_host, ipv4_or_host:port, [ipv6]:port,
 #         [ipv6] (if ipv6_brackets)
 ###########################################################################
 sub ip_parts2string {
-    my ($host,$port,$fam,$ipv6_brackets) = @_;
+    my ($host,$port,$fam,$ipv6_brackets);
+    if (ref($_[0])) {
+	(my $hash,$ipv6_brackets) = @_;
+	$port = $hash->{port};
+	$fam  = $hash->{family};
+	$host = $hash->{addr} || $hash->{host};
+	$port = 0 if exists $hash->{default_port}
+	    && $port == $hash->{default_port};
+    } else {
+	($host,$port,$fam,$ipv6_brackets) = @_;
+    }
+    Carp::confess("empty") if ! $host;
     $host = lc($host);
     return $host if ! $port && !$ipv6_brackets;
     $fam ||= $host =~m{:} && AF_INET6;
@@ -552,10 +578,19 @@ sub ip_parts2string {
 #  $ip:     the IP address
 #  $port:   port
 #  $family: optional, will be detected from $ip if not given
+# alternative Args: \%hash
+#  %hash: hash with addr, port, family
 # Returns: $sockaddr
 ###########################################################################
 sub ip_parts2sockaddr {
-    my ($ip,$port,$fam) = @_;
+    my ($ip,$port,$fam);
+    if (ref($_[0])) {
+	$ip   = $_[0]->{addr};
+	$port = $_[0]->{port};
+	$fam  = $_[0]->{family};
+    } else {
+	($ip,$port,$fam) = @_;
+    }
     $fam ||= $ip =~m{:} ? AF_INET6 : AF_INET;
     if ($fam == AF_INET) {
 	return pack_sockaddr_in($port,inet_pton(AF_INET,$ip))
@@ -571,10 +606,11 @@ sub ip_parts2sockaddr {
 # Args: $sockaddr;$family
 #  $sockaddr: sockaddr as returned by getsockname, recvfrom..
 #  $family: optional family, otherwise guessed based on size of sockaddr
-# Returns: ($ip,$port,$family)
+# Returns: (\%hash | $ip,$port,$family)
 #  $ip:     the IP address
 #  $port:   port
 #  $family: AF_INET or AF_INET6
+#  %hash: hash with host, addr, port, family - if not wantarray
 ###########################################################################
 sub ip_sockaddr2parts {
     my ($sockaddr,$fam) = @_;
@@ -583,7 +619,14 @@ sub ip_sockaddr2parts {
     my ($port,$addr) = $fam == AF_INET
 	? unpack_sockaddr_in($sockaddr)
 	: unpack_sockaddr_in6($sockaddr);
-    return (inet_ntop($fam,$addr),$port,$fam);
+    $addr = inet_ntop($fam,$addr);
+    return ($addr,$port,$fam) if wantarray;
+    return {
+	host   => $addr,
+	addr   => $addr,
+	port   => $port,
+	family => $fam,
+    };
 }
 
 ###########################################################################
@@ -657,30 +700,23 @@ sub hostname2ip {
 }
 
 ###########################################################################
-# check if address is valid IPv4 address
+# check if address is valid IPv4 or IPv6 address
 # Args: $ip
 # Returns: true|false
 ###########################################################################
-if (defined &Socket::inet_pton) {
-    *ip_is_v4 = sub { inet_pton(AF_INET,$_[0]) }
-} else {
-    my $rx_ippart = qr{2(?:[0-4]\d|5[0-5]|\d?)|[01]\d{0,2}|[3-9]\d?};
-    my $rx_ip = qr{^$rx_ippart\.$rx_ippart\.$rx_ippart\.$rx_ippart$};
-    *ip_is_v4 = sub { $_[0] =~ $rx_ip };
-}
+sub ip_is_v4  { inet_pton(AF_INET,  $_[0]) }
+sub ip_is_v6  { inet_pton(AF_INET6, $_[0]) }
 
 ###########################################################################
-# check if address is valid IPv6 address
+# check if address is valid IP address
 # Args: $ip
-# Returns: true|false
+# Returns: AF_INET|AF_INET6|undef
 ###########################################################################
-if (defined &Socket::inet_pton and defined &Socket::AF_INET6) {
-    *ip_is_v6 = sub { inet_pton(AF_INET6,$_[0]) }
-} else {
-    # very lazy, matches way more than IPv6
-    # hopefully never really needed because we have inet_pton(AF_INET6..)
-    my $rx_ip = qr{^[a-fA-F\d:]+:[a-fA-F\d:.]*$};
-    *ip_is_v6 = sub { $_[0] =~ $rx_ip };
+sub ip_is_v46 {
+    return
+	inet_pton(AF_INET,  $_[0]) ? AF_INET  :
+	inet_pton(AF_INET6, $_[0]) ? AF_INET6 :
+	undef;
 }
 
 1;

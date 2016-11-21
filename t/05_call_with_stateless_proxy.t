@@ -9,7 +9,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 63*4;
+use Test::More tests => 63*6;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -21,7 +21,7 @@ use File::Temp;
 use List::Util;
 
 my @tests;
-for my $transport (qw(udp tcp)) {
+for my $transport (qw(udp tcp tls)) {
     for my $family (qw(ip4 ip6)) {
 	push @tests, [ $transport, $family ];
     }
@@ -30,8 +30,8 @@ for my $transport (qw(udp tcp)) {
 for my $t (@tests) {
     my ($transport,$family) = @$t;
     SKIP: {
-	if (!use_ipv6($family eq 'ip6')) {
-	    skip "no IPv6 support",63;
+	if (my $err = test_use_config($family,$transport)) {
+	    skip $err,63;
 	    next;
 	}
 	note("------- test with family $family transport $transport");
@@ -44,12 +44,20 @@ killall();
 sub do_test {
     my $transport = shift;
     my ($luac,$luas,@lproxy);
-    for ( $luac,$luas,$lproxy[0],$lproxy[1] ) {
+    for (
+	[ 'caller.sip.test', \$luac ],
+	[ 'listen.sip.test', \$luas ],
+	[ 'proxy.sip.test', \$lproxy[0] ],
+	[ 'proxy.sip.test', \$lproxy[1] ],
+    ) {
+	my ($name,$config) = @$_;
 	my ($sock,$addr) = create_socket($transport);
-	my $uri = sip_parts2uri($addr, undef, 'sip', {
-	    $transport eq 'tcp' ? ( transport => 'tcp' ) :()
-	});
-	$_ = { sock => $sock, addr => $addr, uri  => $uri };
+	$$config = {
+	    name => $name,
+	    sock => $sock,
+	    addr => $addr,
+	    uri  => test_sip_uri($addr),
+	};
     }
 
     note( "UAS on $luas->{addr} " );
@@ -66,6 +74,7 @@ sub do_test {
 	    dump_outgoing => [ \&sip_dump_media,'O>' ],
 	    $_ == $lproxy[0] ? ( can_deliver_to => $luac->{addr} ) :(),
 	    $_ == $lproxy[1] ? ( can_deliver_to => $luas->{addr} ) :(),
+	    test_leg_args($_->{name}),
 	);
     }
 

@@ -157,7 +157,7 @@ sub run {
     };
 
     # enter ip,port into db
-    my ($ip,$port) = @{$from}[1,2];
+    my ($ip,$port) = ($from->{addr},$from->{port});
     $self->{data}{$ip}{$port}{ time() }++;
     $self->savedb();
 

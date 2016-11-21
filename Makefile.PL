@@ -1,11 +1,12 @@
 use ExtUtils::MakeMaker;
-require 5.008;
+require 5.10.0;
 $^O =~m{Win32}i and die "OS unsupported";
 WriteMakefile(
 	NAME => 'Net::SIP',
 	VERSION_FROM => 'lib/Net/SIP.pm',
 	PREREQ_PM => {
-		'Net::DNS' => 0.56,
+		# 'Net::DNS' => 0.56, # optional
+		# 'IO::Socket::SSL' => 1.956,  # optional
 		'Socket' => 1.95,
 	},
     $ExtUtils::MakeMaker::VERSION >= 6.46 ? (

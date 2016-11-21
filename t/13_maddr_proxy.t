@@ -50,5 +50,6 @@ use Test::More;
 sub sendto {
     my myLeg $self = shift;
     my ($packet,$dst,$callback) = @_;
-    ok( "$dst->[0]:$dst->[1]" eq "172.25.2.1:7070", "got target from maddr" );
+    ok("$dst->{addr}:$dst->{port}" eq "172.25.2.1:7070",
+	"got target from maddr");
 }

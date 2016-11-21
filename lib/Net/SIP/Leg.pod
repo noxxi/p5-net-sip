@@ -42,8 +42,15 @@ by calling B<master> on the given B<SocketPool> object.
 
 =item addr
 
-The local address of the socket. If this is given but no port it
+The local IP address of the socket. If this is given but no port it
 will extract port from addr, if it's in the format C<< host:port >>.
+
+=item host
+
+The hostname matching C<addr>. This is used to create default contact
+information and the Via header. If not given defaults to the IP address.
+Use of hostname instead of IP address is relevant for TLS where the
+name is needed in validation of the peers certificate.
 
 =item port
 
@@ -55,11 +62,12 @@ The family of the socket. Will be determined from C<addr> if omitted.
 
 =item proto
 
-The connection protocol, e.g. 'tcp' or 'udp'. Defaults to 'udp'.
+The connection protocol, e.g. 'udp', 'tcp' or 'tls'. Defaults to 'udp'.
 
 =item dst
 
-The optional fixed target of the leg as C<< [ip, port, family] >>.
+The optional fixed target of the leg as hash with keys C<host>, C<addr>, C<port>
+and C<family>.
 
 =item contact
 
@@ -68,12 +76,19 @@ to outgoing requests and used within Contact header for 200 Responses to
 INVITE. If not given it will be created based on C<addr>, C<port>
 and C<proto>.
 
+=item tls
+
+Optional arguments to be used in creating a TLS connection, as expected by
+L<IO::Socket::SSL>.
+These are used for both incoming and outgoing TLS connection. Typically this
+involves C<SSL_cert_file>, C<SSL_key_file> and C<SSL_ca_file> or similar.
+
 =back
 
 If no socket is given with C<sock> it will be created based on C<addr>, C<port>
 and C<proto>. If this fails the constructur will C<< die() >>.
 
-The constructor will creeate a uniq branch tag for this leg.
+The constructor will create a uniq branch tag for this leg.
 
 =back
 
@@ -98,8 +113,8 @@ remove itself from B<Route>.
 
 =item deliver ( PACKET, ADDR, [ CALLBACK ] )
 
-Delivers L<Net::SIP::Packet> PACKET through the leg C<$self> to ADDR, which
-is C<< [ip, port, family] >>.
+Delivers L<Net::SIP::Packet> PACKET through the leg C<$self> to ADDR.
+ADDR is a hash with the keys C<host>, C<addr>, C<port> and C<family>.
 Usually this method will be call from within L<Net::SIP::Dispatcher>.
 
 If the packet was received by the other end (which is
@@ -113,8 +128,9 @@ While delivering requests it adds a B<Via> header.
 =item receive(PACKET, FROM)
 
 This is called from the dispatcher if the the L<Net::SIP::Packet> B<PACKET> was
-received from B<FROM> (given as C<< [ip, port, family] >>). This function might
-process the packet further or block it.
+received from B<FROM>. FROM is given as hash with keys C<addr>, C<port>,
+C<family> and C<proto>.
+This function might process the packet further or block it.
 
 It will return C<< (PACKET, FROM) >> in the normal case or C<()> if blocked.
 
