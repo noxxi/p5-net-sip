@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.801 2016-11-23
+- bugfix Util::ip_string2parts
 0.800 2016-11-23
 - added support for TLS (SIPS) when IO::Socket::SSL >= 1.956 is installed
 - make the requirement for Net::DNS optional, i.e. only needed if actually used

@@ -509,7 +509,7 @@ sub ip_string2parts {
     # AF_INET  otherwise, i.e. IPv4 or hostname or smthg invalid
 
     # check if this is an IP address from the expected family
-    if (my $addr = inet_pton($family,$host)) {
+    if ($addr = inet_pton($family,$host)) {
 	# valid IP address
 	$addr = $opaque ? $host
 	    : inet_ntop($family, $addr); # canonicalized form
