@@ -78,7 +78,8 @@ with FROM used to send response packet back to peer.
 
 =item FROM
 
-C<< "ip:port" >> of the sender of the request.
+Hash with information about the sender of the request (keys C<proto>, C<addr>,
+C<host>, C<port> and C<family>)
 
 =back
 
@@ -215,7 +216,7 @@ of active calls.
 Called from dispatcher on incoming packets.
 
 PACKET is the incoming L<Net::SIP::Packet>, LEG the L<Net::SIP::Leg>
-where the packet came in and FROM the C<< "ip:port" >> of the sender.
+where the packet came in and FROM the hash with the sender info.
 
 Just forwards to B<receive_request> or B<receive_response> based
 on the type of packet.
@@ -240,7 +241,7 @@ Calls B<handle_request> on the existing/new context object.
 =item new_response ( CTX, RESPONSE, LEG, ADDR )
 
 Delivers L<Net::SIP::Response> packet RESPONSE through the endpoints
-dispatcher to ADDR (C<< "ip:port" >>) using L<Net::SIP::Leg> LEG.
+dispatcher to ADDR (hash) using L<Net::SIP::Leg> LEG.
 LEG and ADDR are usually the leg and the senders address where the
 associated request came in.
 

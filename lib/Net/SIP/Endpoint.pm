@@ -247,7 +247,7 @@ sub close_context {
 # Args: ($self,$packet,$leg,$from)
 #   $packet: Net::SIP::Packet
 #   $leg: Net::SIP::Leg through which the packets was received
-#   $from: ip:port where it got packet from
+#   $from: hash with information where it got packet from
 # Returns: NONE
 ############################################################################
 sub receive {
@@ -264,7 +264,7 @@ sub receive {
 # Args: ($self,$response,$leg,$from)
 #  $response: incoming Net::SIP::Response packet
 #  $leg: where response came in
-#  $from: ip:port where it got response from
+#  $from: hash with information where it got response from
 # Returns: NONE
 ############################################################################
 sub receive_response {
@@ -288,7 +288,7 @@ sub receive_response {
 # Args: ($self,$request,$leg,$from)
 #  $request: incoming Net::SIP::Request packet
 #  $leg: where response came in
-#  $from: ip:port where it got response from
+#  $from: hash with information where it got response from
 # Returns: NONE
 ############################################################################
 sub receive_request {

@@ -145,9 +145,9 @@ sub _default_rewrite_contact {
 }
 
 ###########################################################################
-# handle incoming requests
+# handle incoming packets
 # Args: ($self,$packet,$leg,$from)
-#    $packet: Net::SIP::Request
+#    $packet: Net::SIP::Packet
 #    $leg: incoming leg
 #    $from: ip:port where packet came from
 # Returns: TRUE if packet was fully handled
@@ -251,29 +251,40 @@ sub __forward_response {
     my ($first,$param) = sip_hdrval2parts( via => $via );
     $first =~m{^SIP/\d\.\d(?:/(\S+))?\s+(.*)};
     my $proto = lc($1) || 'udp';
-    my ($addr,$port,$family) = ip_string2parts($2);
+    my ($host,$port,$family) = ip_string2parts($2);
+    my $addr = $family && $host;
     $port ||= $proto eq 'tls' ? 5061 : 5060;
-    $addr = $param->{maddr} if $param->{maddr};
-    $addr = $param->{received} if $param->{received}; # where it came from
+    if (my $alt_addr = $param->{received} || $param->{maddr}) {
+	my $alt_fam = ip_is_v46($alt_addr);
+	if ($alt_fam) {
+	    $addr = $alt_addr;
+	    $family = $alt_fam;
+	} else {
+	    DEBUG(10,"ignoring maddr/received because of invalid IP $alt_addr");
+	}
+    }
     $port = $param->{rport} if $param->{rport}; # where it came from
-    @{ $entry->{dst_addr}} = lock_ref_keys({
+    my $nexthop = lock_ref_keys({
 	proto  => $proto,
-	host   => $addr,
-	addr   => $family ? $addr : undef,
+	host   => $host || $addr,
+	addr   => $addr,
 	port   => $port,
 	family => $family
     });
-    $DEBUG && DEBUG(50, "get dst_addr from via header: %s -> %s",
-	$first, ip_parts2string($entry->{dst_addr}[0]));
-
-    if ( $addr !~m{^[0-9\.]+$|:} ) {
-	$self->{dispatcher}->dns_host2ip(
-	    $addr,
-	    [ \&__forward_response_1,$self,$entry ]
-	);
-    } else {
-	__forward_response_1($self,$entry);
+    if ($addr) {
+	@{$entry->{dst_addr}} = $nexthop;
+	$DEBUG && DEBUG(50, "get dst_addr from via header: %s -> %s",
+	    $first, ip_parts2string($nexthop));
+	return __forward_response_1($self,$entry);
     }
+
+    return $self->{dispatcher}->resolve_uri(
+	sip_sockinfo2uri($nexthop),
+	$entry->{dst_addr},
+	$entry->{outgoing_leg},
+	[ \&__forward_response_1,$self,$entry ],
+	undef,
+    );
 }
 
 ###########################################################################
@@ -284,17 +295,11 @@ sub __forward_response {
 sub __forward_response_1 {
     my Net::SIP::StatelessProxy $self = shift;
     my $entry = shift;
-    if ( @_ ) {
-	my ($ip) = @_;
-	unless ( $ip ) {
-	    $DEBUG && DEBUG( 10,"cannot resolve address %s ",
-		ip_parts2string($entry->{dst_addr}[0]));
-	    return;
-	}
-	# set addr dst_addr to ip
-	$entry->{dst_addr}[0]{addr} = $ip;
+    if (@_) {
+	$DEBUG && DEBUG( 10,"cannot resolve address %s: @_",
+	    ip_parts2string($entry->{dst_addr}[0]));
+	return;
     }
-
     __forward_packet_final( $self,$entry );
 }
 
@@ -347,13 +352,9 @@ sub __forward_request_getleg {
     }
     if ( @route ) {
 	# still routing infos. Use next route as nexthop
-	my $route = $route[0] =~m{<([^\s>]+)>} && $1 || $route[0];
-	my ($data,$param) = sip_hdrval2parts( route => $route );
-	my ($proto, $addr, $port, $family) =
-	    sip_uri2sockinfo($data, $param->{maddr} ? 1:0);
-	$port ||= $proto eq 'tls' ? 5061 : 5060;
-	$entry->{nexthop} = ip_parts2string($param->{maddr} || $addr,$port);
-	DEBUG( 50, "setting nexthop from route $route to $entry->{nexthop}" );
+	my ($data,$param) = sip_hdrval2parts( route => $route[0] );
+	$entry->{nexthop} = $data;
+	DEBUG(50, "setting nexthop from route $route[0] to $entry->{nexthop}");
     }
 
     return $self->__forward_request_getdaddr($entry)
@@ -372,15 +373,14 @@ sub __forward_request_getdaddr {
     return __forward_request_1( $self,$entry )
 	if @{ $entry->{dst_addr}};
 
-    my $proto = $entry->{incoming_leg}{proto} eq 'tcp' ? [ 'tcp','udp' ]:undef;
     $entry->{nexthop} ||= $entry->{packet}->uri,
-    DEBUG(50,"need to resolve $entry->{nexthop} proto=".($proto ? "@$proto": ''));
+    DEBUG(50,"need to resolve $entry->{nexthop}");
     return $self->{dispatcher}->resolve_uri(
 	$entry->{nexthop},
 	$entry->{dst_addr},
 	$entry->{outgoing_leg},
 	[ \&__forward_request_1,$self,$entry ],
-	$proto,
+	undef,
     );
 }
 
@@ -391,6 +391,11 @@ sub __forward_request_getdaddr {
 sub __forward_request_1 {
     my Net::SIP::StatelessProxy $self = shift;
     my $entry = shift;
+
+    if (@_) {
+	DEBUG(10,"failed to resolve URI: @_");
+	return;
+    }
 
     my $dst_addr = $entry->{dst_addr};
     if ( ! @$dst_addr ) {
@@ -512,7 +517,7 @@ sub __forward_packet_final {
 	    } else {
 		$addr = invoke_callback($rewrite_contact,$addr,$incoming_leg,
 		    $outgoing_leg);
-		$addr .= '@'.$outgoing_leg->laddr(1);
+		$addr .= '@'.$outgoing_leg->laddr(2);
 		my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
 		DEBUG( 50,"rewrote '$c' to '$cnew'" );
 		$c = $cnew;

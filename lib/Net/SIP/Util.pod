@@ -202,6 +202,9 @@ See B<OPAQUE> in C<ip_string2parts> for more information.
 This is the reverse to B<sip_uri2sockinfo>. See there for the meaning of the
 parameters.
 
+If the first argument is a hash ref it will expected to provided the arguments
+in the keys C<proto>, C<host>, C<port> and C<family>.
+
 =item sip_uri_eq ( URI1, URI2 )
 
 Returns true if both URIs point to the same SIP address.
@@ -242,7 +245,9 @@ determined by checking if ip_or_host contains ':' (i.e IPv6 address):
   (ipv6,undef,*,true)       -> [ipv6]
 
 If the first argument is a hash ref it will be treated as a hash ref as returned
-by B<ip_string2parts>.
+by B<ip_string2parts>. In this case also C<use_host> can be given which prefers
+C<host> to C<addr> for stringification. Also, C<default_port> can be used to
+give a port number which will be treated as default and ommitted from string.
 
 =item ip_sockaddr2parts(SOCKADDR, [FAMILY]) -> (IP, PORT, FAMILY)
 
@@ -289,5 +294,10 @@ This checks if the given IP address is a valid IPv4 address.
 =item ip_is_v6(IP) -> true|false
 
 This checks if the given IP address is a valid IPv6 address.
+
+=item ip_is_v46(IP) -> AF_INET|AF_INET6|undef
+
+This checks if the given IP address is a valid IPv4 or IPv6 address and
+returns the address family if this is an IP address.
 
 =back

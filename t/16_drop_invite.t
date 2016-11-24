@@ -130,7 +130,7 @@ sub uas {
 	interval => 60,
     );
     my $by_field = Net::SIP::Dropper::ByField->new(
-	'From' => 'uac.+xamp'
+	'From' => qr{uac.+xamp},
     );
     my $drop = Net::SIP::Dropper->new( cbs => [ $by_ipport,$by_field ]);
 
@@ -149,7 +149,9 @@ sub uas {
     $loop->loop(2);
 
     seek( $tfh,0,0);
-    my ($uac_port) = <$tfh> =~m{:(\d+)$};
+    my $line = <$tfh>;
+    $line =~m{^127.0.0.1(?::(\d+))?$} or die "unexpected line $line";
+    my $uac_port = $1 || 5060;
     close($tfh);
 
     if ( $by_ipport->data->{$uac_ip}{$uac_port} ) {

@@ -269,7 +269,7 @@ sub request_delivery_done {
 # Args: ($self,$response,$leg,$from,$endpoint)
 #    $response: incoming Net::SIP::Response packet
 #    $leg: Net::SIP::Leg through which the response came in
-#    $from: ip:port where response came in
+#    $from: hash with information where response came in
 #    $endpoint: endpoint responsable for this context, used for redeliveries...
 # Returns: NONE
 ############################################################################
@@ -321,7 +321,7 @@ sub handle_response {
 	# must create ACK
 	DEBUG( 50,"code=$code, must generate ACK" );
 	my $ack = $tr->{request}->create_ack( $response );
-	$endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
+	$endpoint->new_request( $ack,$self,undef,undef,leg => $leg);
     }
 
     # transaction is not done
@@ -382,7 +382,7 @@ sub handle_response {
 	    # and propagate to upper layer
 	    my $req = $tr->{request};
 
-	    # extract route information on INVIE, but not on re-INVITE
+	    # extract route information on INVITE, but not on re-INVITE
 	    # we assume, that it is a re-INVITE, if we have a remote_contact
 	    # already
 	    if ( ! $self->{remote_contact}
@@ -409,7 +409,7 @@ sub handle_response {
 	    # if 2xx response changed contact use it as the new URI
 	    my $ack = $req->create_ack( $response );
 	    invoke_callback($cb,@arg,0,$code,$response,$leg,$from,$ack);
-	    $endpoint->new_request( $ack,$self,undef,undef,leg => $leg, dst_addr => $from );
+	    $endpoint->new_request( $ack,$self,undef,undef,leg => $leg);
 
 
 	} else {

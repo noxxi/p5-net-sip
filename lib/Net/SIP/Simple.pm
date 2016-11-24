@@ -106,8 +106,8 @@ sub new {
     my $loop = $disp && $disp->loop
 	|| delete $args{loop}
 	|| Net::SIP::Dispatcher::Eventloop->new;
-    my $ob   = delete $args{outgoing_proxy} || delete $args{proxy};
-    my $d2p  = delete $args{domain2proxy}   || delete $args{d2p};
+    my $proxy = delete $args{outgoing_proxy} || delete $args{proxy};
+    my $d2p   = delete $args{domain2proxy}   || delete $args{d2p};
     $disp ||= Net::SIP::Dispatcher->new(
 	[],
 	$loop,
@@ -123,7 +123,7 @@ sub new {
 	my $ip;
 	$disp->dns_host2ip($host,sub { $ip = shift // \0 });
 	$loop->loop(15,\$ip);
-	die "failed to resolve $host ".($ip ? '':' - timed out')
+	die "failed to resolve $host".($ip ? '':' - timed out')
 	    if ! defined $ip || ref($ip);
 	return ($ip,ip_is_v46($ip));
     };
@@ -155,7 +155,7 @@ sub new {
 	}
     }
 
-    for my $dst ($registrar, $ob) {
+    for my $dst ($registrar, $proxy) {
 	$dst or next;
 	first { $_->can_deliver_to($dst) } @$legs and next;
 	my ($proto,$host,$port,$family) = sip_uri2sockinfo($dst);
@@ -173,7 +173,7 @@ sub new {
     }
 
     $disp->add_leg(@$legs) if @$legs;
-    $disp->outgoing_proxy($ob) if $ob;
+    $disp->outgoing_proxy($proxy) if $proxy;
 
     push @$ua_cleanup, [
 	sub {

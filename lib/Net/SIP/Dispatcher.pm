@@ -229,9 +229,12 @@ sub add_leg {
 			    if ( exists $h->{rport} and ! defined $h->{rport}) {
 				$nh{rport} = $from->{port};
 			    }
-			    if ( $host ne $from->{port} or $nh{rport}) {
-				# either hostname or different IP or required because
-				# rport was set
+			    if ($host ne $from->{addr}) {
+				# either from.addr is the addr for host or we
+				# had a different IP address in the via header
+				$nh{received} = $from->{addr};
+			    } elsif ($nh{rport}) {
+				# required because rport was set
 				$nh{received} = $from->{addr};
 			    }
 			    if (%nh) {
@@ -653,6 +656,7 @@ sub resolve_uri {
 	@proto = @proto_new;
 	@proto or do {
 	    DEBUG( 50,"no protocols allowed for $uri" );
+	    @$dst_addr = ();
 	    return invoke_callback( $callback, ENOPROTOOPT ); # no proto available
 	};
     }
@@ -668,15 +672,15 @@ sub resolve_uri {
 	return invoke_callback($callback, EHOSTUNREACH );
     };
 
-    my $ip_addr;
+    my $ip_addr = $param->{maddr};
     {
-	($ip_addr,my $port,my $family) = ip_string2parts($domain);
+	my ($host,$port,$family) = ip_string2parts($domain, $ip_addr ? 1:0);
 	$default_port = $port if defined $port;
 	if ($family) {
-	    $domain = ip_ptr($ip_addr,$family);
+	    $ip_addr ||= $host;
+	    $domain = ip_ptr($host,$family);
 	} else {
-	    $domain = $ip_addr;
-	    $ip_addr = undef; # not an IP address but hostname
+	    $domain = $host;
 	}
     }
     DEBUG( 100,"domain=$domain" );
@@ -1193,8 +1197,10 @@ sub new {
 	    port   => $si[2],
 	    family => $si[3],
 	}) ];
-    } elsif (ref($addr) ne 'ARRAY') {
+    } elsif (ref($addr) eq 'HASH') {
 	$self->{dst_addr} = [ $addr ];
+    } else {
+	# assume its already in the expected format, i.e. list of hashes
     }
     if ( my $leg = $self->{leg} ) {
 	$self->{leg} = [ $leg ] if UNIVERSAL::can( $leg,'deliver' );

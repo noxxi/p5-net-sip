@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.802 2016-11-25
+- various small fixes primarily related to TLS
+- Util::sip_sockinfo2uri accepts hash for convinience
+- lots of improvements for code readibility and better documentation based on
+  feedback from BLUHM
 0.801 2016-11-23
 - bugfix Util::ip_string2parts
 0.800 2016-11-23
@@ -18,7 +23,7 @@ Revision history for Net::SIP
   - Internals changed for more code reability and to take care of TLS where the
     hostname is needed for certificate validatin. Lots of structures are now
     managed by (restricted) hashes which were previously implemented as arrays.
-    Anybody grabbing in the internals will probably need to adjust code. i
+    Anybody grabbing in the internals will probably need to adjust code.
     Affects partly the more public functions of Leg and Dispatcher too.
 
 0.703 2016-11-20

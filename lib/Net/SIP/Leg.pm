@@ -176,8 +176,8 @@ sub new {
 
     my $leg_addr = ip_parts2string({
 	%{$self->{src}},
-	addr => $self->{src}{host}, # prefer hostname
-	default_port => $default_port
+	use_host => 1, # prefer hostname
+	default_port => $default_port,
     }, 1);  # use "[ipv6]" even if no port is given
     $self->{contact}  = delete $args{contact} || "$sip_proto:$leg_addr";
 
@@ -186,7 +186,6 @@ sub new {
 	|| md5_hex(@{$self->{src}}{qw(addr port)}, $proto)  # ip, port, proto
     );
 
-    $self->{contact} =~m{^\w+:(.*)};
     $self->{via} =  sprintf( "SIP/2.0/%s %s;branch=",
 	uc($proto),$leg_addr );
     $self->{proto} = $proto;
@@ -587,24 +586,22 @@ sub socketpool {
 # Args: $self;$parts
 #  $parts: number of parts to include
 #     0 -> address only
-#     1 -> address:port
-#     2 -> host:port
+#     1 -> address[:non_default_port]
+#     2 -> host[:non_default_port]
 # Returns: string
 ###########################################################################
 sub laddr {
     my Net::SIP::Leg $self = shift;
     my $parts = shift;
     ! $parts and return $self->{src}{addr};
-    $parts == 1 and return ip_parts2string($self->{src});
-    $parts == 2 and return ip_parts2string({
+    return ip_parts2string({
 	%{ $self->{src} },
-	# prefer use of host
-	addr => $self->{src}{host} || $self->{src}{addr},
+	default_port => $self->{proto} eq 'tls' ? 5061 : 5060,
+	$parts == 1 ? () :
+	$parts == 2 ? (use_host => 1) :
+	die "invalid parts specification $parts",
     });
-    die "invalid parts specification $parts";
-
 }
-
 
 ###########################################################################
 # some info about the Leg for debugging

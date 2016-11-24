@@ -47,7 +47,11 @@ BEGIN {
     } else {
 	*INETSOCK = sub { return IO::Socket::INET->new(@_) };
 	no warnings 'redefine';
-	*AF_INET6 = sub() { 10 }
+	# Since value differs between platforms we set it to something that
+	# should not collide with AF_INET and maybe will even cause inet_ntop
+	# etc to croak. In any case this will only be used if CAN_IPV6 is false
+	# because otherwise we have the correct value from Socket.
+	*AF_INET6 = sub() { -1 };
     }
 
     *CAN_IPV6 = $mod6 ? sub() { 1 } : sub() { 0 };
@@ -264,15 +268,18 @@ sub sip_uri2sockinfo {
 
 ###########################################################################
 # Reverse to sip_uri2sockinfo
-# Args: ($proto,$host,$port,$family)
+# Args: (\%hash|$proto,$host,$port,$family)
 #   $proto: udp|tcp|tls|undef
 #   $host: ip or hostname from URI
 #   $port: port from URI
 #   $family: family matching $host, i.e. AF_INET|AF_INET6|undef
+#   %hash: hash with keys proto, host, port, family
 # Returns: $uri
 ###########################################################################
 sub sip_sockinfo2uri {
-    my ($proto,$host,$port,$family) = @_;
+    my ($proto,$host,$port,$family) = ref($_[0])
+	? @{$_[0]}{qw(proto host port family)}
+	: @_;
     return sip_parts2uri(
 	ip_parts2string($host,$port,$family),
 	undef,
@@ -545,7 +552,9 @@ sub ip_string2parts {
 #  $family: optional, will be detected from $host if not given
 #  $ipv6_brackets: optional, results in [ipv6] if true and no port given
 # alternative Args: (\%hash,$ipv6_brackets)
-#  %hash:   hash containing addr|host, port and family and opt. default_port
+#  %hash:   hash containing addr|host, port and family
+#           if opt default_port is given will treat port as 0 if default
+#           if opt use_host is true will prefer host instead of addr
 # Returns: $addr
 #  $addr: ip_or_host, ipv4_or_host:port, [ipv6]:port,
 #         [ipv6] (if ipv6_brackets)
@@ -557,12 +566,19 @@ sub ip_parts2string {
 	$port = $hash->{port};
 	$fam  = $hash->{family};
 	$host = $hash->{addr} || $hash->{host};
-	$port = 0 if exists $hash->{default_port}
-	    && $port == $hash->{default_port};
+	if (exists $hash->{use_host} && $hash->{use_host}
+	    && $hash->{host} && $fam && $hash->{host} ne $hash->{addr}) {
+	    # use host instead of addr and set family to undef in order to
+	    # not put hostname in brackets
+	    $host = $hash->{host};
+	    $fam = undef;
+	}
+	if (exists $hash->{default_port} && $port == $hash->{default_port}) {
+	    $port = 0;
+	}
     } else {
 	($host,$port,$fam,$ipv6_brackets) = @_;
     }
-    Carp::confess("empty") if ! $host;
     $host = lc($host);
     return $host if ! $port && !$ipv6_brackets;
     $fam ||= $host =~m{:} && AF_INET6;
@@ -574,8 +590,8 @@ sub ip_parts2string {
 
 ###########################################################################
 # create sockaddr from IP, port (and family)
-# Args: ($ip,$port;$family)
-#  $ip:     the IP address
+# Args: ($addr,$port;$family)
+#  $addr:   the IP address
 #  $port:   port
 #  $family: optional, will be detected from $ip if not given
 # alternative Args: \%hash
@@ -583,19 +599,19 @@ sub ip_parts2string {
 # Returns: $sockaddr
 ###########################################################################
 sub ip_parts2sockaddr {
-    my ($ip,$port,$fam);
+    my ($addr,$port,$fam);
     if (ref($_[0])) {
-	$ip   = $_[0]->{addr};
+	$addr = $_[0]->{addr};
 	$port = $_[0]->{port};
 	$fam  = $_[0]->{family};
     } else {
-	($ip,$port,$fam) = @_;
+	($addr,$port,$fam) = @_;
     }
-    $fam ||= $ip =~m{:} ? AF_INET6 : AF_INET;
+    $fam ||= $addr =~m{:} ? AF_INET6 : AF_INET;
     if ($fam == AF_INET) {
-	return pack_sockaddr_in($port,inet_pton(AF_INET,$ip))
+	return pack_sockaddr_in($port,inet_pton(AF_INET,$addr))
     } elsif (CAN_IPV6) {
-	return pack_sockaddr_in6($port,inet_pton(AF_INET6,$ip))
+	return pack_sockaddr_in6($port,inet_pton(AF_INET6,$addr))
     } else {
 	die "no IPv6 support"
     }
@@ -660,11 +676,11 @@ sub ip_ptr {
     $family ||= $ip=~m{:} ? AF_INET6 : AF_INET;
     if ($family == AF_INET) {
 	return join('.', reverse(unpack("C*",inet_pton(AF_INET,$ip))))
-	    . 'in-addr.arpa';
+	    . '.in-addr.arpa';
     } else {
 	return join('.', reverse(split('',
 	    unpack("H*", inet_pton(AF_INET6,$ip)))))
-	    . 'ip6.arpa';
+	    . '.ip6.arpa';
     }
 }
 
