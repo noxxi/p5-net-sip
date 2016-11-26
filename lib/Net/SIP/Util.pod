@@ -247,7 +247,7 @@ determined by checking if ip_or_host contains ':' (i.e IPv6 address):
 If the first argument is a hash ref it will be treated as a hash ref as returned
 by B<ip_string2parts>. In this case also C<use_host> can be given which prefers
 C<host> to C<addr> for stringification. Also, C<default_port> can be used to
-give a port number which will be treated as default and ommitted from string.
+give a port number which will be treated as default and omitted from string.
 
 =item ip_sockaddr2parts(SOCKADDR, [FAMILY]) -> (IP, PORT, FAMILY)
 

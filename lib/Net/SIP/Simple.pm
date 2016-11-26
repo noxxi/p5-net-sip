@@ -251,7 +251,7 @@ sub error {
 ###########################################################################
 # mainloop
 # Args: (;$timeout,@stopvar)
-#  $timeout: timeout, undef for no timeout. argument can be ommitted
+#  $timeout: timeout, undef for no timeout. argument can be omitted
 #  @stopvar: @array of Scalar-REF, loop stops if one scalar is true
 # Returns: NONE
 ###########################################################################

@@ -134,7 +134,7 @@ sub register {
 #   $callback: [ \&sub,@arg ] which will be called if the layer receives
 #     responses important to the upper layer (e.g 180 Ringing, 200 Ok,
 #     401/407 Authorization required...)
-#     if callback is ommitted the callback from the context is used,
+#     if callback is omitted the callback from the context is used,
 #     if callback is set it will be the new callback for the context
 #   $body: optional Body, either scalar or smth with method as_string
 #     (like Net::SIP::SDP)
