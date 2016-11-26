@@ -1,10 +1,11 @@
 use ExtUtils::MakeMaker;
-
-require 5.10.0;
+use 5.0010;
 $^O =~m{Win32}i and die "OS unsupported";
-eval 'use Socket 1.95; 1' 
-    and ! eval 'Socket::inet_pton(Socket::AF_INET(),"0.0.0.0")'
-    and die "Socket::inet_pton failed on your system: $@";
+if (eval 'use Socket 1.95; 1' 
+    and ! eval 'Socket::inet_pton(Socket::AF_INET(),"0.0.0.0")') {
+    warn "Socket::inet_pton failed on your system: $@";
+    exit(0);
+}
 
 WriteMakefile(
     NAME => 'Net::SIP',
