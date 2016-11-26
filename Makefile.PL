@@ -1,14 +1,19 @@
 use ExtUtils::MakeMaker;
+
 require 5.10.0;
 $^O =~m{Win32}i and die "OS unsupported";
+eval 'use Socket 1.95; 1' 
+    and ! eval 'Socket::inet_pton(Socket::AF_INET(),"0.0.0.0")'
+    and die "Socket::inet_pton failed on your system: $@";
+
 WriteMakefile(
-	NAME => 'Net::SIP',
-	VERSION_FROM => 'lib/Net/SIP.pm',
-	PREREQ_PM => {
-		# 'Net::DNS' => 0.56, # optional
-		# 'IO::Socket::SSL' => 1.956,  # optional
-		'Socket' => 1.95,
-	},
+    NAME => 'Net::SIP',
+    VERSION_FROM => 'lib/Net/SIP.pm',
+    PREREQ_PM => {
+	# 'Net::DNS' => 0.56, # optional
+	# 'IO::Socket::SSL' => 1.956,  # optional
+	'Socket' => 1.95,
+    },
     $ExtUtils::MakeMaker::VERSION >= 6.46 ? (
         'META_MERGE' => {
             resources => {
@@ -19,5 +24,4 @@ WriteMakefile(
             },
         },
     ):(),
-
-)
+);
