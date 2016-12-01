@@ -25,10 +25,10 @@ gets created.
 
 =over 4
 
-=item new (PROTO, FD, DST, CONNECTED)
+=item new (PROTO, FD, DST, CONNECTED, [TLS])
 
-The constructer creates a new B<SocketPool> for protocol B<PROTO> (C<udp> or
-C<tcp>) with B<FD> as the master socket.
+The constructer creates a new B<SocketPool> for protocol B<PROTO> (C<udp>,
+C<tcp> or C<tls>) with B<FD> as the master socket.
 If B<CONNECTED> is true this master socket is connected and B<DST> will in this
 case be interpreted as the peer of the socket. But a connected master socket
 makes only sense for UDP and only if the communication should be limited to
@@ -38,6 +38,18 @@ given as C<< [ip, port, family] >> will be interpreted as restriction for the
 communication, i.e. it will be forced as destination in B<sendto> no matter what
 was given and it will be checked that any received data origin from the expected
 peer B<DST>.
+
+With the optional B<TLS> argument a hash can be givevn wth arguments used in
+creation of the L<IO::Socket::SSL> objects when <PROTO> is C<tls>. This
+typically includes location of the certificate and key with C<SSL_cert_file> and
+C<SSL_key_file>. These arguments will be used for both server and client SSL
+sockets which also means that the certificate configured as server certificates
+will also be used as client certificates if the peer requires authentication
+with client certificates.
+The special argument C<verify_client> in B<TLS> can be used to require
+authentication with client certificates by the peer. It can be set to C<0> for
+no client certificates, C<-1> for optional and C<1> for required client
+certificates.
 
 =back
 

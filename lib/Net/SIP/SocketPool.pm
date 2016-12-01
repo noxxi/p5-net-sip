@@ -50,7 +50,8 @@ my %TLSServerDefault = ();
 # will be defined on first use of SSL depending if IO::Socket::SSL is available
 my $CAN_TLS;
 my $SSL_REUSE_CTX;
-my ($SSL_WANT_READ, $SSL_WANT_WRITE);
+my ($SSL_WANT_READ, $SSL_WANT_WRITE, $SSL_VERIFY_PEER, 
+    $SSL_VERIFY_FAIL_IF_NO_PEER_CERT);
 our $SSL_ERROR;
 
 
@@ -77,6 +78,9 @@ sub new {
 		or die "need at least version 1.956";
 	    $SSL_WANT_READ  = IO::Socket::SSL::SSL_WANT_READ();
 	    $SSL_WANT_WRITE = IO::Socket::SSL::SSL_WANT_WRITE();
+	    $SSL_VERIFY_PEER = IO::Socket::SSL::SSL_VERIFY_PEER();
+	    $SSL_VERIFY_FAIL_IF_NO_PEER_CERT =
+		IO::Socket::SSL::SSL_VERIFY_FAIL_IF_NO_PEER_CERT();
 	    *SSL_ERROR = \$IO::Socket::SSL::SSL_ERROR;
 	    # 1.969 fixed name validation when reusing context
 	    $SSL_REUSE_CTX = IO::Socket::SSL->VERSION >= 1.969;
@@ -85,8 +89,19 @@ sub new {
 
 	# create different contexts for [m]aster and [c]lient
 	$tls ||= {};
+	my $verify_client = delete $tls->{verify_client};
 	$self->{tls}{c} = { %TLSClientDefault, %$tls };
-	$self->{tls}{m} = { %TLSServerDefault, %$tls, SSL_server => 1 };
+	$self->{tls}{m} = {
+	    %TLSServerDefault,
+	    %$tls,
+	    SSL_server => 1,
+	    # request client certificate?
+	    ! $verify_client ? ():
+	    $verify_client == -1 ? (SSL_verify_mode => $SSL_VERIFY_PEER) :
+	    $verify_client ==  1 ? (SSL_verify_mode =>
+		$SSL_VERIFY_PEER|$SSL_VERIFY_FAIL_IF_NO_PEER_CERT) :
+	    die "invalid setting for SSL_verify_client: $verify_client"
+	};
 	if ($SSL_REUSE_CTX) {
 	    for(qw(m c)) {
 		$self->{tls}{$_}{SSL_reuse_ctx} and next;
@@ -463,7 +478,10 @@ sub _handle_read_tcp_co {
 
     process_packet:
     # ignore any leading \r\n according to RFC 3261 7.5
-    $fo->{rbuf} =~s{\A(\r\n)+}{};
+    if ($fo->{rbuf} =~s{\A((?:\r\n)+)}{}) {
+	$DEBUG && DEBUG(20,"skipped over newlines preceding packet, size=%d",
+	    length($1));
+    }
 
     my $hdrpos = index($fo->{rbuf},"\r\n\r\n");
     if ($hdrpos<0 && length($fo->{rbuf}) > $MAX_SIP_HEADER
@@ -634,7 +652,11 @@ sub _tls_accept {
     }
 
     if ($fo->{fd}->accept_SSL()) {
-	$DEBUG && DEBUG(40,"TLS accept success");
+	if ($DEBUG) {
+	    my $peer_cert = $fo->{fd}->dump_peer_certificate()
+		|| 'no peer certificate';
+	    DEBUG(40,"TLS accept success, peer=$peer_cert");
+	}
 	delete $fo->{inside_connect};
 	$self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
 	_addreader2loop($self,$fo);
