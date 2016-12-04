@@ -1,5 +1,12 @@
 Revision history for Net::SIP
 
+0.803 2016-12-04
+- Dispatcher::resolve_uri - fix case with explicit transport
+- SocketPool: support for requesting client certificate (argument
+  verify_client). Update documentation to include TLS settings.
+- refuse to build if Socket does not implement inet_pton
+- spelling fixes from Debian RT#118979
+- make it more friendly to cpantesters
 0.802 2016-11-25
 - various small fixes primarily related to TLS
 - Util::sip_sockinfo2uri accepts hash for convinience
