@@ -653,9 +653,10 @@ sub _tls_accept {
 
     if ($fo->{fd}->accept_SSL()) {
 	if ($DEBUG) {
-	    my $peer_cert = $fo->{fd}->dump_peer_certificate()
-		|| 'no peer certificate';
-	    DEBUG(40,"TLS accept success, peer=$peer_cert");
+	    my $peer_cert = $fo->{fd}->peer_certificate;
+	    DEBUG(40,"TLS accept success, %s", $peer_cert 
+		? "peer="._dump_certificate($peer_cert) 
+		: 'no peer certificate');
 	}
 	delete $fo->{inside_connect};
 	$self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
@@ -695,7 +696,7 @@ sub _tls_connect {
 
     if ($fo->{fd}->connect_SSL()) {
 	$DEBUG && DEBUG(40,"TLS connect success peer cert=%s",
-	    $fo->{fd}->dump_peer_certificate());
+	    _dump_certificate($fo->{fd}->peer_certificate));
 	delete $fo->{inside_connect};
 	$self->{loop}->delFD($xxfd, EV_WRITE) if $xxfd;
 	_addreader2loop($self,$fo);
@@ -721,5 +722,12 @@ sub _tls_connect {
     }
 }
 
+
+sub _dump_certificate {
+    my $cert = shift or return '';
+    my $issuer = Net::SSLeay::X509_NAME_oneline( Net::SSLeay::X509_get_issuer_name($cert));
+    my $subject = Net::SSLeay::X509_NAME_oneline( Net::SSLeay::X509_get_subject_name($cert));
+    return "s:$subject i:$issuer";
+}
 
 1;

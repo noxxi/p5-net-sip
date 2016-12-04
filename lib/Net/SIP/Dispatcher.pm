@@ -56,7 +56,8 @@ use constant SRV_PRIO_UNDEF => -1;
 #       with special domain '*' a default can be specified, so that DNS
 #       will not be used at all
 #   dnsresolv: DNS resolver function with interface sub->(type,domain,callback)
-#       which then calls callback->([{ prio, host, addr, port, family }])
+#       which then calls callback->(\@result) with @result being a list of
+#       [ 'SRV',prio,target,port], ['A',ip,name], ['AAAA',ip,name]
 # Returns: $self
 ###########################################################################
 sub new {
@@ -747,7 +748,7 @@ sub resolve_uri {
     }
 
     # should we use a fixed transport?
-    if ( my $proto = $param->{transport} ) {
+    if (@resp and  my $proto = $param->{transport} ) {
 	$proto = lc($proto);
 	if ($proto eq 'udp') {
 	    @resp = grep { $_->{proto} eq 'udp' } @resp
