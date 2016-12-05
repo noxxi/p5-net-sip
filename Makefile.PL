@@ -15,6 +15,7 @@ WriteMakefile(
 	# 'IO::Socket::SSL' => 1.956,  # optional
 	'Socket' => 1.95,
     },
+    LICENSE => 'perl',
     $ExtUtils::MakeMaker::VERSION >= 6.46 ? (
         'META_MERGE' => {
             resources => {
