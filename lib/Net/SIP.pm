@@ -1,10 +1,9 @@
 use strict;
 use warnings;
-
-require 5.008;
+use 5.010;
 
 package Net::SIP;
-our $VERSION = '0.803';
+our $VERSION = '0.804';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();

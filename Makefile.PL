@@ -1,5 +1,5 @@
 use ExtUtils::MakeMaker;
-use 5.0010;
+use 5.010;
 $^O =~m{Win32}i and die "OS unsupported";
 if (eval 'use Socket 1.95; 1' 
     and ! eval 'Socket::inet_pton(Socket::AF_INET(),"0.0.0.0")') {
