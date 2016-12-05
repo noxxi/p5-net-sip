@@ -163,6 +163,7 @@ sub new {
 	    my $saddr = getsockname($sock) or die
 		"cannot get local name from provided socket: $!";
 	    $self->{src} = ip_sockaddr2parts($saddr);
+	    $self->{src}{host} = $host if $host;
 	}
 	if (!$dst and my $saddr = getpeername($sock)) {
 	    # set dst from connected socket
