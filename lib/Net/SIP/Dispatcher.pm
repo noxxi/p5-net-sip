@@ -38,7 +38,10 @@ use Carp 'croak';
 use Net::SIP::Debug;
 use Scalar::Util 'weaken';
 
-use constant SRV_PRIO_UNDEF => -1;
+# The maximum priority value in SRV records is 0xffff and the lowest priority
+# value is considered the best. Make undefined priority higher so that it gets
+# considered as last option.
+use constant SRV_PRIO_UNDEF => 0x10000;
 
 ###########################################################################
 # create new dispatcher
@@ -1004,8 +1007,11 @@ sub __generic_resolver {
 		@$queries = ();
 		last;
 	    }
-	    splice(@$queries,$i,1);
-	    $i--;
+	    if ($i==0) {
+		# remove if top query
+		shift(@$queries);
+		redo;
+	    }
 	    next;
 	}
 

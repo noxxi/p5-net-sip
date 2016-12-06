@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.806 2016-12-06
+- fixed case in builtin DNS resolver where address records got preference
+  to SRV records
+- work around IO::Socket::IP behavior on systems with only lo interface
 0.805 2016-12-05
 - use host argument in Leg::new even if ip and port are extracted from the
   socket

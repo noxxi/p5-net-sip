@@ -28,7 +28,16 @@ BEGIN {
 	AF_INET6();
     }) {
 	$mod6 = 'IO::Socket::IP';
-	*INETSOCK = sub { return IO::Socket::IP->new(@_) }
+	*INETSOCK = sub {
+	    my %args = @_;
+	    # Hack to work around the problem that IO::Socket::IP defaults to
+	    # AI_ADDRCONFIG which creates problems if we have only the loopback
+	    # interface. If we already know the family this flag is more harmful
+	    # then useful.
+	    $args{GetAddrInfoFlags} = 0  if ! defined $args{GetAddrInfoFlags}
+		and $args{Domain} || $args{Family};
+	    return IO::Socket::IP->new(%args);
+	};
 
     } elsif (eval {
 	require IO::Socket::INET6;
