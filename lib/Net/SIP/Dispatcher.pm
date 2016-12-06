@@ -1010,7 +1010,7 @@ sub __generic_resolver {
 	    if ($i==0) {
 		# remove if top query
 		shift(@$queries);
-		redo;
+		next;
 	    }
 	    next;
 	}
