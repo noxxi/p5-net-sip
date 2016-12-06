@@ -29,7 +29,7 @@ BEGIN {
     }) {
 	$mod6 = 'IO::Socket::IP';
 	*INETSOCK = sub {
-	    my %args = @_;
+	    my %args = @_ == 1 ? (PeerAddr => $_[0]) : @_;
 	    # Hack to work around the problem that IO::Socket::IP defaults to
 	    # AI_ADDRCONFIG which creates problems if we have only the loopback
 	    # interface. If we already know the family this flag is more harmful
