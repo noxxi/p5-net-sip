@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.807 2016-12-07
+- fix workaround for IO::Socket::IP from 0.806
+- fix DNS resolver fix from 0.806
 0.806 2016-12-06
 - fixed case in builtin DNS resolver where address records got preference
   to SRV records
