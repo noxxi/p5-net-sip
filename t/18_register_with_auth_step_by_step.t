@@ -115,6 +115,7 @@ sub uac {
 	    return [ '007','secret' ],
 	},
     ) || die;
+    $ua->cleanup;
     print "Registered noauth ($realm)\n";
 
 }

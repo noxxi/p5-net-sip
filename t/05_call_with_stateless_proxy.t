@@ -195,6 +195,7 @@ sub uac {
     my $stop;
     $call->bye( cb_final => \$stop );
     $call->loop( \$stop,10 );
+    $uac->cleanup;
     print "END\n";
 }
 
@@ -237,6 +238,7 @@ sub uas {
 
     # Loop until call is closed, at most 10 seconds
     $uas->loop( \$call_closed, 10 );
+    $uas->cleanup;
     print "received ".int(@received)."/100 packets\n";
 
     # at least 20% of all RTP packets should come through

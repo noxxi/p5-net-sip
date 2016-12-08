@@ -175,6 +175,7 @@ sub uas {
 
     # Loop until call is closed, at most 10 seconds
     $uas->loop( \$call_closed, 10 );
+    $uas->cleanup;
 
     diag( "received ".int(@received)."/100 packets events=@events" );
 

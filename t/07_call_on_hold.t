@@ -124,6 +124,7 @@ sub uac {
     print "Send BYE\n";
     $call->bye( cb_final => \( my $bye_ok ));
     $ua->loop( 10,\$bye_ok );
+    $ua->cleanup;
     print "BYE done\n" if $bye_ok;
 
 
@@ -203,6 +204,7 @@ sub uas {
 
     # make sure the reply for the BYE makes it on the wire
     $ua->loop(1);
+    $ua->cleanup;
 }
 
 

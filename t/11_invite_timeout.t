@@ -145,5 +145,6 @@ sub uas {
     # Loop at most 10 seconds
     $uas->loop( 10,\$got_cancel );
     $uas->loop( 3 );
+    $uas->cleanup;
     print $pipe "UAS done\n";
 }

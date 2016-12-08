@@ -99,6 +99,7 @@ sub uac {
 	},
     ) || die;
     print "Registered noauth ($realm)\n";
+    $ua->cleanup;
 
 }
 

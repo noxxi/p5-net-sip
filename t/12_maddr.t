@@ -130,6 +130,7 @@ sub uas {
 
     # Loop until call is closed, at most 10 seconds
     $uas->loop( \$call_closed, 10 );
+    $uas->cleanup;
 
     # done
     if ( $call_closed ) {
