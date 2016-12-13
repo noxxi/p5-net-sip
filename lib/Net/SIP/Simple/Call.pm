@@ -91,7 +91,7 @@ sub new {
     $self->{rtp_cleanup}  = [];
     $self->{param} = $param ||= {};
     $param->{init_media} ||= $self->rtp( 'media_recv_echo' );
-    $param->{rtp_param}  ||= [ 0,160,160/8000 ]; # PCMU/8000: 5*160 bytes/second
+    $param->{rtp_param} ||= [ 0,160,160/8000 ]; # PCMU/8000: 50*160 bytes/second
     $param->{dtmf_events} ||= []; # get added by sub dtmf
     return $self;
 }
@@ -464,7 +464,7 @@ sub dtmf {
 	    if (defined $lastev) {
 		# force some silence to distinguish DTMF
 		push @$arr, {
-		    duration => 50,
+		    duration => ($lastev eq $_) ? 100 : 50,
 		    %payload_type
 		}
 	    }

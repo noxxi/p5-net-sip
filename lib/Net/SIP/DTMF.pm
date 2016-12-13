@@ -76,6 +76,7 @@ sub dtmf_extractor {
     }
     croak "neither rfc2833 nor audio RTP type defined" if ! %sub;
 
+    my $lastseq;
     return sub {
 	my ($pkt,$time) = @_;
 	my ($ver,$type,$seq,$tstamp,$srcid,$payload) = unpack('CCnNNa*',$pkt);
@@ -86,8 +87,25 @@ sub dtmf_extractor {
 	    $type &= 0b01111111;
 	}
 
+	my $seqdiff;
+	if (defined $lastseq) {
+	    $seqdiff = (2**16 + $seq - $lastseq) & 0xffff;
+	    if (!$seqdiff) {
+		$DEBUG && DEBUG(20,"dropping duplicate RTP");
+		return;
+	    } elsif ($seqdiff>2**15) {
+		$DEBUG && DEBUG(20,"dropping out of order RTP");
+		return;
+	    } else {
+		$DEBUG && $seqdiff>1 && DEBUG(30,'lost %d packets (%d-%d)',
+		    $seqdiff-1,$lastseq+1,$seq-1);
+	    }
+	}
+	$lastseq = $seq;
+
 	my $sub = $sub{$type} or return;
-	my ($event,$duration,$media)  = $sub->($payload,$time,$marker) or return;
+	my ($event,$duration,$media)  = $sub->($payload,$time,$marker,$seqdiff)
+	    or return;
 	return ($event, int(1000*$duration),$media);
     };
 }
@@ -195,7 +213,7 @@ sub _dtmf_xtc_rtpevent {
 		return ($ce->[0],$time - $ce->[1],'rfc2833');
 	    }
 	} else {
-	    # implicit end because we get another event
+	    # implicit end because we got another event
 	    my $ce = $current_event;
 	    $time||= gettimeofday();
 	    $current_event = [ $event,$time,$volume ];

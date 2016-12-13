@@ -74,7 +74,8 @@ sub uac {
     my ($peer_uri,$from_uas) = @_;
     Debug->set_prefix( "DEBUG(uac):" );
 
-    my $packets = 300;
+    # line noise when no DTMF is sent
+    my $packets = 250; # 5 seconds
     my $send_something = sub {
 	return unless $packets-- > 0;
 	my $buf = sprintf "%010d",$packets;
@@ -114,19 +115,19 @@ sub uac {
     ok( ! $uac->error, 'no error on UAC' );
     ok( $call, 'Call established' );
 
-    $call->dtmf('12D#',methods => 'rfc2833');
-    $call->dtmf('34B*',methods => 'audio');
+    $call->dtmf('12D#',methods => 'rfc2833', duration => 500);
+    $call->dtmf('34B*',methods => 'audio', duration => 500);
 
-    $call->loop( \$rtp_done, 10 );
+    $call->loop( \$rtp_done, 20 );
     ok( $rtp_done, "Done sending RTP" );
 
     my $stop;
     $call->bye( cb_final => \$stop );
-    $call->loop( \$stop,10 );
+    $call->loop( \$stop,30 );
     ok( $stop, 'UAS down' );
 
     $uas = <$from_uas>;
-    is( $uas,"UAS RTP ok\n","UAS RTP ok" );
+    like($uas, qr/UAS RTP ok/, "UAS RTP ok");
     # DTMF echoed back
     is( "@events","1 2 D # 3 4 B *", "UAC DTMF received");
     $uac->cleanup;
@@ -147,12 +148,26 @@ sub uas {
 	)
     ) || die $!;
 
-    # store received RTP data in array
-    my @received;
+    # count received RTP data
+    my $received = my $lost = my $lastseq = 0;
     my $save_rtp = sub {
-	my $buf = shift;
-	push @received,$buf;
+	my ($buf,$seq) = @_;
 	#warn substr( $buf,0,10)."\n";
+	my $diff = $seq - $lastseq;
+	if ($diff == 0) {
+	    diag("duplicate $seq");
+	    next;
+	} elsif ($diff<0) {
+	    diag("out of order $seq");
+	    next;
+	}
+	if ($diff>1) {
+	    $lost += $diff-1;
+	    diag(sprintf("lost %d packets (%d-%d)",
+		$diff-1,$lastseq+1,$seq-1));
+	}
+	$received++;
+	$lastseq = $seq;
     };
 
     # Listen
@@ -173,17 +188,20 @@ sub uas {
     # notify UAC process that I'm listening
     print $to_uac "UAS ready\n";
 
-    # Loop until call is closed, at most 10 seconds
-    $uas->loop( \$call_closed, 10 );
+    # Loop until call is closed, at most 20 seconds
+    $uas->loop( \$call_closed, 20 );
     $uas->cleanup;
 
-    diag( "received ".int(@received)."/100 packets events=@events" );
+    # 5 seconds line noise, 8 events a 500 ms and some pause in between
+    my $xrtpc = 5*50 + 8*25 + 7*2.5;
+
+    diag("received=$received lost=$lost expect ca. $xrtpc packets, events='@events'");
 
     # at least 20% of all RTP packets should come through
-    if ( @received > 20 ) {
-	print $to_uac "UAS RTP ok\n"
+    if ( $received > $xrtpc * 0.8) {
+	print $to_uac "UAS RTP ok ($received,$lost)\n"
     } else {
-	print $to_uac "UAS RTP received only ".int(@received)."/100 packets\n";
+	print $to_uac "UAS RTP received only $received/$xrtpc packets, lost $lost\n";
     }
 
     # done

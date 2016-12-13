@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.808 2016-12-13
+- make DTMF detection more robust in case of UDP reordering, duplicates etc
+- make t/19_call_with_dtmf.t more robust on slooow systems
+- call UA cleanup in tests to reduce warnings at global destruction
 0.807 2016-12-07
 - fix workaround for IO::Socket::IP from 0.806
 - fix DNS resolver fix from 0.806
