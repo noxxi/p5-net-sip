@@ -317,6 +317,9 @@ sub forward_outgoing {
 	    my $branch = $self->via_branch($packet,3);
 	    foreach my $via ( @via ) {
 		my (undef,$param) = sip_hdrval2parts( via => $via );
+		# ignore via header w/o branch, although these don't conform to
+		# RFC 3261, sect 8.1.1.7
+		defined $param->{branch} or next;
 		if ( substr( $param->{branch},0,length($branch) ) eq $branch ) {
 		    DEBUG( 10,'loop detected because outgoing leg is in Via. DROP' );
 		    return [ undef,'loop detected on outgoing leg, dropping' ];
