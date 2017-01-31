@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+
+- RT#120009, use ReuseAddr additionally to Reuse in IO::Socket* for compatibilty
+  with IO::Socket::IP
 0.808 2016-12-13
 - make DTMF detection more robust in case of UDP reordering, duplicates etc
 - make t/19_call_with_dtmf.t more robust on slooow systems

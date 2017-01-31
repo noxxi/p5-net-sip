@@ -258,7 +258,7 @@ sub sendto {
 	    ip_parts2string($dst));
 	my $clfd = INETSOCK(
 	    Proto => 'tcp',
-	    Reuse => 1,
+	    Reuse => 1, ReuseAddr => 1,
 	    LocalAddr => (ip_sockaddr2parts(getsockname($fo->{fd})))[0],
 	    Blocking => 0,
 	);

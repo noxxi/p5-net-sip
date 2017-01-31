@@ -130,7 +130,7 @@ sub new {
 	    Proto     => $proto eq 'tls' ? 'tcp' : $proto,
 	    Family    => $src->{family},
 	    LocalAddr => $src->{addr},
-	    Reuse     => 1,
+	    Reuse     => 1, ReuseAddr => 1,
 	);
 	if ($proto eq 'tcp' or $proto eq 'tls') {
 	    # with TCP we create a listening socket
