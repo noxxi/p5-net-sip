@@ -1,6 +1,14 @@
 Revision history for Net::SIP
 
 
+0.809 2017-03-14
+- StatelessProxy: decrease size of resulting new contact in the default
+  rewrite_contact handler to better deal with implementations which severally
+  limit the size of contact headers they accept.
+  Switch _stupid_crypt from mac-then-encrypt to encrypt-then-mac
+- RT#120593, StatelessProxy now handles rewriting of contacts with no '@'
+- RT#120039, SocketPool callbacks now include receiving socket object for
+  further analysis, like getting the certificates from the SSL socket
 - RT#120011, Leg::forward_outgoing - ignore (invalid) Via headers w/o branch
 - RT#120009, use ReuseAddr additionally to Reuse in IO::Socket* for compatibilty
   with IO::Socket::IP
