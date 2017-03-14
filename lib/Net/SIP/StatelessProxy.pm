@@ -58,12 +58,12 @@ sub new {
 # default handler for rewriting, does simple XOR only,
 # this is not enough if you need to hide internal addresses
 sub _default_rewrite_contact {
-    my ($crypt,$disp,$contact,$leg_in,$leg_out) = @_;
+    my ($crypt,$disp,$contact,$leg_in,$leg_out,$force_rewrite) = @_;
 
     my $legdict;
     my ($ileg_in,$ileg_out) = $disp->legs2i($leg_in,$leg_out,\$legdict);
 
-    if ( $contact =~m{\@} ) {
+    if ($force_rewrite or $contact =~m{\@}) {
 	# needs to be rewritten - incorporate leg_in:leg_out
 	$contact = pack("nna*",$ileg_in,$ileg_out,$contact);
 	# add 'b' in front so it does not look like phone number
@@ -555,7 +555,7 @@ sub __forward_packet_final {
 	    # otherwise rewrite it
 	    } else {
 		$addr = invoke_callback($rewrite_contact,$addr,$incoming_leg,
-		    $outgoing_leg);
+		    $outgoing_leg,1);
 		$addr .= '@'.$outgoing_leg->laddr(2);
 		my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
 		DEBUG( 50,"rewrote '$c' to '$cnew'" );
