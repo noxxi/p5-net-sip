@@ -182,7 +182,7 @@ sub master {
 # send packet via SocketPool
 # Args: ($self,$packet,$dst,$callback)
 #  $packet: Net::SIP::Packet
-#  $dst: where to send as hash with addr,port,family]
+#  $dst: where to send as hash with addr,port,family
 #  $callback: callback to call on definite successful delivery (TCP/TLS only)
 #    or on error
 ###########################################################################

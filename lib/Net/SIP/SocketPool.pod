@@ -63,8 +63,8 @@ This method is used indirectly from B<Leg::deliver> to deliver a new packet to
 its destinination.
 
 This will deliver the L<Net::SIP::Packet> B<PKT> to the target B<DST> given as
-C<< [ip, port, family] >> and will invoke B<CALLBACK> when done. Callback can be
-anything accepted by B<invoke_callback> from L<Net::SIP::Util>.
+hash with C<addr>, C<port>, C<family> and will invoke B<CALLBACK> when done.
+Callback can be anything accepted by B<invoke_callback> from L<Net::SIP::Util>.
 
 With TCP the B<SocketPool> will try to find an existing connected socket to the
 target first before creating a new one. For response packets it will prefer the
@@ -85,7 +85,7 @@ handler to the given B<LOOP> to handle new packets coming in through the sockets
 inside the B<SocketPool>. It will accept any callback suitable for
 B<invoke_callback> and will invoke it with C<< [PKT, FROM] >> where B<PKT> is
 the freshly read L<Net::SIP::Packet> and B<FROM> the origin of this packet as
-C<< [ip, port, family] >>.
+hash with C<addr>, C<port>, C<family>.
 
 If B<LOOP> is undef it will just detach from the current loop.
 
