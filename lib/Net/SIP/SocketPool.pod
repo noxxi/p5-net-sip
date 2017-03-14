@@ -85,7 +85,13 @@ handler to the given B<LOOP> to handle new packets coming in through the sockets
 inside the B<SocketPool>. It will accept any callback suitable for
 B<invoke_callback> and will invoke it with C<< [PKT, FROM] >> where B<PKT> is
 the freshly read L<Net::SIP::Packet> and B<FROM> the origin of this packet as
-hash with C<addr>, C<port>, C<family>.
+hash.
+This hash includes C<addr>, C<port> of the sender, C<family> of the socket,
+C<proto> as the used protocol (i.e. 'udp', 'tcp' or 'tls') and C<socket> for the
+local socket object where the packet was received on.
+This socket is either an IO::Socket or IO::Socket::SSL object and is only
+intended for passive use, for example to extract the certificate send by
+the peer.
 
 If B<LOOP> is undef it will just detach from the current loop.
 

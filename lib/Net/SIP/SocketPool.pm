@@ -422,6 +422,7 @@ sub _handle_read_udp {
     invoke_callback($self->{cb},$pkt, {
 	%{ ip_sockaddr2parts($from) },
 	proto => 'udp',
+	socket => $fd,
     });
 }
 
@@ -540,6 +541,7 @@ sub _handle_read_tcp_co {
     invoke_callback($self->{cb},$pkt, {
 	%{ ip_sockaddr2parts($from) },
 	proto => $self->{tls} ? 'tls' : 'tcp',
+	socket => $fd,
     });
 
     # continue with processing any remaining data in the buffer
