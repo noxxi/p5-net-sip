@@ -305,6 +305,52 @@ sub get_legs {
 
 
 ###########################################################################
+# map leg to index in list of legs
+# Args: @legs,[\$dict]
+#  @legs: list of legs
+#  $dict: string representation of dictionary, used in i2leg and others
+#    to make sure that it the indices come from the same list of legs.
+#    Will be set if given
+# Returns: @ilegs
+#  @ilegs: index of each of @legs in dispatcher, -1 if not found
+###########################################################################
+sub legs2i {
+    my Net::SIP::Dispatcher $self = shift;
+    my $legs = $self->{legs};
+    if (ref($_[-1]) eq 'SCALAR') {
+	my $dict = pop @_;
+	$$dict = join("|",map { $_->key } @$legs);
+    }
+    my @result;
+    for(@_) {
+	my $i;
+	for($i=$#$legs;$i>=0;$i--) {
+	    last if $legs->[$i] == $_;
+	}
+	push @result,$i;
+    }
+    return @result;
+}
+
+###########################################################################
+# map index to leg in list of legs
+# Args: @ilegs,[\$dict]
+#  @ilegs: list of leg indices
+#  $dict: optional string representation of dictionary, will return ()
+#     if $dict does not match current legs and order in dispatchr
+# Returns: @legs
+#  @legs: list of legs matching indices
+###########################################################################
+sub i2legs {
+    my Net::SIP::Dispatcher $self = shift;
+    my $legs = $self->{legs};
+    if (ref($_[-1])) {
+	return if pop(@_) ne join("|",map { $_->key } @$legs);
+    }
+    return @{$legs}[@_];
+}
+
+###########################################################################
 # add timer
 # propagates to add_timer of eventloop
 # Args: ($self,$when,$cb,$repeat)

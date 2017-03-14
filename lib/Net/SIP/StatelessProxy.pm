@@ -12,7 +12,7 @@ package Net::SIP::StatelessProxy;
 use fields qw( dispatcher rewrite_contact nathelper force_rewrite );
 
 use Net::SIP::Util ':all';
-use Digest::MD5 qw(md5_hex md5);
+use Digest::MD5 qw(md5);
 use Carp 'croak';
 use List::Util 'first';
 use Hash::Util 'lock_ref_keys';
@@ -56,44 +56,41 @@ sub new {
 sub _default_rewrite_contact {
     my ($crypt,$disp,$contact,$leg_in,$leg_out) = @_;
 
+    my $legdict;
+    my ($ileg_in,$ileg_out) = $disp->legs2i($leg_in,$leg_out,\$legdict);
+
     if ( $contact =~m{\@} ) {
 	# needs to be rewritten - incorporate leg_in:leg_out
-	$contact = join("\|",
-	    (map { $_->key } ($leg_in,$leg_out)),
-	    $contact
-	);
-	# add 'r' in front of hex so it does not look like phone number
-	my $new = 'r'.unpack( 'H*',$crypt->($contact,1));
+	$contact = pack("nna*",$ileg_in,$ileg_out,$contact);
+	# add 'b' in front so it does not look like phone number
+	my $new = 'b'._encode_base32($crypt->($contact,1,$legdict));
 	DEBUG( 100,"rewrite $contact -> $new" );
 	return $new;
     }
 
-    if ( $contact =~m{^r([0-9a-f]+)$} ) {
+    if ( $contact =~m{^b([A-Z2-7]+)$} ) {
 	# needs to be written back
-	my $old = $crypt->(pack("H*",$1),-1) or do {
+	my $old = $crypt->(_decode_base32($1),-1,$legdict) or do {
 	    DEBUG(10,"no rewriting of $contact - bad encryption");
 	    return;
 	};
 	DEBUG(100,"rewrote back $contact -> $old");
-	(my $old_in,my $old_out,$old) = split( m{\|},$old,3);
+	(my $iold_in,my $iold_out,$old) = unpack("nna*",$old);
 	my $new_in = $leg_in->key;
-	if ( $new_in ne $old_out ) {
-	    DEBUG(10,"no rewriting of $contact - went out through $old_out, came in through $new_in");
+	if ($ileg_in ne $iold_out) {
+	    DEBUG(10,"no rewriting of $contact - went out through $iold_out, came in through $ileg_in");
 	    return;
 	}
 	if ( ref($leg_out) eq 'SCALAR' ) {
 	    # return the old_in as the new outgoing leg
-	    my @l = grep { $_->key eq $old_in } $disp->get_legs;
-	    if ( @l != 1 ) {
-		DEBUG(10,"no rewriting of $contact - cannot find leg $old_in");
+	    ($$leg_out) = $disp->i2legs($iold_in) or do {
+		DEBUG(10,"no rewriting of $contact - cannot find leg $iold_in");
 		return;
 	    }
-	    $$leg_out = $l[0];
-	} elsif ( $leg_out ) {
+	} elsif ($leg_out) {
 	    # check that it is the expected leg
-	    my $new_out = $leg_out->key;
-	    if ( $new_out ne $old_in ) {
-		DEBUG(10,"no rewriting of $contact - went in through $old_in, should got out through $new_out");
+	    if ($ileg_out ne $iold_in) {
+		DEBUG(10,"no rewriting of $contact - went in through $iold_in, should got out through $ileg_out");
 		return;
 	    }
 	}
@@ -141,6 +138,27 @@ sub _default_rewrite_contact {
 	    substr($out,0,4,'');                        # remove seed
 	}
 	return $out;
+    }
+
+    sub _encode_base32 {
+	my $data = shift;
+	$data = unpack('B*',$data);
+	my $text;
+	my $padsize =
+	$data .= '0' x ((5 - length($data) % 5) % 5); # padding
+	$data =~s{(.....)}{000$1}g;
+	$data = pack('B*',$data);
+	$data =~tr{\000-\037}{A-Z2-7};
+	return $data;
+    }
+
+    sub _decode_base32 {
+	my $data = shift;
+	$data =~ tr{A-Z2-7a-z}{\000-\037\000-\031};
+	$data = unpack('B*',$data);
+	$data =~s{...(.....)}{$1}g;
+	$data = substr($data,0,8*int(length($data)/8));
+	return pack('B*',$data);
     }
 }
 
