@@ -29,6 +29,10 @@ use Net::SIP::Debug;
 #        if called on a string without @ which cannot rewritten back it
 #        should return undef. If not given a reasonable default will be
 #        used.
+#     rewrite_crypt: function(data,dir,add2mac) which will encrypt(dir>0) or
+#        decrypt(dir<0) data. Optional add2mac is added in MAC. Will return
+#        encrypted/decrypted data or undef if decryption failed because
+#        MAC did not match
 #     nathelper: Net::SIP::NAT::Helper used for rewrite SDP bodies.. (optional)
 #     force_rewrite: if true rewrite contact even if incoming and outgoing
 #         legs are the same
@@ -104,19 +108,35 @@ sub _default_rewrite_contact {
 }
 
 {
+    # This is only a simple implementation which is in no way cryptographic safe
+    # because it does use a broken cipher (RC4), pseudo-random keys and IV only
+    # and short keys. Nonetheless, it is probably safe for this purpose and does
+    # not depend on non-standard libs, but using openssl bindings might be both
+    # more secure and faster for this.
+    #
     # RC4 with seed + checksum, picks random key on first use
     # dir: encrypt(1),decrypt(-1), otherwise symmetric w/o seed and checksum
-    my @k;
+    my (@k,$mackey);
     sub _stupid_crypt {
-	my ($in,$dir) = @_;
-	@k = map { rand(256) } (0..20) if ! @k; # create random key 
+	my ($in,$dir,$add2mac) = @_;
+	$add2mac = '' if ! defined $add2mac;
+
+	if (!@k) {
+	    # create random key
+	    @k = map { rand(256) } (0..20);
+	    $mackey = pack("N",rand(2**32));
+	}
 
 	if ($dir>0) {
 	    $in = pack("N",rand(2**32)).$in;  # add seed
-	    $in .= substr(md5($in),0,4);      # add checksum
+	} else {
+	    # remove checksum and verify it
+	    my $cksum = substr($in,-4,4,'');
+	    substr(md5($in.$add2mac.$mackey),0,4) eq $cksum
+		or return;  # does not match
 	}
 
-	# RC4
+	# apply RC4 for encryption/decryption
 	my $out = '';
 	my @s = (0..255);
 	my $x = my $y = 0;
@@ -132,10 +152,11 @@ sub _default_rewrite_contact {
 	    $out .= pack('C',$_^=$s[($s[$x]+$s[$y])%256]);
 	}
 
-	if ( $dir<0 ) {
-	    my $cksum = substr($out,-4,4,'');           # remove checksum
-	    substr(md5($out),0,4) eq $cksum or return;  # verify it
-	    substr($out,0,4,'');                        # remove seed
+	if ($dir>0) {
+	    # add checksum
+	    $out .= substr(md5($out.$add2mac.$mackey),0,4);
+	} else {
+	    substr($out,0,4,'');  # remove seed
 	}
 	return $out;
     }

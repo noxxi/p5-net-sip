@@ -63,15 +63,22 @@ extracted from the contact.
 The function should return the new contact or nothing if there was nothing to
 rewrite or the rewrite failed.
 
+Note that some servers apply length limitiations to the contact so the function
+should not return too long values.
+
 =item rewrite_crypt
 
 If you want to have your own encryption for the rewritten contact you should
 defined a subroutine here, which gets C<data> as the first and C<dir> as the
 second parameter and should return the de/encrypted data. If C<dir> is +1 it
 should encrypt and on -1 it should decrypt.
+The optional third argument C<add2mac> should be included in calculation and
+verification of the MAC.
+The function should return the encrypted/decrypted data or undef if decryption
+failed because the MAC did not match.
 
 If not defined, then RC4 will be used with a (pseudo)random key, 4 byte
-(pseudo)random seed and 4 byte "checksum" (md5) over seed and data.
+(pseudo)random seed and 4 byte MAC (md5) over seed and data.
 
 =item nathelper
 
