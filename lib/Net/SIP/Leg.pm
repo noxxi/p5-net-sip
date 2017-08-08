@@ -584,7 +584,9 @@ sub can_deliver_to {
 sub match {
     my Net::SIP::Leg $self = shift;
     my $args = shift;
-    return if $args->{addr}  && $args->{addr}  ne $self->{src}{addr};
+    return if $args->{addr}
+	&& $args->{addr} ne $self->{src}{addr}
+	&& $args->{addr} ne $self->{src}{host};
     return if $args->{port}  && $args->{port}  != $self->{src}{port};
     return if $args->{proto} && $args->{proto} ne $self->{proto};
     return if $args->{sub}   && !invoke_callback($args->{sub},$self);
