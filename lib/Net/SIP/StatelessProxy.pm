@@ -80,10 +80,15 @@ sub _default_rewrite_contact {
 	};
 	DEBUG(100,"rewrote back $contact -> $old");
 	(my $iold_in,my $iold_out,$old) = unpack("nna*",$old);
-	my $new_in = $leg_in->key;
 	if ($ileg_in ne $iold_out) {
-	    DEBUG(10,"no rewriting of $contact - went out through $iold_out, came in through $ileg_in");
-	    return;
+	    my ($old_out) = $disp->i2legs($iold_out);
+	    if ($leg_in->{contact} ne $old_out->{contact}
+		&& ! sip_uri_eq($leg_in->{contact},$old_out->{contact})) {
+		DEBUG(10,
+		    "no rewriting of %s - went out through %s, came in through %s",
+		    $contact, $old_out->{contact}, $leg_in->{contact});
+		return;
+	    }
 	}
 	if ( ref($leg_out) eq 'SCALAR' ) {
 	    # return the old_in as the new outgoing leg
@@ -94,8 +99,14 @@ sub _default_rewrite_contact {
 	} elsif ($leg_out) {
 	    # check that it is the expected leg
 	    if ($ileg_out ne $iold_in) {
-		DEBUG(10,"no rewriting of $contact - went in through $iold_in, should got out through $ileg_out");
-		return;
+		my ($old_in) = $disp->i2legs($iold_in);
+		if ($leg_out->{contact} ne $old_in->{contact}
+		    && ! sip_uri_eq($leg_out->{contact},$old_in->{contact})) {
+		    DEBUG(10,
+			"no rewriting of %s - went in through %s, should got out through %s",
+			$contact, $old_in->{contact}, $leg_out->{contact});
+		    return;
+		}
 	    }
 	}
 	DEBUG( 100,"rewrite back $contact -> $old" );
