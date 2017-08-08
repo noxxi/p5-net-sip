@@ -1,6 +1,19 @@
 Revision history for Net::SIP
 
 
+0.810 2017-08-08
+- various fixes based on feedback from Richard Carver:
+  - RT#120816 - account for slightly different Via and Proxy-Authorization
+    in INVITE and CANCEL when computing via_branch
+  - RT#121514: fix race in SocketPool where it tried to send new data during
+    TCP connect or TLS handshake, which resulted in the worst case in data
+    sent in plain instead of encrypted
+  - RT#121347 - fix usage if dict in Net::SIP::Dispatcher::i2legs
+  - RT#121585 - fix encoding special characters in
+    Net::SIP::Util::sip_parts2hdrval
+  - RT#122588 - fix typo in Net::SIP::Debug::level
+- make it possible to restrict methods when receiving DTMF using param
+  dtmf_methods in Simple::Call, based on feedback from Peter Linden
 0.809 2017-03-14
 - StatelessProxy: decrease size of resulting new contact in the default
   rewrite_contact handler to better deal with implementations which severally
