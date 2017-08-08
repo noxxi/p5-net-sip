@@ -189,7 +189,7 @@ sub sip_parts2hdrval {
 	my $v = $param->{$k};
 	if ( defined $v ) {
 	    # escape special chars
-	    $v =~s{([%\r\n\t"[:^print:]])}{ sprintf "%%%02x",ord($1) }sg;
+	    $v =~s{([%\r\n\t"[:^print:]])}{ sprintf "%%%02x",ord($1) }esg;
 	    $v = '"'.$v.'"' if $v =~m{\s|$delim};
 	    $val .= '='.$v
 	}
