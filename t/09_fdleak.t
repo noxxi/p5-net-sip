@@ -10,6 +10,7 @@ use warnings;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib: $@";
 use Net::SIP ':all';
 
+#test_use_config(6);
 my ($ssock,$saddr) = create_socket();
 my $tfn = fileno( newfd() );
 if ( fileno($ssock) != $tfn-1 ) {
@@ -43,7 +44,7 @@ sub uas {
 
 
 sub uac {
-    ( my $caddr = $saddr ) =~s{:\d+}{:0}; # same ip, port will be picked
+    ( my $caddr = $saddr ) =~s{:\d+\z}{:0}; # same ip, port will be picked
     # for some strange reason on glib2.7 or whatever the cause is this not
     # only allocates a new fd, but a pipe too. So just ignore the first fd
     # and use the next

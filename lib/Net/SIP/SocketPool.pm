@@ -249,7 +249,7 @@ sub sendto {
 		ip_parts2string($fo->{peer}));
 	    # send over this connected socket
 	    $fo->{wbuf} .= $data;
-	    _tcp_send($self,$fo,$callback);
+	    _tcp_send($self,$fo,$callback) if ! $fo->{inside_connect};
 	    return;
 	}
 

@@ -10,6 +10,7 @@ use warnings;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib: $@";
 use Net::SIP ':all';
 
+#test_use_config(6);
 my ($ssock,$saddr) = create_socket();
 my $tfn = fileno( newfd() );
 if ( fileno($ssock) != $tfn-1 ) {
