@@ -517,15 +517,31 @@ sub via_branch {
     my ($packet,$level) = @_;
     my $val = $self->{branch};
     $val .= substr( md5_hex( $packet->tid ),0,15 ) if $level>1;
-    $val .= substr( md5_hex( 
-	( sort $packet->get_header( 'proxy-authorization' )),
-	( sort $packet->get_header( 'proxy-require' )),
-	$packet->get_header( 'route' ),
-	$packet->get_header( 'to' ),
-	$packet->get_header( 'from' ),
-	($packet->get_header( 'via' ))[0] || '',
-	($packet->as_parts())[1],
-    ),0,15 ) if $level>2;
+    if ($level>2) {
+	my @parts;
+	# RT#120816 -  take only known constant values from proxy-authorization
+	for(sort $packet->get_header('proxy-authorization')) {
+	    my ($typ,$param) = sip_hdrval2parts('proxy-authorization' => $_);
+	    push @parts,$typ;
+	    for(qw(realm username domain qop algorithm)) {
+		push @parts,"$_=$param->{$_}" if exists $param->{$_};
+	    }
+	}
+
+	# RT#120816 - include only the branch from via header if possible
+	if (my $via = ($packet->get_header('via'))[0]) {
+	    my (undef,$param) = sip_hdrval2parts(via => $via);
+	    push @parts, $param && $param->{branch} || $via;
+	}
+
+	push @parts,
+	    ( sort $packet->get_header('proxy-require')),
+	    $packet->get_header('route'),
+	    $packet->get_header('to'),
+	    $packet->get_header('from'),
+	    ($packet->as_parts())[1];
+	$val .= substr(md5_hex(@parts),0,15);
+    }
     return $val;
 }
 
