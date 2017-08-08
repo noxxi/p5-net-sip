@@ -100,6 +100,11 @@ for the data. If this option is TRUE it will allocate a different port
 for receiving data. Mainly used for testing behavior of proxies in between
 the two parties.
 
+=item dtmf_methods
+
+If a DTMF callback is specified this is treated as a list of supported DTMF
+methods for receiving DTMF. If not given it defaults to 'rfc2833,audio'.
+
 =item recv_bye
 
 Callback usable by B<invoke_callback> in L<Net::SIP::Util> which will be

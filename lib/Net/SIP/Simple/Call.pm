@@ -50,6 +50,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #   sip_header: hashref of SIP headers to add
 #   call_on_hold: one-shot parameter to set local media addr to 0.0.0.0,
 #       will be set to false after use
+#   dtmf_methods: supported DTMF methods for receiving, default 'rfc2833,audio'
 #   rtp_param: [ pt,size,interval,name ] RTP payload type, packet size and interval
 #       between packets managed in Net::SIP::Simple::RTP, default is PCMU/8000,
 #       e.g [ 0,160,160/8000 ]
@@ -616,11 +617,15 @@ sub _setup_peer_rtp_socks {
 	    push @$raddr, @socks == 1 ? $socks[0] : \@socks;
 
 	    if ( $m->{media} eq 'audio' and $param->{cb_dtmf} ) {
-		my %rmap = (
-		    'PCMU/8000' => 'audio_type',
-		    'telephone-event/8000' => 'rfc2833_type'
-		);
-		my %pargs = ( audio_type => 0 ); # 0 is default type for PCMU/8000
+		my %mt = qw(audio PCMU/8000 rfc2833 telephone-event/8000);
+		my $mt = $param->{dtmf_methods} || 'audio,rfc2833';
+		my (%rmap,%pargs);
+		for($mt =~m{([\w+\-]+)}g) {
+		    my $type = $mt{$_} or die "invalid dtmf_method: $_";
+		    $rmap{$type} = $_.'_type';
+		    # 0 is default type for PCMU/8000
+		    %pargs = (audio_type => 0) if $_ eq 'audio';
+		}
 		for my $l (@{$m->{lines}}) {
 		    $l->[0] eq 'a' or next;
 		    my ($type,$name) = $l->[1] =~m{^rtpmap:(\d+)\s+(\S+)} or next;
