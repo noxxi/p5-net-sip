@@ -337,7 +337,7 @@ sub legs2i {
 # Args: @ilegs,[\$dict]
 #  @ilegs: list of leg indices
 #  $dict: optional string representation of dictionary, will return ()
-#     if $dict does not match current legs and order in dispatchr
+#     if $dict does not match current legs and order in dispatcher
 # Returns: @legs
 #  @legs: list of legs matching indices
 ###########################################################################
@@ -345,7 +345,7 @@ sub i2legs {
     my Net::SIP::Dispatcher $self = shift;
     my $legs = $self->{legs};
     if (ref($_[-1])) {
-	return if pop(@_) ne join("|",map { $_->key } @$legs);
+	return if ${pop(@_)} ne join("|",map { $_->key } @$legs);
     }
     return @{$legs}[@_];
 }
