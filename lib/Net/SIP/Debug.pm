@@ -68,8 +68,8 @@ sub level {
 		my $name = $1;
 		my $below = $2;
 		my @names = ( $name );
-		push @names, "Net::".$name if $name =m{^SIP\b};
-		push @names, "Net::SIP::".$name if $name !~m{^Net::SIP\b};
+		push @names, "Net::".$name if $name =~ m{^SIP\b};
+		push @names, "Net::SIP::".$name if $name !~ m{^Net::SIP\b};
 		foreach (@names) {
 		    $level4package{$_} = $l;
 		    $level4package{$_.'::'} = $l if $below;
