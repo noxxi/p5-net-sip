@@ -32,23 +32,23 @@ in the source of L<Net::SIP::Simple>.
 
 =over 4
 
-=item L<SIP::Net::Packet>
+=item L<Net::SIP::Packet>
 
 The base class for handling SIP packets and provides ways to
 parse, construct and manipulate SIP packets.
 
-=item L<SIP::Net::Request>
+=item L<Net::SIP::Request>
 
-Derived from L<SIP::Net::Packet> and handles the request packets.
+Derived from L<Net::SIP::Packet> and handles the request packets.
 Provides ways to create special requests like ACK or CANCEL based
 on previous requests and responses, for creating responses based
 on requests, for authorization of requests.
 
-=item L<SIP::Net::Response>
+=item L<Net::SIP::Response>
 
-Derived from L<SIP::Net::Packet> and handles the response packets.
+Derived from L<Net::SIP::Packet> and handles the response packets.
 
-=item L<SIP::Net::SDP>
+=item L<Net::SIP::SDP>
 
 Handles SDP bodies from SIP packets. Provides ways to parse, construct
 these bodies, to get media information from them and to manipulate the
