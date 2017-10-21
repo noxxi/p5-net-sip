@@ -188,7 +188,7 @@ sub _default_rewrite_contact {
 # Args: ($self,$packet,$leg,$from)
 #    $packet: Net::SIP::Packet
 #    $leg: incoming leg
-#    $from: ip:port where packet came from
+#    $from: where packet came from as structur (see ip_sockaddr2parts)
 # Returns: TRUE if packet was fully handled
 ###########################################################################
 sub receive {
@@ -565,8 +565,11 @@ sub __forward_packet_final {
 	$packet->set_header( contact => \@contact );
     }
 
-    if ( $outgoing_leg != $incoming_leg and $packet->is_request ) {
-	$incoming_leg->add_via($packet);
+    if ($outgoing_leg != $incoming_leg and $packet->is_request) {
+	$incoming_leg->add_via($packet, {
+	    received => $entry->{from}{addr},
+	    rport    => $entry->{from}{port}
+	});
     }
 
     # prepare outgoing packet

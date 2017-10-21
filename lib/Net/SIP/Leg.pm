@@ -494,15 +494,18 @@ sub check_via {
 
 ###########################################################################
 # add myself as Via header to packet
-# Args: ($self,$packet)
+# Args: ($self,$packet,[$param])
 #  $packet: Net::SIP::Packet (usually Net::SIP::Request)
+#  $param: additional parameter for Via header (received, rport...)
 # Returns: NONE
 # modifies packet in-place
 ###########################################################################
 sub add_via {
     my Net::SIP::Leg $self = shift;
-    my $packet = shift;
-    $packet->insert_header( via => $self->{via}.$self->via_branch($packet,3));
+    my ($packet,$param) = @_;
+    my $via = $self->{via}.$self->via_branch($packet,3);
+    $via = sip_parts2hdrval( via => $via,$param) if $param;
+    $packet->insert_header(via => $via);
 }
 
 ###########################################################################

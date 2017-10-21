@@ -106,7 +106,7 @@ even if they are the same.
 
 PACKET is the incoming packet,
 LEG is the L<Net::SIP::Leg> where the packet arrived and FROM
-is the C<< "ip:port" >> of the sender.
+is the source of the sender as hash (see ip_sockaddr2parts).
 
 Called from the dispatcher on incoming packets. The packet
 will be rewritten (C<Via> and C<Record-Route> headers added,
