@@ -75,7 +75,7 @@ It gets invoked with the timer object (see later) as an additional argument,
 which has a method B<cancel> for canceling the (repeating) timer.
 
 REPEAT is the number of seconds between each invocation of the timer. If greater
-then 0 (subsection resulution possible) the callback will be called each
+then 0 (subsection resolution possible) the callback will be called each
 REPEAT seconds, after it was called the first time at WHEN.
 
 The method will return an object which has a method B<cancel> which can be
