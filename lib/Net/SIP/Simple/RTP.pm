@@ -269,7 +269,8 @@ sub _receive_rtp {
     my $padding = $vpxcc & 0x20 ? unpack( 'C', substr($buf,-1,1)) : 0;
     my $payload = $padding ? substr( $buf,0,length($buf)-$padding ): $buf;
 
-    DEBUG( 100,"payload=$seq/%d xh=%d padding=%d cc=%d", length($payload),$xh,$padding,$cc );
+    DEBUG( 100,"payload=$seq/%d pt=%d xh=%d padding=%d cc=%d",
+	length($payload),$mpt & 0x7f, $xh,$padding,$cc );
     if ( $targs->{rseq} && $seq<= $targs->{rseq}
 	&& $targs->{rseq} - $seq < 60000 ) {
 	DEBUG( 10,"seq=$seq last=$targs->{rseq} - dropped" );
