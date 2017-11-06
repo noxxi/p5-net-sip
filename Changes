@@ -1,6 +1,8 @@
 Revision history for Net::SIP
 
-
+0.811 2017-11-06
+- Net::SIP::Simple - adhere to rtp_param on listener side too which makes it
+  possible to use custom codecs for both sender and recipient
 0.810 2017-08-08
 - various fixes based on feedback from Richard Carver:
   - RT#120816 - account for slightly different Via and Proxy-Authorization

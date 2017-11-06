@@ -55,7 +55,7 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 #       between packets managed in Net::SIP::Simple::RTP, default is PCMU/8000,
 #       e.g [ 0,160,160/8000 ]
 #       a name can be added in which case an rtpmap and ptme entry will be created in the
-#       SDP, e.g. [ 97,240,0.03,'iLBC/8000' ]
+#       SDP, e.g. [ 97,50,0.03,'iLBC/8000' ]
 ###########################################################################
 
 use Net::SIP::Util qw(:all);

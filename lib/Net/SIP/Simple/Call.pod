@@ -65,7 +65,7 @@ size of the payload and B<interval> the interval in which the RTP packets
 will be send. B<name> is optional and if given rtpmap and ptime entries will be added
 to the SDP so that the name is associated with the given payload type.
 The default is for PCMU/8000: C<< [0,160,160/8000] >>. An alternative would be
-for example C<< [97,240,0.03,'iLBC/8000'] >> for iLBC.
+for example C<< [97,50,0.03,'iLBC/8000'] >> for iLBC.
 
 =item sdp
 
