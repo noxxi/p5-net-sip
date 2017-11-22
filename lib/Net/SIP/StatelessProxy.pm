@@ -350,7 +350,7 @@ sub __forward_response_1 {
 	    ip_parts2string($entry->{dst_addr}[0]));
 	return;
     }
-    __forward_packet_final( $self,$entry );
+    $self->__forward_packet_final($entry);
 }
 
 
@@ -463,7 +463,7 @@ sub __forward_request_1 {
 	    [ \&__forward_request_2,$self,$entry ]
 	);
     } else {
-	__forward_packet_final($self,$entry);
+	$self->__forward_packet_final($entry);
     }
 }
 
@@ -489,7 +489,7 @@ sub __forward_request_2 {
 
     return unless @$dst_addr; # nothing could be resolved
 
-    __forward_packet_final( $self,$entry );
+    $self->__forward_packet_final($entry);
 }
 
 
