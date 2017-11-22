@@ -537,9 +537,8 @@ sub via_branch {
 	push @parts,
 	    ( sort $packet->get_header('proxy-require')),
 	    $packet->get_header('route'),
-	    $packet->get_header('to'),
 	    $packet->get_header('from'),
-	    ($packet->as_parts())[1];
+	    ($packet->as_parts())[1]; # URI
 	$val .= substr(md5_hex(@parts),0,15);
     }
     return $val;

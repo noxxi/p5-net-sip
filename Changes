@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.812 2017-11-22
+- don't include To-Header into computation of branch, since this might differ
+  between INVITE and ACK (by adding the tag from the response).
 - RT#123685 - better debug-output in StatelessProxy on DNS problems
 - RT#122925 - call StatelessProxy::__forward_packet_final as method not function
   to allow overriding in special cases - this does not make it a public API!
