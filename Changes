@@ -1,5 +1,6 @@
 Revision history for Net::SIP
 
+- RT#123685 - better debug-output in StatelessProxy on DNS problems
 - RT#122925 - call StatelessProxy::__forward_packet_final as method not function
   to allow overriding in special cases - this does not make it a public API!
 - RT#122595 - Net::SIP::Debug->level looks for useful caller now starting with

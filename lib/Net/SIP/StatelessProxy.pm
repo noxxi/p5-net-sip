@@ -443,7 +443,7 @@ sub __forward_request_1 {
     my $entry = shift;
 
     if (@_) {
-	DEBUG(10,"failed to resolve URI: @_");
+	DEBUG(10,"failed to resolve URI %s: @_",$entry->{nexthop});
 	return;
     }
 
