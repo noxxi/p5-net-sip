@@ -84,7 +84,7 @@ sub level {
 	if ( %level4package ) {
 	    # check if there is a specific level for this package
 	    my $pkg;
-	    for( my $i=1;1;$i++ ) {
+	    for( my $i=0;1;$i++ ) {
 		# find first frame outside of this package
 		($pkg) = caller($i);
 		last if !$pkg or $pkg ne __PACKAGE__;
