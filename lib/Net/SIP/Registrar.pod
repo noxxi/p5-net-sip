@@ -80,7 +80,7 @@ C<< 423 Interval too brief >> if the request expires time
 is too small, or C<< 200 Ok >> if the expires time is 0 (e.g. the
 client should be unregistered) or greater or equal B<min_expires>.
 
-In case of a successful response it wil also update the internal
+In case of a successful response it will also update the internal
 registry information.
 
 =item query ( ADDR )
