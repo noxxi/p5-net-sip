@@ -58,7 +58,7 @@ sub set_application {
     if ( my $sub = UNIVERSAL::can( $app,'receive' )) {
 	$cb = [ $sub,$app ];
     } else {
-	$cb = $app; # alreday callback
+	$cb = $app; # already callback
     }
     $self->{application} = $cb;
 }

@@ -629,7 +629,8 @@ sub do_nat {
     }
 
 
-    my $body = eval { $packet->sdp_body };
+    my $body = eval { $packet->cseq =~m{\b(?:INVITE|ACK)\b} 
+	&& $packet->sdp_body };
     if ( $@ ) {
 	DEBUG( 10, "malformed SDP body" );
 	return [ 500,"malformed SDP body" ];
