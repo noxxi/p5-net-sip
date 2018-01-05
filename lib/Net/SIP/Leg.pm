@@ -410,6 +410,7 @@ sub deliver {
 	my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ).
 	    "\@$addr";
 	$contact = $proto.':'.$contact if $contact !~m{^\w+:};
+	$contact = "<$contact>" if $contact =~m{;};
 	$packet->insert_header( contact => $contact );
     }
     if ( $need_allow && ! ( my @a = $packet->get_header( 'allow' ))) {

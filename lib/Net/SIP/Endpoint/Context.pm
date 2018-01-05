@@ -175,7 +175,8 @@ sub new_request {
 	my ($to,$from) = $self->{incoming} ? ($self->{from},$self->{to})
 	    : ($self->{to},$self->{from});
 	if ( !$uri ) {
-	    ($uri) = sip_hdrval2parts( to => $self->{remote_contact}||$to);
+	    $uri = $self->{remote_contact}
+		|| (sip_hdrval2parts(to => $to))[0];
 	    # XXX handle quotes right, e.g "<bla>" <sip:bla@fasel.com>
 	    $uri = $1 if $uri =~m{<(\S+)>$};
 	}
