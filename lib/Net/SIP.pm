@@ -3,7 +3,7 @@ use warnings;
 use 5.010;
 
 package Net::SIP;
-our $VERSION = '0.812';
+our $VERSION = '0.813';
 
 # this includes nearly everything else
 use Net::SIP::Simple ();

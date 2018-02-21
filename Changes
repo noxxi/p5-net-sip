@@ -1,5 +1,11 @@
 Revision history for Net::SIP
 
+0.813 2018-02-21
+- StatelessProxy
+  - support for inactive or sendonly channels (port=0) in NAT scenario
+  - only rewrite SDP inside INVITE|ACK request|response
+- properly handle parameters in contact argument: 
+  fixes https://github.com/noxxi/p5-net-sip/pull/14
 0.812 2017-11-22
 - don't include To-Header into computation of branch, since this might differ
   between INVITE and ACK (by adding the tag from the response).
