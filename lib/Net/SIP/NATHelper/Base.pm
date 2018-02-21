@@ -842,7 +842,7 @@ sub callbacks {
 	my $recvaddr = $targets_to->[$i];
 	my $dstaddr = $targets_from->[$i];
 
-	push @cb, [
+	$dstaddr && push @cb, [
 	    $sockets_from->[$i],
 	    [
 		$fwd_data,
@@ -856,7 +856,7 @@ sub callbacks {
 	    ++$callback_id
 	];
 
-	push @cb, [
+	$recvaddr && push @cb, [
 	    $sockets_to->[$i],
 	    [
 		$fwd_data,
