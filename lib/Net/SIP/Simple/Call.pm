@@ -608,7 +608,7 @@ sub _setup_peer_rtp_socks {
 	my $m = $media[$i];
 	my $range = $m->{range} || 1;
 	my $paddr = ip_canonical($m->{addr});
-	if ( $paddr eq '0.0.0.0' or  $paddr eq '::') {
+	if (!$m->{port} or  $paddr eq '0.0.0.0' or  $paddr eq '::') {
 	    # on-hold for this media
 	    push @$raddr, undef;
 	} else {

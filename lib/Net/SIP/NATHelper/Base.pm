@@ -288,7 +288,6 @@ sub get_rtp_sockets {
 
     foreach my $m (@$media) {
 	my ($addr,$port,$range) = @{$m}{qw/addr port range/};
-
 	# allocate new sockets
 	my ($new_port,@socks) = create_rtp_sockets( $new_addr,$range );
 	unless (@socks) {
@@ -296,15 +295,20 @@ sub get_rtp_sockets {
 	    return;
 	}
 
-	# determine target for sock, e.g. original address
-	my @targets;
-	for( my $i=0;$i<@socks;$i++ ) {
-	    my $dst = ip_parts2sockaddr($addr,$port+$i);
-	    push @targets,$dst;
+	if (!$port or $addr eq '0.0.0.0' or $addr eq '::') {
+	    # RFC 3264 6.1 - stream marked as inactive
+	    DEBUG(50,"inactive stream" );
+	    push @new_media, [ $new_addr,0,\@socks,
+		# no target for socket on other side
+		[ map { undef } (0..$#socks) ]
+	    ];
+	} else {
+	    DEBUG( 100,"m_old=$addr $port/$range new_port=$new_port" );
+	    push @new_media, [ $new_addr,$new_port,\@socks,
+		# target for sock on other side is original address
+		[ map { ip_parts2sockaddr($addr,$port+$_) } (0..$#socks) ]
+	    ]
 	}
-
-	DEBUG( 100,"m_old=$addr $port/$range new_port=$new_port" );
-	push @new_media, [ $new_addr,$new_port,\@socks,\@targets ];
     }
 
     $self->{socket_count} += $need_sockets;

@@ -82,6 +82,8 @@ t/16_drop_invite.t
 t/17_call_with_reinvite_and_auth.t
 t/18_register_with_auth_step_by_step.t
 t/19_call_with_dtmf.t
+t/20_channel_on_hold.t
+t/21_channel_on_hold_stateless_proxy.t
 t/certs/caller.sip.test.pem
 t/certs/listen.sip.test.pem
 t/certs/proxy.sip.test.pem
