@@ -1,5 +1,11 @@
 Revision history for Net::SIP
 
+0.814 2018-02-24
+- fix t/20_channel_on_hold.t of IPv6 or TLS are not supported (wrong number
+  of skipped tests).
+- fix tests if no IPv6 is supported
+- StatlessProxy/NAT - sub callbacks: remove callbacks which have no
+  destination due to the channel being inactive/sendonly
 0.813 2018-02-21
 - StatelessProxy
   - support for inactive or sendonly channels (port=0) in NAT scenario

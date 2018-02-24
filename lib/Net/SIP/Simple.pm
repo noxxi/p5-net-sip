@@ -439,6 +439,7 @@ sub invite {
 sub listen {
     my Net::SIP::Simple $self = shift;
     my %args = @_;
+    my $cb_create = delete $args{cb_create};
 
     # handle new requests
     my $receive = sub {
@@ -469,8 +470,8 @@ sub listen {
 	my $cb = UNIVERSAL::can( $call,'receive' ) || die;
 
 	# notify caller about new call
-	if ( my $cbc = $args->{cb_create} ) {
-	    my $cbx =invoke_callback( $cbc, $call, $request,$leg,$from );
+	if ($cb_create) {
+	    my $cbx = invoke_callback($cb_create, $call, $request, $leg, $from);
 	    if ( ! $cbx ) {
 		DEBUG( 1, "call from '$ctx->{from}' rejected in cb_create" );
 		$self->{endpoint}->close_context( $ctx );
@@ -478,9 +479,6 @@ sub listen {
 	    } elsif ( ref($cbx) ) {
 		$cb = $cbx
 	    }
-	}
-	if ( my $ccb = $args->{cb_cleanup} ) {
-	    push @{ $call->{call_cleanup}}, $ccb;
 	}
 
 	# setup callback on context and call it for this packet

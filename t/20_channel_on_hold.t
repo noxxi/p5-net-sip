@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 12*6;
+use Test::More;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -23,11 +23,14 @@ for my $transport (qw(udp tcp tls)) {
     }
 }
 
+my $testsize = 12;
+plan tests => $testsize*@tests;
+
 for my $t (@tests) {
     my ($transport,$family) = @$t;
     SKIP: {
 	if (my $err = test_use_config($family,$transport)) {
-	    skip $err,16;
+	    skip $err,$testsize;
 	    next;
 	}
 	note("------- test with family $family transport $transport");

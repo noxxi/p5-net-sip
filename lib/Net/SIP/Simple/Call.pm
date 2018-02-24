@@ -94,6 +94,10 @@ sub new {
     $param->{init_media} ||= $self->rtp( 'media_recv_echo' );
     $param->{rtp_param} ||= [ 0,160,160/8000 ]; # PCMU/8000: 50*160 bytes/second
     $param->{dtmf_events} ||= []; # get added by sub dtmf
+
+    if (my $cb = delete $param->{cb_cleanup}) {
+	push @{$self->{call_cleanup}}, $cb;
+    }
     return $self;
 }
 

@@ -47,8 +47,8 @@ sub test_use_config {
     my ($family,$transport) = @_;
 
     if ($family =~m{6}) {
-	return if ! CAN_IPV6;
-	return if ! INETSOCK(LocalAddr => '::1', Proto => 'udp');
+	return "no support for IPv6"
+	    if ! CAN_IPV6 or ! INETSOCK(LocalAddr => '::1', Proto => 'udp');
 	$DEFAULT_LADDR = '::1';
     } else {
 	$DEFAULT_LADDR = '127.0.0.1';
