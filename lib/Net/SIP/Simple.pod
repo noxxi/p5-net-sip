@@ -19,8 +19,8 @@ Net::SIP::Simple - Simple interface for using Net::SIP
   # Register agent
   $ua->register;
 
-  # Invite other party, send anncouncement once connected
-  $ua->invite( 'you',
+  # Invite other party, send announcement once connected
+  my $call = $ua->invite( 'you',
 	init_media => $ua->rtp( 'send_recv', 'announcement.pcmu-8000' ),
 	asymetric_rtp => 1,
   );
@@ -198,6 +198,9 @@ CTX can be address of peer or context hash containing the address.
 
 Returns with the newly created L<Net::SIP::Simple::Call> object,
 which can later be used for reINVITEs or BYE etc.
+
+Note that in order to have any callbacks triggered by the invite working
+one needs to keep the returned caller object.
 
 =item listen ( %ARGS )
 
