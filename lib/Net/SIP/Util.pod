@@ -146,7 +146,7 @@ Example for key 'www-authenticate':
 Inverse function to B<sip_hdrval2parts>, e.g constructs header value for KEY from
 PREFIX and %PARAMETER and returns value.
 
-=item sip_uri2parts(URI) -> (DOMAIN, USER, PROTO, DATA, PARAM) | DOMAIN
+=item sip_uri2parts(URI) -> (DOMAIN, USER, PROTO, PARAM, DATA) | DOMAIN
 
 Returns parts from URI. If called in scalar context it returns only the domain
 part. In array context it returns an array with the following values:
@@ -167,15 +167,15 @@ The optional user part of the SIP address.
 The protocol, e.g. C<sip> or C<sips>.
 If not explicitly given it will default to C<sip>.
 
-=item DATA
-
-The original full part before any parameter, i.e. the part containing the
-domain, optional user and optional proto.
-
 =item PARAM
 
 A hash reference to any parameters following C<data> as returned by
 B<sip_hdrval2parts>.
+
+=item DATA
+
+The original full part before any parameter, i.e. the part containing the
+domain, optional user and optional proto.
 
 =back
 
