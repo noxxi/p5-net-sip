@@ -117,7 +117,7 @@ sub new_from_parts {
 		    || die "no $_ in media description";
 	    }
 	    $m_self{range} = delete($m{range})
-		|| ( $m_self{proto} eq 'RTP/AVP' ? 2:1 );
+		|| ( $m_self{proto} =~m{^RTP/} ? 2:1 );
 	    defined( my $fmt = $m_self{fmt} = delete $m{fmt} )
 		|| die "no fmt in media description";
 	    my $mline = _join_m( @m_self{qw(media port range proto)},$fmt );
@@ -490,14 +490,14 @@ sub _split_m {
 	$mline =~m{^(\w+)\s+(\d+)(?:/(\d+))?\s+(\S+)((?:\s+\S+)+)}
 	or die "bad [m]edia: '$mline'";
     $range ||= 1;
-    $range *=2 if $proto eq 'RTP/AVP'; # RTP+RTCP
+    $range *=2 if $proto =~m{^RTP/}; # RTP+RTCP
     return ($media,$port,$range,$proto, [ split( ' ',$fmt) ]);
 }
 
 sub _join_m {
     my ($media,$port,$range,$proto,@fmt) = @_;
     @fmt = @{$fmt[0]} if @fmt == 1 && ref($fmt[0]);
-    $range /= 2 if $proto eq 'RTP/AVP';
+    $range /= 2 if $proto =~m{^RTP/};
     $port .= "/$range" if $range>1;
     return join( ' ',$media,$port,$proto,@fmt );
 }
