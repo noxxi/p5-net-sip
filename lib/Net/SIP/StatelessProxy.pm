@@ -659,21 +659,17 @@ sub do_nat {
     # Leg, delimited by "\0"
     my ($idfrom,$idto);
 
-    if ( my $from = $packet->get_header( 'from' ) ) {
-	my ($data,$param) = sip_hdrval2parts( from => $from );
-	my $tag = $param->{tag} || '';
-	$idfrom = "$data\0$tag";
-    } else {
-	return [ 0,'no FROM header in packet' ]
+    for([from => \$idfrom], [to => \$idto]) {
+	my ($k,$idref) = @$_;
+	if (my $v = $packet->get_header($k) ) {
+	    my ($uri,$param) = sip_hdrval2parts(from => $v);
+	    my ($dom,$user,$proto) = sip_uri2parts($uri);
+	    $$idref = "$proto:$user\@$dom\0".($param->{tag} || '');
+	} else {
+	    return [ 0,'no '.uc($k).' header in packet' ]
+	}
     }
 
-    if ( my $to = $packet->get_header( 'to' ) ) {
-	my ($data,$param) = sip_hdrval2parts( from => $to );
-	my $tag = $param->{tag} || '';
-	$idto = "$data\0$tag";
-    } else {
-	return [ 0,'no TO header in packet' ]
-    }
 
     # side is either 0 (request) or 1 (response)
     # If a request comes in 'from' points to the incoming_leg while
