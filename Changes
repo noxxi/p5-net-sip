@@ -1,5 +1,15 @@
 Revision history for Net::SIP
 
+0.815 2018-06-15
+- StatelessProxy: make sure that idfrom/idto in NAT helper are based on
+  normalized URL, so that different writing (with comment, with <..>..) do
+  not affect the value. This is needed if peers use a different syntax for
+  the same URI during the dialog.
+- use range of 2 for all RTP/ types, not only for RTP/AVP (i.e. also for
+  RTP/SAVP, RTP/AVPF..)
+- fix/enhance documentation
+  https://rt.cpan.org/Ticket/Display.html?id=125142
+  https://rt.cpan.org/Ticket/Display.html?id=125054
 0.814 2018-02-24
 - fix t/20_channel_on_hold.t of IPv6 or TLS are not supported (wrong number
   of skipped tests).
