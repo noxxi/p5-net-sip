@@ -405,7 +405,7 @@ sub _send_rtp {
 	0x1234,    # source ID
     );
     DEBUG( 100,"send %d bytes to RTP", length($buf));
-    send( $sock,$header.$buf,0,$addr ) || die $!;
+    send( $sock,$header.$buf,0,$addr );
 }
 
 ###########################################################################
