@@ -287,7 +287,7 @@ sub _receive_rtp {
 
     if ( ref($writeto)) {
 	# callback
-	invoke_callback($writeto,$payload,$seq,$tstamp,$channel);
+	invoke_callback($writeto,$payload,$seq,$tstamp,$channel,$mpt & 0x7f);
     } elsif ( $writeto ) {
 	# save into file
 	my $fd = $targs->{fdr};
