@@ -9,7 +9,7 @@ use strict;
 use warnings;
 
 package Net::SIP::StatelessProxy;
-use fields qw( dispatcher rewrite_contact nathelper force_rewrite );
+use fields qw( dispatcher rewrite_contact nathelper force_rewrite respcode );
 
 use Net::SIP::Util ':all';
 use Digest::MD5 qw(md5);
@@ -254,6 +254,7 @@ sub receive {
 	    }
 	}
 
+	$self->{respcode} = $packet->code;
 	__forward_response( $self, \%entry );
 
     } else {
@@ -729,8 +730,13 @@ sub do_nat {
 
     if ( ! $nathelper->activate_session( $callid,$cseq,$idfrom,$idto ) ) {
 	if ( $method eq 'ACK' ) {
-	    DEBUG( 50,"session $callid|$cseq $idfrom -> $idto still incomplete in ACK" );
-	    return [ 0,'incomplete session in ACK' ]
+	    if ($self->{respcode} < 400) {
+		DEBUG( 50,"session $callid|$cseq $idfrom -> $idto still incomplete in ACK" );
+		return [ 0,'incomplete session in ACK' ]
+	    } else {
+		# ignore problem, ACK to response with error code
+		DEBUG( 100, "session $callid|$cseq $idfrom -> ACK to failure response" );
+	    }
 	} else {
 	    # ignore problem, session not yet complete
 	    DEBUG( 100, "session $callid|$cseq $idfrom -> $idto not yet complete" );

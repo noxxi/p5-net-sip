@@ -1,6 +1,5 @@
 #!/usr/bin/perl
-# testing behavior with inactive channels (i.e. no data receive) and Proxy
-# like 20_channel_on_hold.t, only with proxy + NAT-helper in between
+# make sure that ACK to error response gets passed through proxy
 
 use strict;
 use warnings;
