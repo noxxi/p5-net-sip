@@ -253,7 +253,7 @@ sub forward_incoming {
 	$uri = $1 if $uri =~m{^<(.*)>};
 	($uri) = sip_hdrval2parts( route => $uri );
 	my $remove_route;
-	if ( $uri eq $self->{contact} ) {
+	if ( $uri eq $self->contact($packet) ) {
 	    # last router placed myself into URI -> strict router
 	    # get original URI back from last Route-header
 	    my @route = $packet->get_header( 'route' );
@@ -273,7 +273,7 @@ sub forward_incoming {
 		my $route = $route[0];
 		$route = $1 if $route =~m{^<(.*)>};
 		($route) = sip_hdrval2parts( route => $route );
-		if ( sip_uri_eq( $route,$self->{contact}) ) {
+		if ( sip_uri_eq( $route,$self->contact($packet)) ) {
 		    # top route was me
 		    $remove_route = 0;
 		}
@@ -288,8 +288,8 @@ sub forward_incoming {
 
 	# Add Record-Route to request, except
 	# to REGISTER (RFC3261, 10.2)
-	$packet->insert_header( 'record-route', '<'.$self->{contact}.';lr>' )
-	    if $packet->method ne 'REGISTER';
+	$packet->insert_header( 'record-route', '<'.$self->contact($packet).';lr>' )
+           if $packet->method ne 'REGISTER';
     }
 
     return;
@@ -337,9 +337,9 @@ sub forward_outgoing {
 	if ( $packet->method ne 'REGISTER' ) {
 	    my $rr;
 	    unless ( (($rr) = $packet->get_header( 'record-route' ))
-		and sip_uri_eq( $rr,$self->{contact} )) {
-		$packet->insert_header( 'record-route', '<'.$self->{contact}.';lr>' )
-	    }
+			and sip_uri_eq( $rr, $self->contact($packet))) {
+            $packet->insert_header( 'record-route', $self->contact($packet));
+        }
 	}
 
 	# strip myself from route header, because I'm done
@@ -347,7 +347,7 @@ sub forward_outgoing {
 	    my $route = $route[0];
 	    $route = $1 if $route =~m{^<(.*)>};
 	    ($route) = sip_hdrval2parts( route => $route );
-	    if ( sip_uri_eq( $route,$self->{contact} )) {
+	    if ( sip_uri_eq( $route,$self->contact($packet) )) {
 		# top route was me, remove it
 		my $remove_route = 0;
 		$packet->scan_header( route => [ sub {
@@ -406,7 +406,7 @@ sub deliver {
 	    ? ( from => scalar($packet->get_header('from')) )
 	    : ( to   => scalar($packet->get_header('to')) )
 	);
-	my ($proto,$addr) = $self->{contact} =~m{^(\w+):(?:.*\@)?(.*)$};
+	my ($proto,$addr) = ($self->contact($packet) =~ m{^(\w+):(?:.*\@)?(.*)$});
 	my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ).
 	    "\@$addr";
 	$contact = $proto.':'.$contact if $contact !~m{^\w+:};
@@ -646,6 +646,28 @@ sub key {
     my Net::SIP::Leg $self = shift;
     return ref($self).' '.join(':',$self->{proto},
 	@{$self->{src}}{qw(addr port)});
+}
+
+###########################################################################
+# returns contact header via callback if set
+# Args: $self, $packet
+# Returns: contact header value (string)
+###########################################################################
+sub contact {
+    my Net::SIP::Leg $self = shift;
+    my $packet = shift;
+
+    my $contact = "temp";
+    my $cb = 0;
+    if (ref $self->{contact} eq 'CODE') {
+        $contact = $self->{contact}->($self, $packet);
+        $cb = 1;
+    } else {
+        $contact = $self->{contact};
+    }
+
+    DEBUG(90, "Contact header " . ($cb ? "(via cb)" : "" ) . " to use: $contact");
+    return $contact;
 }
 
 1;
