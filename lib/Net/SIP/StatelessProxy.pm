@@ -58,7 +58,7 @@ sub new {
 # default handler for rewriting, does simple XOR only,
 # this is not enough if you need to hide internal addresses
 sub _default_rewrite_contact {
-    my ($crypt,$disp,$contact,$leg_in,$leg_out,$force_rewrite) = @_;
+    my ($crypt,$disp,$contact,$leg_in,$leg_out,$force_rewrite,$packet) = @_;
 
     my $legdict;
     my ($ileg_in,$ileg_out) = $disp->legs2i($leg_in,$leg_out,\$legdict);
@@ -82,11 +82,11 @@ sub _default_rewrite_contact {
 	(my $iold_in,my $iold_out,$old) = unpack("nna*",$old);
 	if ($ileg_in ne $iold_out) {
 	    my ($old_out) = $disp->i2legs($iold_out);
-	    if ($leg_in->{contact} ne $old_out->{contact}
-		&& ! sip_uri_eq($leg_in->{contact},$old_out->{contact})) {
+	    if ($leg_in->contact($packet) ne $old_out->contact($packet)
+		&& ! sip_uri_eq($leg_in->contact($packet),$old_out->contact($packet))) {
 		DEBUG(10,
 		    "no rewriting of %s - went out through %s, came in through %s",
-		    $contact, $old_out->{contact}, $leg_in->{contact});
+		    $contact, $old_out->contact($packet), $leg_in->contact($packet));
 		return;
 	    }
 	}
@@ -100,11 +100,11 @@ sub _default_rewrite_contact {
 	    # check that it is the expected leg
 	    if ($ileg_out ne $iold_in) {
 		my ($old_in) = $disp->i2legs($iold_in);
-		if ($leg_out->{contact} ne $old_in->{contact}
-		    && ! sip_uri_eq($leg_out->{contact},$old_in->{contact})) {
+		if ($leg_out->contact($packet) ne $old_in->contact($packet)
+		    && ! sip_uri_eq($leg_out->contact($packet),$old_in->contact($packet))) {
 		    DEBUG(10,
 			"no rewriting of %s - went in through %s, should got out through %s",
-			$contact, $old_in->{contact}, $leg_out->{contact});
+			$contact, $old_in->contact($packet), $leg_out->contact($packet));
 		    return;
 		}
 	    }
@@ -270,7 +270,7 @@ sub receive {
 	if ( my ($pre,$name) = $to =~m{^(sips?:)(\S+)?\@} ) {
 	    my $outgoing_leg;
 	    if ( my $back = invoke_callback( 
-		$rewrite_contact,$name,$incoming_leg,\$outgoing_leg )) {
+		$rewrite_contact,$name,$incoming_leg,\$outgoing_leg,undef,$packet )) {
 		$to = $pre.$back;
 		DEBUG( 10,"rewrote URI from '%s' back to '%s'", $packet->uri, $to );
 		$packet->set_uri( $to );
@@ -567,7 +567,7 @@ sub __forward_packet_final {
 	    # otherwise rewrite it
 	    } else {
 		$addr = invoke_callback($rewrite_contact,$addr,$incoming_leg,
-		    $outgoing_leg,1);
+		    $outgoing_leg,1,$packet);
 		$addr .= '@'.$outgoing_leg->laddr(2);
 		my $cnew = sip_parts2hdrval( 'contact', $pre.$addr.$post, $p );
 		DEBUG( 50,"rewrote '$c' to '$cnew'" );
