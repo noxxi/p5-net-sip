@@ -666,7 +666,7 @@ sub contact {
         $contact = $self->{contact};
     }
 
-    DEBUG(90, "Contact header " . ($cb ? "(via cb)" : "" ) . " to use: $contact");
+    DEBUG(90, "Contact header " . ($cb ? "(via cb) " : "" ) . "to use: $contact");
     return $contact;
 }
 
