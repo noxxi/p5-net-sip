@@ -374,7 +374,7 @@ sub __forward_request_getleg {
     my $route = $route[0] =~m{<([^\s>]+)>} && $1 || $route[0];
     my $ol = $entry->{outgoing_leg};
     if ( $ol && @$ol ) {
-	if ( sip_uri_eq( $route,$ol->[0]{contact})) {
+	if ( sip_uri_eq( $route,$ol->[0]->contact($entry->{packet}))) {
 	    DEBUG(50,"first route header matches choosen leg");
 	    shift(@route);
 	} else {
