@@ -338,7 +338,7 @@ sub forward_outgoing {
 	    my $rr;
 	    unless ( (($rr) = $packet->get_header( 'record-route' ))
 			and sip_uri_eq( $rr, $self->contact($packet))) {
-            $packet->insert_header( 'record-route', $self->contact($packet));
+            $packet->insert_header( 'record-route', '<'.  $self->contact($packet) .';lr>');
         }
 	}
 
