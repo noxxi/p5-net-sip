@@ -657,7 +657,7 @@ sub contact {
     my Net::SIP::Leg $self = shift;
     my $packet = shift;
 
-    my $contact = "temp";
+    my $contact;
     my $cb = 0;
     if (ref $self->{contact} eq 'CODE') {
         $contact = $self->{contact}->($self, $packet);
