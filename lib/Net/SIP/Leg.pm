@@ -649,7 +649,7 @@ sub key {
 }
 
 ###########################################################################
-# returns contact header via callback if set
+# returns contact header either directly or via callback if set
 # Args: $self, $packet
 # Returns: contact header value (string)
 ###########################################################################

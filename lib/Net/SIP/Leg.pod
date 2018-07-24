@@ -76,6 +76,10 @@ to outgoing requests and used within Contact header for 200 Responses to
 INVITE. If not given it will be created based on C<addr>, C<port>
 and C<proto>.
 
+For more flexible use a callback can be provided instead of a string. When
+called this will receive two arguments, the current leg and the current packet
+respectively. If a callback is provided it must return a contact string.
+
 =item tls
 
 Optional arguments to be used in creating a TLS connection, as expected by
@@ -181,5 +185,12 @@ This will return the local address of the socket, either as address only
 
 Returns string containing information about the leg.
 Used for debugging.
+
+=item callback ( PACKET )
+
+Returns the Contact header value based on the supplied B<PACKET>. If the
+current Leg contact attribute is a string this is returned without
+modification. If the contact attribute is instead a callback then this
+is executed with the supplied B<PACKET> and the result returned.
 
 =back
