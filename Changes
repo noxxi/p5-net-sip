@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.816 2018-11-07
+- StatelessProxy: make sure ACK to error passes through proxy if NAT is used
+- Simple::RTP: add payload type to write callback
+- Simple::RTP: don't die() if RTP send fails, just ignore the problem
 0.815 2018-06-15
 - StatelessProxy: make sure that idfrom/idto in NAT helper are based on
   normalized URL, so that different writing (with comment, with <..>..) do
