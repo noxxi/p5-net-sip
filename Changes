@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.817 2018-11-07
+- recreate test certificates so that they work with restrictions in openssl 1.1.1
 0.816 2018-11-07
 - StatelessProxy: make sure ACK to error passes through proxy if NAT is used
 - Simple::RTP: add payload type to write callback
