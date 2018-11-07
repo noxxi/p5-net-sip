@@ -541,13 +541,13 @@ sub receive {
 
 		$param->{leg} ||= $leg;
 		$self->_setup_local_rtp_socks;
-		invoke_callback($param->{cb_invite},$self,$packet);
+		my $resp = invoke_callback($param->{cb_invite},$self,$packet);
 
-		# send 200 OK with sdp body
-		my $response = $packet->create_response(
-		    '200','OK',{},$param->{sdp} );
-		DEBUG( 100,'created response '.$response->as_string );
-		$self->{endpoint}->new_response( $ctx,$response,$leg,$from );
+		# by default send 200 OK with sdp body
+		$resp = $packet->create_response('200','OK',{},$param->{sdp})
+		    if ! $resp || ! UNIVERSAL::isa($resp,'Net::SIP::Packet');
+		DEBUG( 100,'created response '.$resp->as_string );
+		$self->{endpoint}->new_response( $ctx,$resp,$leg,$from );
 
 	    } elsif ( $method eq 'ACK' ) {
 		$self->rtp_cleanup; # close last RTP session

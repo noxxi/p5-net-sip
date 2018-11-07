@@ -104,11 +104,11 @@ sub do_test {
     fd_grep_ok( qr{O>.*REQ\(INVITE\) SDP: audio=\S+},1,$proxy ) || die;
     fd_grep_ok( qr{I<.*REQ\(INVITE\) SDP: audio=\S+},1,$uas ) || die;
 
-    # UAS: reject with error 504 - propagate to uac via proxy
-    fd_grep_ok(	qr{O>.*RSP\(INVITE,504\)},5,$uas) || die;
-    fd_grep_ok(	qr{I<.*RSP\(INVITE,504\)},5,$proxy) || die;
-    fd_grep_ok(	qr{O>.*RSP\(INVITE,504\)},1,$proxy) || die;
-    fd_grep_ok(	qr{I<.*RSP\(INVITE,504\)},1,$uac) || die;
+    # UAS: reject with error 404 - propagate to uac via proxy
+    fd_grep_ok(	qr{O>.*RSP\(INVITE,404\)},5,$uas) || die;
+    fd_grep_ok(	qr{I<.*RSP\(INVITE,404\)},5,$proxy) || die;
+    fd_grep_ok(	qr{O>.*RSP\(INVITE,404\)},1,$proxy) || die;
+    fd_grep_ok(	qr{I<.*RSP\(INVITE,404\)},1,$uac) || die;
 
     # UAC: reply with ACK to error - propagate to uas via proxy
     fd_grep_ok( qr{O>.*REQ\(ACK\)},5,$uac ) || die;
@@ -153,14 +153,14 @@ sub proxy {
 sub uac {
     my ($leg,$proxy_uri) = @_;
     my $ua = Simple->new(
-	from => 'me.uac@example.com',
+	from => '<sip:me.uac@example.com>',
 	leg  => $leg->{leg},
 	outgoing_proxy => $proxy_uri,
     );
     print "ready\n";
 
     my $done;
-    my $call = $ua->invite('you.uas@example.com',
+    my $call = $ua->invite('<sip:you.uas@example.com>',
 	cb_final => \$done,
     ) or die;
     $ua->loop(10,\$done);
@@ -174,19 +174,20 @@ sub uac {
 
 sub uas {
     my ($leg) = @_;
-    my $loop = Dispatcher_Eventloop->new;
-    my $disp = Dispatcher->new( [ $leg->{leg} ],$loop ) || die $!;
     print "UAS created\n";
 
-    # Blocking
-    my $block = Net::SIP::Blocker->new(
-        block => { 'INVITE' => 504 },
-        dispatcher => $disp,
+    my $ua = Simple->new(
+	from => '<sip:me.uas@example.com>',
+	leg  => $leg->{leg},
     );
-
-    $disp->set_receiver( $block );
     print "ready\n";
-    $loop->loop(10);
+    $ua->listen(
+	cb_invite => sub {
+	    my ($self,$request) = @_;
+	    return $request->create_response('404','unknown',{});
+	}
+    );
+    $ua->loop(10);
 }
 
 # --------------------------------------------------------------
