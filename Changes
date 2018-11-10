@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.818 2018-11-10
+- fixed wrong skip size in t/22_stateless_proxy_ack_on_error.t in case specific
+  features like IPv6 or TLS where not available
 0.817 2018-11-07
 - recreate test certificates so that they work with restrictions in openssl 1.1.1
 0.816 2018-11-07

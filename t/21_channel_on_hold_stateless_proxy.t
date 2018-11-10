@@ -30,7 +30,7 @@ for my $t (@tests) {
     my ($transport,$family,$nat) = @$t;
     SKIP: {
 	if (my $err = test_use_config($family,$transport)) {
-	    skip $err,20;
+	    skip $err,$testsize;
 	    next;
 	}
 	note("------- test with family $family transport $transport $nat");
