@@ -152,7 +152,7 @@ sub new_request {
     my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
 
     if ( ! UNIVERSAL::isa( $ctx,'Net::SIP::Endpoint::Context' )) {
-	$ctx = Net::SIP::Endpoint::Context->new(%$ctx, method => $method);
+	$ctx = Net::SIP::Endpoint::Context->new(%$ctx, method => $method, request_args => { leg => $leg, dst_addr => $dst_addr});
 	$self->{ctx}{ $ctx->callid } = $ctx; # make sure we manage the context
 	DEBUG( 10,"create new request for $method within new call ".$ctx->callid );
     } else {

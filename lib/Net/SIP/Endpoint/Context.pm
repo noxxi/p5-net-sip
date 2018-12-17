@@ -26,6 +26,7 @@ use fields (
     'via',     # for 'via' header in created responses, comes from incoming request
     'incoming', # flag if call is incoming, e.g. 'to' is myself
     'local_tag', # local tag which gets assigned to either from or to depending on incoming
+    'request_args', # Args to pass into Endpoint::new_request after a 407 when we resubmit with auth
 
     # ===== Internals
     # \@array of hashrefs for infos about pending transactions
@@ -347,7 +348,7 @@ sub handle_response {
 	    # redo request
 	    # update local cseq from cseq in request
 	    ($self->{cseq}) = $r->cseq =~m{(\d+)};
-	    $endpoint->new_request( $r,$self );
+	    $endpoint->new_request( $r,$self, undef, undef, %{$self->{request_args}} );
 	} else {
 	    # need user feedback
 	    DEBUG(10,"no (usable) authorization data available");
