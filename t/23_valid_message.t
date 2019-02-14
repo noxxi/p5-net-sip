@@ -83,7 +83,7 @@ To: <sip:foo@example.com>
 
 REQ
 
-check(qr/conflicting definition of contact/, <<'REQ');
+check(undef, <<'REQ');
 INVITE sip:foo@bar.com SIP/2.0
 From: <sip:me@example.com>
 To: <sip:you@example.com>

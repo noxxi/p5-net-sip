@@ -576,7 +576,7 @@ sub as_parts {
     );
 
     my %once = map { ($_ => 1) }
-	qw(cseq content-type from to call-id contact content-length);
+	qw(cseq content-type from to call-id content-length);
     my %key2check = (
 	rsp => undef,
 	req => {
