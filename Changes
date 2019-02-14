@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.819 2019-02-14
+- Net::SIP::Packet - add more checks when parsing a packet from string,
+  notably about conflicting fields like multiple cseq or conflic between
+  method in cseq vs method in request.
 0.818 2018-11-10
 - fixed wrong skip size in t/22_stateless_proxy_ack_on_error.t in case specific
   features like IPv6 or TLS where not available

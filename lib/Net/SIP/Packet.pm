@@ -564,19 +564,36 @@ sub as_parts {
 	'warning' => \&_hdrkey_parse_comma_seperated,
 
 	'call-id' => sub {
-	    $_[0] =~ $callid_rx or die "invalid callid, should be 'word [@ word]'";
+	    $_[0] =~ $callid_rx or
+		die "invalid callid, should be 'word [@ word]'\n";
 	    return $_[0];
 	},
 	'cseq' => sub {
-	    $_[0] =~ m{^\d+\s+\w+\s*$} or die "invalid cseq, should be 'number method'";
+	    $_[0] =~ m{^\d+\s+\w+\s*$} or
+		die "invalid cseq, should be 'number method'\n";
 	    return $_[0];
 	},
+    );
+
+    my %once = map { ($_ => 1) }
+	qw(cseq content-type from to call-id contact content-length);
+    my %key2check = (
+	rsp => undef,
+	req => {
+	    cseq => sub {
+		my ($v,$result) = @_;
+		$v =~ m{^\d+\s+(\w+)\s*$} or
+		    die "invalid cseq, should be 'number method'\n";
+		$result->{method} eq $1 or
+		    die "method in cseq does not match method of request\n";
+	    },
+	}
     );
 
     sub _hdrkey_parse_keep { return $_[0] };
     sub _hdrkey_parse_num {
 	my ($v,$k) = @_;
-	$v =~m{^(\d+)\s*$} || die "invalid $k, should be number";
+	$v =~m{^(\d+)\s*$} || die "invalid $k, should be number\n";
 	return $1;
     };
 
@@ -597,7 +614,7 @@ sub as_parts {
 		    }
 		} else {
 		    # missing end-quote
-		    die "missing '$quote' in '$v'";
+		    die "missing '$quote' in '$v'\n";
 		}
 	    } elsif ( $v =~m{\G(.*?)([\\"<,])}gc ) {
 		if ( $2 eq "\\" ) {
@@ -629,16 +646,19 @@ sub as_parts {
 	my ($header,$body) = split( m{\r?\n\r?\n}, $string,2 );
 	my @header = split( m{\r?\n}, $header );
 
+	my $key2check;
 	if ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
 	    # Response, e.g. SIP/2.0 407 Authorization required
 	    $result{code} = $1;
 	    $result{text} = $2;
+	    $key2check = $key2check{rsp};
 	} elsif ( $header[0] =~m{^(\w+)\s+(\S.*?)\s+SIP/2\.0\s*$} ) {
 	    # Request, e.g. INVITE <sip:bla@fasel> SIP/2.0
 	    $result{method} = $1;
 	    $result{text} = $2;
+	    $key2check = $key2check{req};
 	} else {
-	    die "bad request: starts with '$header[0]'";
+	    die "bad request: starts with '$header[0]'\n";
 	}
 	shift(@header);
 
@@ -646,9 +666,11 @@ sub as_parts {
 
 	my @hdr;
 	my @lines;
+	my @check;
+	my %check_once;
 	while (@header) {
 	    my ($k,$v) = $header[0] =~m{^([^\s:]+)\s*:\s*(.*)}
-		or die "bad header line $header[0]";
+		or die "bad header line $header[0]\n";
 	    my $line = shift(@header);
 	    while ( @header && $header[0] =~m{^\s+(.*)} ) {
 		# continuation line
@@ -666,10 +688,22 @@ sub as_parts {
 	    } else {
 		push @hdr, Net::SIP::HeaderPair->new( $k,$v[0],scalar(@lines) );
 	    }
+	    if (my $k2c = $key2check->{$nk}) {
+		push @check, [ $k2c, $_ ] for @v;
+	    }
+	    if ($once{$nk}) {
+		($check_once{$nk} //= $_) eq $_ or
+		    die "conflicting definition of $nk\n"
+		    for @v;
+	    }
 	    push @lines, [ $line, int(@v) ];
 	}
 	$result{header} = \@hdr;
 	$result{lines}  = \@lines;
+	for(@check) {
+	    my ($sub,$v) = @$_;
+	    $sub->($v,\%result);
+	}
 	return \%result;
     }
 }
