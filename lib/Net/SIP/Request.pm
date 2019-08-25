@@ -317,6 +317,8 @@ sub authorize {
 		$header.= qq[,cnonce="$digest{cnonce}"] if defined $digest{cnonce};
 		$header.= qq[,qop=$digest{qop}] if defined $digest{qop};
 		$header.= qq[,nc=$digest{nc}] if defined $digest{nc};
+		# Echo back the algorithm if specifically set in response
+		$header.= qq[,algorithm=$h->{algorithm}] if defined $h->{algorithm};
 		$self->add_header( $resp, $header );
 		$auth++;
 	    }
