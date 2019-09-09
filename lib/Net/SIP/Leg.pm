@@ -138,7 +138,7 @@ sub new {
 	} elsif ($dst) {
 	    # with UDP we can create a connected socket if dst is given
 	    $sockargs{PeerAddr} = $dst->{addr};
-	    $sockargs{PeerPort} = $dst->{port};
+	    $sockargs{PeerPort} = $dst->{port} ||= $default_port;
 	    $sockpeer = $dst;
 	}
 
