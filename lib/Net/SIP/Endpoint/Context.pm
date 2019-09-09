@@ -154,7 +154,7 @@ sub new_request {
     my Net::SIP::Endpoint::Context $self = shift;
     my ($method,$body,%args) = @_;
 
-    my $rsp40x = delete $args{resp40x};
+    my ($leg,$dst_addr,$rsp40x) = delete @args{qw(leg dst_addr resp40x)};
 
     my $request;
     if ( ref($method)) {
@@ -213,6 +213,9 @@ sub new_request {
 	tid      => $request->tid,
 	request  => $request,
 	callback => $self->{_callback},
+	# we need this to resent the request with authentication the same way
+	leg	 => $leg,
+	dst_addr => $dst_addr,
     );
     lock_keys(%trans);
     unshift @{ $self->{_transactions} }, \%trans; # put as first
@@ -347,7 +350,8 @@ sub handle_response {
 	    # redo request
 	    # update local cseq from cseq in request
 	    ($self->{cseq}) = $r->cseq =~m{(\d+)};
-	    $endpoint->new_request( $r,$self );
+	    $endpoint->new_request($r, $self, undef, undef,
+		leg => $tr->{leg}, dst_addr => $tr->{dst_addr});
 	} else {
 	    # need user feedback
 	    DEBUG(10,"no (usable) authorization data available");

@@ -149,7 +149,6 @@ sub new_request {
     my ($method,$ctx,$callback,$body,%args) = @_;
 
     die "cannot redefine call-id" if delete $args{ 'call-id' };
-    my ($leg,$dst_addr) = delete @args{qw(leg dst_addr)};
 
     if ( ! UNIVERSAL::isa( $ctx,'Net::SIP::Endpoint::Context' )) {
 	$ctx = Net::SIP::Endpoint::Context->new(%$ctx, method => $method);
@@ -168,8 +167,8 @@ sub new_request {
     $self->{dispatcher}->deliver( $request,
 	id => $tid,
 	callback => [ \&_request_delivery_callback, $self,$ctx ],
-	leg => $leg,
-	dst_addr => $dst_addr,
+	leg => $args{leg},
+	dst_addr => $args{dst_addr},
     );
 
     return $ctx;
