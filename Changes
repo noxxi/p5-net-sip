@@ -1,5 +1,18 @@
 Revision history for Net::SIP
 
+0.821 2019-10-16
+- fixes in NATHelper and StatelessProxy for early close of sessions,
+  specifically incomplete sessions resulting from errors or authentication
+  or from CANCEL
+- Resent request after authentication with same dst_addr and leg as given to
+  the original request - https://github.com/noxxi/p5-net-sip/pull/21
+  Thanks to Richard Carver
+- explicitly include the algorithm in Auth response if it was given in the
+  challenge - https://github.com/noxxi/p5-net-sip/pull/22
+  Thanks to Martin Falkus
+- Proper default for PeerPort in Leg::new
+  https://rt.cpan.org/Public/Bug/Display.html?id=130471
+  Thanks to cj.fooser AT gmail.com
 0.820 2019-02-14
 - loose check from 0.819 - allow multiple contacts
 0.819 2019-02-14
