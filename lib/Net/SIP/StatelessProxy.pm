@@ -707,7 +707,11 @@ sub do_nat {
 	    $rc = $self->{respcode}[0] = {};
 	}
 	$rc->{$callid,$cseq,$idfrom,$idto} = $track_resp_code;
-	# no NAT to do, we just needed to track the response code
+
+	# No NAT to do, we just needed to track the response code
+	# The session should be closed though since it will not be completed
+	DEBUG( 50,"close session $callid|$cseq because of ".( $request ? $method : $response->code." $method"));
+	$nathelper->close_session( $callid,$cseq,$idfrom,$idto );
 	return;
     }
 
@@ -728,6 +732,7 @@ sub do_nat {
     if ( $body ) {
 	DEBUG( 100,"need to NAT SDP body: ".$body->as_string );
 
+	DEBUG( 50,"allocate sockets $callid|$cseq because of SDP body in ".($request ? $method : $response->code));
 	my $new_media = $nathelper->allocate_sockets(
 	    $callid,$cseq,$idfrom,$idto,$side,$outgoing_leg->laddr(0),
 	    scalar( $body->get_media) );
@@ -745,22 +750,20 @@ sub do_nat {
     # In a lot of cases this will be too early, because I only have one
     # site, but only in the case of ACK an incomplete session is invalid.
 
-    if ( ! $nathelper->activate_session( $callid,$cseq,$idfrom,$idto ) ) {
-	if ( $method eq 'ACK' ) {
-	    my $code = $self->{respcode}[0]{$callid,$cseq,$idfrom,$idto}
-		|| $self->{respcode}[1]{$callid,$cseq,$idfrom,$idto}
-		|| -1;
-	    if ($code < 400) {
-		DEBUG( 50,"session $callid|$cseq $idfrom -> $idto still incomplete in ACK" );
-		return [ 0,'incomplete session in ACK' ]
-	    } else {
-		# ignore problem, ACK to response with error code
-		DEBUG( 100, "session $callid|$cseq $idfrom -> ACK to failure response" );
-	    }
-	} else {
-	    # ignore problem, session not yet complete
-	    DEBUG( 100, "session $callid|$cseq $idfrom -> $idto not yet complete" );
+    if ( $method eq 'ACK' ) {
+	my $code = $self->{respcode}[0]{$callid,$cseq,$idfrom,$idto}
+	    || $self->{respcode}[1]{$callid,$cseq,$idfrom,$idto}
+	    || -1;
+	if ($code > 400) {
+	    # ACK to response with error code, should be closed already
+	    DEBUG( 100, "session $callid|$cseq $idfrom -> ACK to failure response" );
+	} elsif (! $nathelper->activate_session($callid,$cseq,$idfrom,$idto)) {
+	    DEBUG( 50,"session $callid|$cseq $idfrom -> $idto still incomplete in ACK" );
+	    return [ 0,'incomplete session in ACK' ]
 	}
+    } elsif (! $nathelper->activate_session($callid,$cseq,$idfrom,$idto)) {
+	# ignore problem, session not yet complete
+	DEBUG( 100, "session $callid|$cseq $idfrom -> $idto not yet complete" );
     } else {
 	DEBUG( 50,"activated session $callid|$cseq $idfrom -> $idto" )
     }

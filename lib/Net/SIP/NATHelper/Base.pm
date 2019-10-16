@@ -477,15 +477,21 @@ sub close_session {
 
     my @info;
     if ( $cseq ) {
-	# close initiated by CANCEL
+	# close initiated by CANCEL orr ACK to 401
 	my $data = $self->{from}{$idfrom};
 	$data = $data && $data->{$cseq};
-	my $sess = $data && delete( $data->{sessions}{$idto} ) or do {
-	    DEBUG( 10,"tried to CANCEL non existing session in $self->{callid}|$cseq" );
-	    return;
-	};
-	push @info, $sess->info_as_hash( $self->{callid},$cseq );
-	DEBUG( 10,"close session {$sess->{id}} $self->{callid}|$cseq $idto,$idfrom success" );
+	if (my $sess = $data && delete( $data->{sessions}{$idto} )) {
+	    push @info, $sess->info_as_hash( $self->{callid},$cseq );
+	    DEBUG( 10,"close session {$sess->{id}} $self->{callid}|$cseq $idfrom -> $idto success" );
+	} else {
+	    DEBUG( 10,"tried to CANCEL non existing session in $self->{callid}|$cseq ($data)" );
+	}
+	if (!%{$data->{sessions}}) {
+	    %{$data->{socket_groups_to}} = ();
+	    $data->{socket_group_from} = undef;
+	    DEBUG( 10,"cancel sessions $self->{callid}|$cseq $idfrom -> $idfrom - no more sessions" );
+	    delete $self->{from}{$idfrom}{$cseq};
+	}
 
     } else {
 	# close from BYE (which has different cseq then the INVITE)
@@ -495,17 +501,26 @@ sub close_session {
 	    my ($from,$to) = @$pair;
 	    my $by_cseq = $self->{from}{$from} || next;
 
-	    foreach my $cseq ( keys %$by_cseq ) {
-		my $sess = delete $by_cseq->{$cseq}{sessions}{$to} || next;
-		push @info, $sess->info_as_hash( $self->{callid},$cseq );
-		DEBUG( 10,"close session {$sess->{id}} $self->{callid}|$cseq $idto,$idfrom " );
+	    my @del_cseq;
+	    while (my ($cseq,$data) = each %$by_cseq) {
+		if (my $sess = delete $data->{sessions}{$to}) {
+		    push @info, $sess->info_as_hash( $self->{callid},$cseq );
+		    DEBUG( 10,"close session {$sess->{id}} $self->{callid}|$cseq $idfrom -> $idto " );
+		}
+		if (!%{$data->{sessions}}) {
+		    %{$data->{socket_groups_to}} = ();
+		    $data->{socket_group_from} = undef;
+		    DEBUG( 10,"bye sessions $self->{callid}|$cseq $idfrom -> $idto - no more sessions" );
+		    push @del_cseq, $cseq;
+		}
 	    }
+	    delete @{$by_cseq}{@del_cseq} if @del_cseq;
 	}
 	unless (@info) {
 	    DEBUG( 10,"tried to BYE non existing session in $self->{callid}" );
 	    return;
 	}
-	DEBUG( 10,"close sessions $self->{callid} $idto,$idfrom success" );
+	DEBUG( 10,"close sessions $self->{callid} $idfrom -> $idto success" );
     }
     return @info;
 }
@@ -545,7 +560,7 @@ sub expire {
 		    my $sess = $sessions->{$idto};
 		    my $lastmod = max($sess->lastmod,$sess->{created});
 		    if ( $lastmod < $expire_active ) {
-			DEBUG( 10,"expired session {$sess->{id}} $cseq|$idfrom|$idto because lastmod($lastmod) < active($expire_active)" );
+			DEBUG( 10,"$self->{callid} expired session {$sess->{id}} $cseq|$idfrom|$idto because lastmod($lastmod) < active($expire_active)" );
 			my $sess = delete $sessions->{$idto};
 			push @expired, $sess->info_as_hash( $self->{callid}, $cseq, reason => 'expired' );
 
@@ -554,7 +569,7 @@ sub expire {
 			$active_pairs{ "$idto\0$idfrom" } || 0
 			) ) {
 			if ( $created > $sess->{created} ) {
-			    DEBUG( 10,"removed session {$sess->{id}} $cseq|$idfrom|$idto because there is newer session" );
+			    DEBUG( 10,"$self->{callid} removed session {$sess->{id}} $cseq|$idfrom|$idto because there is newer session" );
 			    my $sess = delete $sessions->{$idto};
 			    push @expired, $sess->info_as_hash( $self->{callid}, $cseq, reason => 'replaced' );
 			} elsif ( $created < $sess->{created} ) {
@@ -565,7 +580,7 @@ sub expire {
 			}
 		    } else {
 			# keep session
-			DEBUG( 100,"session {$sess->{id}} $idfrom -> $idto created=$sess->{created} stays active in pass#$pass" );
+			DEBUG( 100,"$self->{callid} session {$sess->{id}} $idfrom -> $idto created=$sess->{created} stays active in pass#$pass" );
 			$active_pairs{ "$idfrom\0$idto" } = $sess->{created};
 		    }
 		}
@@ -579,6 +594,7 @@ sub expire {
 		    $used{ $_->{sto} }++;
 		}
 
+
 		my $groups = $data->{socket_groups_to};
 		my %expired_sg;
 		my @v = values(%$groups);
@@ -589,11 +605,11 @@ sub expire {
 		    if ( ! $lastmod ) {
 			# was never used
 			if ( $v->{created} < $expire_unused ) {
-			    DEBUG( 10,"expired socketgroup $v->{id} because created($v->{created}) < unused($expire_unused)" );
+			    DEBUG( 10,"$self->{callid} expired socketgroup $v->{id} because created($v->{created}) < unused($expire_unused)" );
 			    $expired_sg{$v} = 1;
 			}
 		    } elsif ( $lastmod < $expire_active ) {
-			DEBUG( 10,"expired socketgroup $v->{id} because lastmod($lastmod) < active($expire_active)" );
+			DEBUG( 10,"$self->{callid} expired socketgroup $v->{id} because lastmod($lastmod) < active($expire_active)" );
 			$expired_sg{$v} = 1;
 		    }
 		}
