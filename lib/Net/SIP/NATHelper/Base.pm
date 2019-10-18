@@ -484,9 +484,9 @@ sub close_session {
 	    push @info, $sess->info_as_hash( $self->{callid},$cseq );
 	    DEBUG( 10,"close session {$sess->{id}} $self->{callid}|$cseq $idfrom -> $idto success" );
 	} else {
-	    DEBUG( 10,"tried to CANCEL non existing session in $self->{callid}|$cseq ($data)" );
+	    DEBUG( 10,"tried to CANCEL non existing session in $self->{callid}|$cseq" );
 	}
-	if (!%{$data->{sessions}}) {
+	if ($data && !%{$data->{sessions}}) {
 	    %{$data->{socket_groups_to}} = ();
 	    $data->{socket_group_from} = undef;
 	    DEBUG( 10,"cancel sessions $self->{callid}|$cseq $idfrom -> $idfrom - no more sessions" );

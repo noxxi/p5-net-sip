@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.822 2019-10-18
+- Fix of bug introduced in 0.821 while fixing NATHelper. 
+  Could lead to dereferencing an undefined value
 0.821 2019-10-16
 - fixes in NATHelper and StatelessProxy for early close of sessions,
   specifically incomplete sessions resulting from errors or authentication
