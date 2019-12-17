@@ -721,6 +721,7 @@ sub _tls_connect {
 	# permanent error
 	_del_socket($self, $fo,
 	    "SSL connect failed: $SSL_ERROR");
+	invoke_callback($callback,"SSL connect failed: $SSL_ERROR");
     }
 }
 
