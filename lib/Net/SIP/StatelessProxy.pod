@@ -63,7 +63,7 @@ you should fill with the leg extracted from the contact.
 The function should return the new contact or nothing if there was nothing to
 rewrite or the rewrite failed.
 
-Note that some servers apply length limitiations to the contact so the function
+Note that some servers apply length limitations to the contact so the function
 should not return too long values.
 
 =item rewrite_crypt

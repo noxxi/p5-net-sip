@@ -104,7 +104,7 @@ after all callbacks are called (timers and handles) if any of these scalars
 is TRUE, in which case it will end the loop.
 
 The behavior with STOPVAR cannot be found in most existing event loops.
-If you want to integrate L<Net::SIP> with your own event loop you migth
+If you want to integrate L<Net::SIP> with your own event loop you might
 simply wrap all callbacks given in B<addFD> and B<add_timer> in another
 callback which at the end checks the stopvars and terminates the 3rd-party loop
 in a loop-specific way.
