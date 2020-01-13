@@ -497,7 +497,7 @@ sub _handle_read_tcp_co {
     }
     $hdrpos += 4; # after header
     my %clen = map { $_ => 1 } 
-	substr($fo->{rbuf},0,$hdrpos) =~m{\nContent-length:\s*(\d+)\s*\n}ig;
+	substr($fo->{rbuf},0,$hdrpos) =~m{\n(?:l|Content-length):\s*(\d+)\s*\n}ig;
     if (!%clen) {
 	return $self->_del_socket($fo,
 	    "drop invalid SIP packet from %s: missing content-length",
