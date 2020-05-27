@@ -28,6 +28,7 @@ BEGIN {
 	AF_INET6();
     }) {
 	$mod6 = 'IO::Socket::IP';
+	my %cached_proto;
 	*INETSOCK = sub {
 	    return IO::Socket::IP->new(@_) if @_ == 1;
 	    # Hack to work around the problem that IO::Socket::IP defaults to
@@ -37,6 +38,11 @@ BEGIN {
 	    my %args = @_;
 	    $args{GetAddrInfoFlags} = 0  if ! defined $args{GetAddrInfoFlags}
 		and $args{Domain} || $args{Family};
+	    # cache IO::Socket::IP protocol lookup to speed it up
+	    $args{Proto} = $cached_proto{$args{Proto}}
+		||= getprotobyname($args{Proto})
+		|| die "Unknown protocol: $args{Proto}"
+		if $args{Proto};
 	    return IO::Socket::IP->new(%args);
 	};
 

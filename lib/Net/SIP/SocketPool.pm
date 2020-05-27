@@ -689,10 +689,10 @@ sub _tls_connect {
     if (!$xxfd) {
 	$DEBUG && DEBUG(40,"upgrade to SSL client");
 	IO::Socket::SSL->start_SSL($fo->{fd},
-	    %{$self->{tls}{c}},
-	    SSL_startHandshake => 0,
 	    SSL_verifycn_name => $fo->{peer}{host},
 	    SSL_hostname => $fo->{peer}{host},
+	    %{$self->{tls}{c}},
+	    SSL_startHandshake => 0,
 	) or die "upgrade to SSL socket failed: $SSL_ERROR";
     }
 
