@@ -241,16 +241,16 @@ sub authorize {
 	    foreach my $a (@auth) {
 		my $h = $a->{parameter};
 
-		# check if we already have an authorize header for this realm/opaque
+		# check if we already have an authorize header for this realm
 		if ( ! $existing_auth ) {
 		    $existing_auth = {};
 		    foreach my $hdr ( $self->get_header_hashval( $resp )) {
-			my @auth = grep { defined } map { $hdr->{parameter}{$_} }qw( realm opaque );
+			my @auth = grep { defined } map { $hdr->{parameter}{$_} }qw( realm );
 			$existing_auth->{ join( "\0",@auth ) } = 1;
 		    }
 		}
 
-		my @auth = grep { defined } map { $h->{$_} }qw( realm opaque );
+		my @auth = grep { defined } map { $h->{$_} }qw( realm );
 		if ( $existing_auth->{ join( "\0",@auth ) } ) {
 		    # we have this auth header already, don't repeat
 		    next;
