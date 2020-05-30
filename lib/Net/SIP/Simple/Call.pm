@@ -452,9 +452,16 @@ sub dtmf {
 	    $type = $self->{param}{sdp_peer}
 		&& $self->{param}{sdp_peer}->name2int('telephone-event/8000','audio');
 	} elsif ( $m eq 'audio' ) {
-	    $type = $self->{param}{sdp_peer}
-		&& $self->{param}{sdp_peer}->name2int('PCMU/8000','audio')
-		|| 0; # default id for PCMU/8000
+	    my $sdp_peer = $self->{param}{sdp_peer};
+	    if ($sdp_peer) {
+		$type = $sdp_peer->name2int('PCMU/8000','audio') // $sdp_peer->name2int('PCMA/8000','audio');
+		if (!defined $type) {
+			my $media = $sdp_peer->get_media();
+			my ($fmt) = map { ($_->{media} eq 'audio') ? $_->{fmt} : () } @$media;
+			($type) = grep { $_ == 0 || $_ == 8 } @$fmt; # Only PCMU=0 and PCMA=8 are supported
+		}
+	    }
+	    $type //= 0; # default id for PCMU/8000
 	} else {
 	    croak("unknown method $m in methods:$args{methods}");
 	}
@@ -621,14 +628,16 @@ sub _setup_peer_rtp_socks {
 	    push @$raddr, @socks == 1 ? $socks[0] : \@socks;
 
 	    if ( $m->{media} eq 'audio' and $param->{cb_dtmf} ) {
-		my %mt = qw(audio PCMU/8000 rfc2833 telephone-event/8000);
+		my $fmt = $param->{rtp_param}->[0];
+		$fmt = 0 if $fmt != 0 and $fmt != 8; # Only PCMU=0 and PCMA=8 are supported, default is PCMU
+		my $fmt_name = ($fmt == 8) ? 'PCMA' : 'PCMU';
+		my %mt = (audio => "$fmt_name/8000", rfc2833 => "telephone-event/8000");
 		my $mt = $param->{dtmf_methods} || 'audio,rfc2833';
 		my (%rmap,%pargs);
 		for($mt =~m{([\w+\-]+)}g) {
 		    my $type = $mt{$_} or die "invalid dtmf_method: $_";
 		    $rmap{$type} = $_.'_type';
-		    # 0 is default type for PCMU/8000
-		    %pargs = (audio_type => 0) if $_ eq 'audio';
+		    %pargs = (audio_type => $fmt) if $_ eq 'audio';
 		}
 		for my $l (@{$m->{lines}}) {
 		    $l->[0] eq 'a' or next;

@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 9*6;
+use Test::More tests => 9*6*2;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -18,19 +18,21 @@ use File::Temp;
 my @tests;
 for my $transport (qw(udp tcp tls)) {
     for my $family (qw(ip4 ip6)) {
-	push @tests, [ $transport, $family ];
+	for my $codec (qw(pcmu pcma)) {
+	    push @tests, [ $transport, $family, $codec ];
+	}
     }
 }
 
 for my $t (@tests) {
-    my ($transport,$family) = @$t;
+    my ($transport,$family,$codec) = @$t;
     SKIP: {
 	if (my $err = test_use_config($family,$transport)) {
 	    skip $err,9;
 	    next;
 	}
 
-	note("------- test with family $family transport $transport");
+	note("------- test with family $family transport $transport codec $codec");
 
 	# create leg for UAS on dynamic port
 	my ($sock_uas,$uas_addr) = create_socket($transport);
@@ -45,7 +47,7 @@ for my $t (@tests) {
 	    $SIG{ __DIE__ } = undef;
 	    close($from_uas);
 	    $to_uac->autoflush;
-	    uas( $sock_uas, $to_uac );
+	    uas( $sock_uas, $to_uac, $codec );
 	    exit(0);
 	}
 
@@ -57,7 +59,7 @@ for my $t (@tests) {
 	local $SIG{__DIE__} = sub { kill 9,$pid; ok( 0,'died' ) };
 	local $SIG{ALRM} =    sub { kill 9,$pid; ok( 0,'timed out' ) };
 
-	uac(test_sip_uri($uas_addr), $from_uas);
+	uac(test_sip_uri($uas_addr), $from_uas, $codec);
 
 	my $uas = <$from_uas>;
 	killall();
@@ -66,12 +68,19 @@ for my $t (@tests) {
     }
 }
 
+sub rtp_param {
+    my ($codec) = @_;
+    my %rtp_params = (pcmu => [0,160,160/8000], pcma => [8,160,160/8000]);
+    return $rtp_params{$codec} if exists $rtp_params{$codec};
+    die "Unknown codec '$codec'";
+}
+
 ###############################################
 # UAC
 ###############################################
 
 sub uac {
-    my ($peer_uri,$from_uas) = @_;
+    my ($peer_uri,$from_uas,$codec) = @_;
     Debug->set_prefix( "DEBUG(uac):" );
 
     # line noise when no DTMF is sent
@@ -107,6 +116,7 @@ sub uac {
     my $call = $uac->invite(
 	test_sip_uri('you.uas@example.com'),
 	init_media  => $uac->rtp( 'send_recv', $send_something ),
+	rtp_param   => rtp_param($codec),
 	cb_rtp_done => \$rtp_done,
 	cb_dtmf => sub {
 	    push @events,shift;
@@ -138,7 +148,7 @@ sub uac {
 ###############################################
 
 sub uas {
-    my ($sock,$to_uac) = @_;
+    my ($sock,$to_uac,$codec) = @_;
     Debug->set_prefix( "DEBUG(uas):" );
     my $uas = Net::SIP::Simple->new(
 	domain => 'example.com',
@@ -180,6 +190,7 @@ sub uas {
 	    $call_closed =1;
 	},
 	init_media     => $uas->rtp( 'recv_echo', $save_rtp ),
+	rtp_param      => rtp_param($codec),
 	cb_dtmf => sub {
 	    push @events,shift
 	}

@@ -86,6 +86,7 @@ t/20_channel_on_hold.t
 t/21_channel_on_hold_stateless_proxy.t
 t/22_stateless_proxy_ack_on_error.t
 t/23_valid_message.t
+t/24_dtmf_audio.t
 t/certs/caller.sip.test.pem
 t/certs/listen.sip.test.pem
 t/certs/proxy.sip.test.pem
