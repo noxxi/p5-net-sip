@@ -341,7 +341,7 @@ sub unget_rtp_sockets {
 ############################################################################
 
 package Net::SIP::NATHelper::Call;
-use fields qw( callid from );
+use fields qw( callid from expired );
 use Hash::Util 'lock_keys';
 use List::Util 'max';
 use Net::SIP::Debug;
@@ -445,6 +445,10 @@ sub activate_session {
     my $sess = $sessions->{$idto} = $self->create_session( $gfrom,$gto,$param );
     DEBUG( 10,"new session {$sess->{id}} $self->{callid},$cseq $idfrom -> $idto" );
 
+    # expire the now unused previous sessions in this call immediately
+    # will be returned at the next call to Base::expire
+    $self->{expired} = [ $self->expire() ];
+
     return ( $sess->info_as_hash( $self->{callid},$cseq ), 0 );
 }
 
@@ -537,10 +541,11 @@ sub expire {
     my Net::SIP::NATHelper::Call $self = shift;
     my %args = @_;
 
-    my $expire_unused = $args{time} - $args{unused};
-    my $expire_active = $args{time} - $args{active};
+    my $expire_unused = $args{unused} ? $args{time} - $args{unused} : 0;
+    my $expire_active = $args{active} ? $args{time} - $args{active} : 0;
 
-    my @expired;
+    my @expired = @{$self->{expired} || []}; # from previous calls inside activate_session
+    @{$self->{expired}} = ();
     my %active_pairs; # mapping [idfrom,idto]|[idto,idfrom] -> session.created
     my $need_next_pass;
     my $by_from = $self->{from};
