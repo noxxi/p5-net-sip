@@ -278,7 +278,11 @@ sub _receive_rtp {
 
     DEBUG( 100,"ch=%d payload=%d/%d pt=%d xh=%d padding=%d cc=%d",
 	$channel, $seq, length($payload), $mpt & 0x7f, $xh, $padding, $cc);
-    if ( $targs->{rseq} && $seq<= $targs->{rseq}
+    if ( $targs->{ssrc} && $targs->{ssrc} != $ssrc ) {
+	# RTP stream has changed, reset rseq
+	delete $targs->{rseq};
+    }
+    if ( defined $targs->{rseq} && $seq<= $targs->{rseq}
 	&& $targs->{rseq} - $seq < 60000 ) {
 	DEBUG( 10,"seq=$seq last=$targs->{rseq} - dropped" );
 	return;
