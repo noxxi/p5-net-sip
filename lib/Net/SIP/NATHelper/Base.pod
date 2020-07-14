@@ -147,6 +147,12 @@ Expire time for active sessions. Default to 30 seconds. If no data
 gets transferred through the session for C<active> seconds the session
 will be closed.
 
+=item closed
+
+Expire time for closed sessions, i.e. the time after which the sockets from a
+closed (replaced) session will be closed too. They are usually kept open a short
+time in case packets are still in transit. Default to 1 second.
+
 =back
 
 =item callbacks

@@ -177,6 +177,7 @@ sub close_session {
 #       defaults to 3 minutes
 #    active: seconds for timeout of sockets used in sessions, defaults to
 #       30 seconds
+#    closed: seconds for timeout of sockets from closed sessions, default 1 sec
 # Returns: @expired
 #   @expired: list of infos about expired sessions using sessions info_as_hash
 ############################################################################
@@ -187,7 +188,8 @@ sub expire {
     $args{time}   ||= gettimeofday();
     $args{unused} ||= 3*60; # unused sockets after 3 minutes
     $args{active} ||= 30;   # active sessions after 30 seconds
-    DEBUG( 100,"expire now=$args{time} unused=$args{unused} active=$args{active}" );
+    $args{closed} ||= 1;    # closed sessions after 1 seconds
+    DEBUG( 100,"expire now=$args{time} unused=$args{unused} active=$args{active} closed=$args{closed}" );
     my @expired;
     my $calls = $self->{calls};
     foreach my $callid ( keys %$calls ) {
@@ -543,6 +545,7 @@ sub expire {
 
     my $expire_unused = $args{unused} ? $args{time} - $args{unused} : 0;
     my $expire_active = $args{active} ? $args{time} - $args{active} : 0;
+    my $expire_closed = $args{closed} ? $args{time} - $args{closed} : 0;
 
     my @expired = @{$self->{expired} || []}; # from previous calls inside activate_session
     @{$self->{expired}} = ();
@@ -613,8 +616,8 @@ sub expire {
 			    DEBUG( 10,"$self->{callid} expired socketgroup $v->{id} because created($v->{created}) < unused($expire_unused)" );
 			    $expired_sg{$v} = 1;
 			}
-		    } elsif ( $lastmod < $expire_active ) {
-			DEBUG( 10,"$self->{callid} expired socketgroup $v->{id} because lastmod($lastmod) < active($expire_active)" );
+		    } elsif ( $lastmod < $expire_closed ) {
+			DEBUG( 10,"$self->{callid} expired socketgroup $v->{id} because lastmod($lastmod) < closed($expire_closed)" );
 			$expired_sg{$v} = 1;
 		    }
 		}
