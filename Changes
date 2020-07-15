@@ -1,5 +1,24 @@
 Revision history for Net::SIP
 
+0.823 2020-07-15
+- NATHelper:
+  - expire a session immediately when it gets replaced by a new one and not only
+    when the expiration timer runs
+  - sockets on replaced sessions will no longer be closed in sub expire after
+    'active' (default 30 seconds) but after 'closed' (default 1 second)
+- Simple::RTP - support changing of RTP streams within the same handler: if
+  the RTP SSRC changes the expectation on the sequence number is reset
+- Authentication: use only realm and not realm+opaque when checking, if there is
+  already an authorization header
+- Leg/SocketPool: allow SSL_hostname and SSL_verifycn_name to be explicitly
+  given, i.e. prefer user settings against implicitly determined settings
+- Fix TCP handling by allowing short-form content length header
+  https://github.com/noxxi/p5-net-sip/pull/23
+- Propagate SSL errors https://github.com/noxxi/p5-net-sip/pull/24
+- Util::INETSOCK: speed up protocol lookup by caching instead of letting it
+  handle by IO::Socket::IP. There it might cause a reading of the protocols file
+  on each socket open.
+- Fix typos https://rt.cpan.org/Ticket/Display.html?id=131236
 0.822 2019-10-18
 - Fix of bug introduced in 0.821 while fixing NATHelper. 
   Could lead to dereferencing an undefined value
