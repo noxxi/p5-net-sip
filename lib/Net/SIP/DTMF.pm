@@ -72,7 +72,7 @@ sub dtmf_extractor {
     }
     if ( defined( my $type = delete $pargs{audio_type})) {
 	# extract from audio payload
-	$sub{$type} = _dtmf_xtc_audio(%pargs);
+	$sub{$type} = _dtmf_xtc_audio($type, %pargs);
     }
     croak "neither rfc2833 nor audio RTP type defined" if ! %sub;
 
@@ -260,6 +260,10 @@ my @costab;
 my @ulaw_expandtab;
 my @ulaw_compresstab;
 
+# tables for PCMA a-law compression
+my @alaw_expandtab;
+my @alaw_compresstab;
+
 # Goertzel algorithm
 my $gzpkts = 3; # 3 RTP packets = 60ms
 my %coeff;
@@ -274,14 +278,20 @@ sub _init_audio_processing {
 	$costab[$i] = $volume/100*16383*cos(2*PI*$i/$tabsize);
     }
 
-    # PCMU/8000 u-law (de)compression
+    my $alaw_c = 1 + log(87.6);
+
+    # PCMU/8000 u-law and PCMA/8000 a-law (de)compression
     for( my $i=0;$i<128;$i++) {
 	$ulaw_expandtab[$i] = int( (256**($i/127) - 1) / 255 * 32767 );
+	$alaw_expandtab[$i ^ 0x55] = ($i/127 < 1/$alaw_c) ? int($i/127 * $alaw_c / 87.6 * 32767) : int(exp($i/127 * $alaw_c - 1) / 87.6 * 32767);
     }
-    my $j = 0;
+    my $ulaw = 0;
+    my $alaw = 0;
     for( my $i=0;$i<32768;$i++ ) {
-	$ulaw_compresstab[$i] = $j;
-	$j++ if $j<127 and $ulaw_expandtab[$j+1] - $i < $i - $ulaw_expandtab[$j];
+	$ulaw_compresstab[$i] = $ulaw;
+	$alaw_compresstab[$i] = $alaw ^ 0x55;
+	$ulaw++ if $ulaw<127 and $ulaw_expandtab[$ulaw+1] - $i < $i - $ulaw_expandtab[$ulaw];
+	$alaw++ if $alaw<127 and $alaw_expandtab[($alaw+1) ^ 0x55] - $i < $i - $alaw_expandtab[$alaw ^ 0x55];
     }
 
     for my $freq (@freq1,@freq2) {
@@ -305,7 +315,7 @@ sub _init_audio_processing {
 # Comment: the sub should then be called with $sub->($seq,$timstamp,$srcid)
 #  This will generate the RTP packet.
 #  If $event is no DTMF event it will return a sub which  gives silence.
-#  Data returned from the subs are PCMU/8000, 160 samples per packet
+#  Data returned from the subs are PCMU/8000 or PCMA/8000, 160 samples per packet
 ###########################################################################
 sub _dtmf_gen_audio {
     my ($event,$type,$duration) = @_;
@@ -325,7 +335,8 @@ sub _dtmf_gen_audio {
 		$seq,
 		$timestamp,
 		$srcid,
-		pack('C',128) x $samples4pkt,
+		# Silence byte for PCMA=8 is 0xD5 and for PCMU=0 is 0xFF
+		pack('C', $type == 8 ? 0xD5 : 0xFF) x $samples4pkt,
 	    );
 	}
     }
@@ -351,7 +362,12 @@ sub _dtmf_gen_audio {
 	my $buf = '';
 	while ( $samples-- > 0 ) {
 	    my $val = $costab[$i1]+$costab[$i2];
-	    my $c = $val>=0 ? 255-$ulaw_compresstab[$val] : 127-$ulaw_compresstab[-$val];
+	    my $c;
+	    if ($type == 8) { # PCMA
+	        $c = $val>=0 ? 128+$alaw_compresstab[$val] : $alaw_compresstab[-$val];
+	    } else { # PCMU
+	        $c = $val>=0 ? 255-$ulaw_compresstab[$val] : 127-$ulaw_compresstab[-$val];
+	    }
 	    $buf .= pack('C',$c);
 
 	    $e1+= $samples4s, $i1++ if $e1<0;
@@ -376,20 +392,26 @@ sub _dtmf_gen_audio {
 
 
 ###########################################################################
-# returns sub to extract DTMF events from RTP PCMU/8000 payload
+# returns sub to extract DTMF events from RTP PCMU/8000 or PCMA/8000 payload
 # Args: NONE
 # Returns: $sub
 #  $sub - will be called with ($rtp_payload,[$time])
 #   will return ($event,$duration) if DTMF event was found, event being 0..15
 ###########################################################################
 sub _dtmf_xtc_audio {
+    my ($type, %pargs) = @_;
     _init_audio_processing() if !@costab;
     my (%d1,%d2,@time,@lastev);
     return sub {
 	my ($payload,$time) = @_;
 	$time ||= gettimeofday();
 	my @samples = map {
+	    ( (defined $type && $type == 8)
+	    ?
+	    ( $_<128 ? -$alaw_expandtab[$_] : $alaw_expandtab[$_-128] )/32768
+	    :
 	    ( $_<128 ? -$ulaw_expandtab[127-$_] : $ulaw_expandtab[255-$_] )/32768
+	    )
 	    } unpack('C*',$payload);
 	@samples == $samples4pkt or return; # unexpected sample size
 
