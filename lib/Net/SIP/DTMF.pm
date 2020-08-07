@@ -72,7 +72,7 @@ sub dtmf_extractor {
     }
     if ( defined( my $type = delete $pargs{audio_type})) {
 	# extract from audio payload
-	$sub{$type} = _dtmf_xtc_audio($type, %pargs);
+	$sub{$type} = _dtmf_xtc_audio($type);
     }
     croak "neither rfc2833 nor audio RTP type defined" if ! %sub;
 
@@ -393,13 +393,14 @@ sub _dtmf_gen_audio {
 
 ###########################################################################
 # returns sub to extract DTMF events from RTP PCMU/8000 or PCMA/8000 payload
-# Args: NONE
+# Args: ($type)
+#  $type - (optional) RTC type: 8 for PCMA/8000, otherwise PCMU/8000
 # Returns: $sub
 #  $sub - will be called with ($rtp_payload,[$time])
 #   will return ($event,$duration) if DTMF event was found, event being 0..15
 ###########################################################################
 sub _dtmf_xtc_audio {
-    my ($type, %pargs) = @_;
+    my ($type) = @_;
     _init_audio_processing() if !@costab;
     my (%d1,%d2,@time,@lastev);
     return sub {

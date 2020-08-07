@@ -12,10 +12,11 @@ my %types = (pcmu => 0, pcma => 8);
 foreach my $codec (qw(pcmu pcma)) {
 	my @got;
 	my $ext = dtmf_extractor(audio_type => $types{$codec});
+	my $seq = 1;
 	foreach my $symbol (@symbols, undef) {
 		my $gen = dtmf_generator($symbol, $duration, audio_type => $types{$codec});
-		my $seq = 0;
-		while (my $rtp = $gen->($seq++, $seq*$duration/8000, 0)) {
+		while (my $rtp = $gen->($seq, $seq*$duration/8000, 0)) {
+			$seq++;
 			my ($event) = $ext->($rtp);
 			push @got, $event if defined $event;
 		}

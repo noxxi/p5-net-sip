@@ -9,7 +9,7 @@ Net::SIP::DTMF - DTMF RTP packet generating and extracting
     11,                  # event '#'
 	100,                 # duration 100ms
 	rfc2833_type => 101, # RTP type 101 for telephone-event/8000
-	# audio_type => 0,   # RTP type 0 for PCMU/8000
+	# audio_type => 0,   # RTP type 0 for PCMU/8000, 8 for PCMA/8000
   );
   while (...) {
   	my @pkt = $sub->($sequence,$timestamp,$srcid);
@@ -22,7 +22,7 @@ Net::SIP::DTMF - DTMF RTP packet generating and extracting
   use Net::SIP::DTMF;
   my $sub = dtmf_extractor(
 	rfc2833_type => 101, # RTP type 101 for telephone-event/8000
-	audio_type => 0,     # RTP type 0 for PCMU/8000
+	audio_type => 0,     # RTP type 0 for PCMU/8000, 8 for PCMA/8000
   );
   while (...) {
   	if ( my ($event,$duration,$type) = $sub->($packet)) {
@@ -47,7 +47,7 @@ Generates a function which is used to generate packets for the given EVENT.
 EVENT is the event numer (0..15) or undef if it should just generate silence or
 pause. DURATION is the time for the event in ms. ARGS contain information how
 the event should be packed: either as RFC2833 RTP event or as RTP audio
-PCMU/8000.
+PCMU/8000 or PCMA/8000.
 %ARGS can be
 
 =over 8
@@ -59,7 +59,7 @@ If not given will try B<audio_type> instead.
 
 =item audio_type => rtp_type
 
-Gives the RTP payload type number for PCMU/8000.
+Gives the RTP payload type number. 8 for PCMA/8000 and 0 for PCMU/8000.
 If not given and no B<rfc2833_type> given it will croak.
 
 =item volume => volume
