@@ -1105,7 +1105,7 @@ sub __generic_resolver {
 		$i--;
 	    }
 	    for my $r (@res) {
-		if ($_->{family}) {
+		if ($r->{family}) {
 		    # done: host in SRV record is already IP address
 		    push @$results, $r;
 		    next;
