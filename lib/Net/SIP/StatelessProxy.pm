@@ -661,8 +661,9 @@ sub do_nat {
 
     # find NAT data for packet:
     # $idfrom and $idto are the IDs for FROM|TO which consist of
-    # the SIP address + (optional) Tag + Contact-Info from responsable
-    # Leg, delimited by "\0"
+    # the SIP address identifier and Contact-Info from responsable Leg,
+    # delimited by "\0". If a tag is given on the address this will be used as
+    # identifier, otherwise the SIP address without parameters
     my ($idfrom,$idto);
 
     for([from => \$idfrom], [to => \$idto]) {
@@ -670,7 +671,9 @@ sub do_nat {
 	if (my $v = $packet->get_header($k) ) {
 	    my ($uri,$param) = sip_hdrval2parts(from => $v);
 	    my ($dom,$user,$proto) = sip_uri2parts($uri);
-	    $$idref = "$proto:$user\@$dom\0".($param->{tag} || '');
+	    $$idref = $param->{tag} ?
+		"$proto:user\0".$param->{tag} :
+		"$proto:$user\@$dom\0tag";
 	} else {
 	    return [ 0,'no '.uc($k).' header in packet' ]
 	}
