@@ -1,5 +1,10 @@
 Revision history for Net::SIP
 
+0.824 2020-11-23
+- StatelessProxy: dialogs will only be identified by tags on From/To, not on the
+  SIP URI (see RFC 3261 12.2.1.1 and 19.3)
+- add support for PCMA in DTMF (pull #26 from pali)
+- fix typo which led to bug in Net::Dispatcher (pull #28 from qunify)
 0.823 2020-07-15
 - NATHelper:
   - expire a session immediately when it gets replaced by a new one and not only
