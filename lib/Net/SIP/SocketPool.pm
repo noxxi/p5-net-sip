@@ -690,7 +690,8 @@ sub _tls_connect {
 	$DEBUG && DEBUG(40,"upgrade to SSL client");
 	IO::Socket::SSL->start_SSL($fo->{fd},
 	    SSL_verifycn_name => $fo->{peer}{host},
-	    SSL_hostname => $fo->{peer}{host},
+	    SSL_hostname => $fo->{peer}{host} =~m{^[\d\.]+|:}
+		? undef : $fo->{peer}{host},
 	    %{$self->{tls}{c}},
 	    SSL_startHandshake => 0,
 	) or die "upgrade to SSL socket failed: $SSL_ERROR";

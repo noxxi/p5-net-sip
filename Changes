@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.825 2020-11-24
+- SocketPool: don't set SSL_hostname if host is IPv4/IPv6 address
 0.824 2020-11-23
 - StatelessProxy: dialogs will only be identified by tags on From/To, not on the
   SIP URI (see RFC 3261 12.2.1.1 and 19.3)
