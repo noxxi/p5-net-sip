@@ -147,7 +147,7 @@ sub debug {
     }
 
     if ( @arg ) {
-	# $msg als format-string für sprintf ansehen
+	# $msg als format-string fÃ¼r sprintf ansehen
 	no warnings 'uninitialized';
 	$msg = sprintf($msg,@arg);
     }
@@ -246,7 +246,8 @@ EOL
 }
 
 {
-    package __LEAK_TRACK__;
+    package #Hide from CPAN indexer
+            __LEAK_TRACK__;
     sub DESTROY {
 	my ($file,$line) = (caller(0))[1,2];
 	warn "$_[0] --- destroy in $file:$line\n";
