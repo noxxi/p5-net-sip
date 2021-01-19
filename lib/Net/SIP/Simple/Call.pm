@@ -20,7 +20,11 @@ use fields qw( call_cleanup rtp_cleanup ctx param );
 # param: various parameter to control behavior
 #   leg: thru which leg the call should be directed (default: first leg)
 #   init_media: initialize handling for media (RTP) data, see
-#    Net::SIP::Simple::RTP
+#    Net::SIP::Simple::RTP. This is called when handshake is completed.
+#   early_media_recv: like init_media, but called for accepting early media
+#     before handshake is complete
+#   early_media_send: like init_media, but called for sending early media
+#     before handshake is complete
 #   sdp : predefined Net::SIP::SDP or data accepted from NET::SIP::SDP->new
 #   media_lsocks: if sdp is provided the sockets has to be provided too
 #     \@list of sockets for each media, each element in the list is
@@ -200,6 +204,7 @@ sub reinvite {
     my $sdp;
     if ( ! $param->{sdp_on_ack} ) {
 	$self->_setup_local_rtp_socks;
+	invoke_callback($param->{early_media_recv},$self,$param);
 	$sdp = $param->{sdp}
     }
 
@@ -229,6 +234,11 @@ sub reinvite {
 	    # preliminary response, ignore
 	    DEBUG(10,"got preliminary response of %s|%s to INVITE",$code,$packet->msg );
 	    invoke_callback( $param->{cb_preliminary},$self,$code,$packet );
+	    if ($param->{early_media_send} and my $sdp_peer = eval { $packet->sdp_body }) {
+		DEBUG( 50,"got early sdp data from peer: ".$sdp_peer->as_string );
+		$self->_setup_peer_rtp_socks( $sdp_peer );
+		invoke_callback($param->{early_media_send},$self,$param);
+	    }
 	    return;
 	} elsif ( $code !~m{^2\d\d} ) {
 	    DEBUG(10,"got response of %s|%s to INVITE",$code,$packet->msg );
@@ -533,6 +543,8 @@ sub receive {
 	    if ( my $sdp_peer = eval { $packet->sdp_body } ) {
 		DEBUG( 50,"got sdp data from peer: ".$sdp_peer->as_string );
 		$self->_setup_peer_rtp_socks( $sdp_peer );
+		invoke_callback($param->{early_media_send},$self,$param)
+		    if $method eq 'INVITE';
 	    } elsif ($@) {
 		# mailformed SDP?
 		DEBUG(10,"SDP parsing failed, ignoring packet: $@");
@@ -548,6 +560,7 @@ sub receive {
 
 		$param->{leg} ||= $leg;
 		$self->_setup_local_rtp_socks;
+		invoke_callback($param->{early_media_recv},$self,$param);
 		my $resp = invoke_callback($param->{cb_invite},$self,$packet);
 
 		# by default send 200 OK with sdp body
