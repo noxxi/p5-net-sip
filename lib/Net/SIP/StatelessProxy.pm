@@ -664,13 +664,14 @@ sub do_nat {
     # the SIP address identifier and Contact-Info from responsable Leg,
     # delimited by "\0". If a tag is given on the address this will be used as
     # identifier, otherwise the SIP address without parameters
-    my ($idfrom,$idto);
+    my ($idfrom,$idto,$uri_from,$uri_to);
 
-    for([from => \$idfrom], [to => \$idto]) {
-	my ($k,$idref) = @$_;
+    for([from => \$idfrom, \$uri_from], [to => \$idto, \$uri_to]) {
+	my ($k,$idref,$uriref) = @$_;
 	if (my $v = $packet->get_header($k) ) {
 	    my ($uri,$param) = sip_hdrval2parts(from => $v);
 	    my ($dom,$user,$proto) = sip_uri2parts($uri);
+	    $$uriref = "$proto:$user\@$dom";
 	    $$idref = $param->{tag} ?
 		"$proto:user\0".$param->{tag} :
 		"$proto:$user\@$dom\0tag";
@@ -701,6 +702,14 @@ sub do_nat {
     my ($cseq) = $packet->get_header( 'cseq' ) =~m{^(\d+)}
 	or return [ 0,'no CSEQ in packet' ];
     my $callid = $packet->callid;
+    my $nat_basic = [
+	$callid,
+	$cseq,
+	$idfrom,
+	$idto,
+	$uri_from,
+	$uri_to
+    ];
 
     if ($track_resp_code) {
 	my $rc = $self->{respcode}[0];
@@ -714,7 +723,7 @@ sub do_nat {
 	# No NAT to do, we just needed to track the response code
 	# The session should be closed though since it will not be completed
 	DEBUG( 50,"close session $callid|$cseq because of ".( $request ? $method : $response->code." $method"));
-	$nathelper->close_session( $callid,$cseq,$idfrom,$idto );
+	$nathelper->close_session($nat_basic);
 	return;
     }
 
@@ -723,12 +732,13 @@ sub do_nat {
     if ( $method eq 'CANCEL' ) {
 	# keep cseq for CANCEL
 	DEBUG( 50,"close session $callid|$cseq because of CANCEL" );
-	$nathelper->close_session( $callid,$cseq,$idfrom,$idto );
+	$nathelper->close_session($nat_basic);
 	return;
     } elsif ( $method eq 'BYE' ) {
 	# no cseq for BYE, eg close all sessions in call
 	DEBUG( 50,"close call $callid because of BYE" );
-	$nathelper->close_session( $callid,undef,$idfrom,$idto );
+	$nat_basic->[1] = undef; # clear cseq
+	$nathelper->close_session($nat_basic);
 	return;
     }
 
@@ -737,7 +747,7 @@ sub do_nat {
 
 	DEBUG( 50,"allocate sockets $callid|$cseq because of SDP body in ".($request ? $method : $response->code));
 	my $new_media = $nathelper->allocate_sockets(
-	    $callid,$cseq,$idfrom,$idto,$side,$outgoing_leg->laddr(0),
+	    $nat_basic,$side,$outgoing_leg->laddr(0),
 	    scalar( $body->get_media) );
 	if ( ! $new_media ) {
 	    DEBUG( 10,"allocation of RTP session failed for $callid|$cseq $idfrom|$idto|$side" );
@@ -760,11 +770,11 @@ sub do_nat {
 	if ($code > 400) {
 	    # ACK to response with error code, should be closed already
 	    DEBUG( 100, "session $callid|$cseq $idfrom -> ACK to failure response" );
-	} elsif (! $nathelper->activate_session($callid,$cseq,$idfrom,$idto)) {
+	} elsif (! $nathelper->activate_session($nat_basic)) {
 	    DEBUG( 50,"session $callid|$cseq $idfrom -> $idto still incomplete in ACK" );
 	    return [ 0,'incomplete session in ACK' ]
 	}
-    } elsif (! $nathelper->activate_session($callid,$cseq,$idfrom,$idto)) {
+    } elsif (! $nathelper->activate_session($nat_basic)) {
 	# ignore problem, session not yet complete
 	DEBUG( 100, "session $callid|$cseq $idfrom -> $idto not yet complete" );
     } else {

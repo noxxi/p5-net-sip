@@ -88,11 +88,8 @@ sub create_call {
 ############################################################################
 # allocate new sockets for RTP
 #
-# Args: ($self,$callid,$cseq,$idfrom,$idto,$side,$addr,\@media)
-#   $callid: call-id
-#   $cseq:   sequence number for cseq
-#   $idfrom: ID for from-side
-#   $idto:   ID for to-side
+# Args: ($self,$nat_basic,$side,$addr,\@media)
+#   $nat_basic: [ callid, ...]
 #   $side:   0 if SDP is from request, else 1
 #   $addr:   IP where to create the new sockets
 #   \@media: media like returned from Net::SIP::SDP::get_media
@@ -107,7 +104,7 @@ sub create_call {
 ############################################################################
 sub allocate_sockets {
     my Net::SIP::NATHelper::Base $self = shift;
-    my $callid = shift;
+    my $callid = $_[0]->[0];
 
     my $call = $self->{calls}{$callid}
 	||= $self->create_call($callid);
@@ -117,11 +114,8 @@ sub allocate_sockets {
 
 ############################################################################
 # activate session
-# Args: ($self,$callid,$cseq,$idfrom,$idto;$param)
-#   $callid: call-id
-#   $cseq:   sequence number for cseq
-#   $idfrom: ID for from-side
-#   $idto:   ID for to-side
+# Args: ($self,$nat_basic;$param)
+#   $nat_basic: [ callid, ...]
 #   $param:  user defined param which gets returned from info_as_hash
 # Returns: ($info,$duplicate)
 #   $info:  hash from sessions info_as_hash
@@ -132,7 +126,7 @@ sub allocate_sockets {
 ############################################################################
 sub activate_session {
     my Net::SIP::NATHelper::Base $self = shift;
-    my $callid = shift;
+    my $callid = $_[0]->[0];
 
     my $call = $self->{calls}{$callid};
     unless ( $call ) {
@@ -144,11 +138,8 @@ sub activate_session {
 
 ############################################################################
 # close session(s)
-# Args: ($self,$callid,$cseq,$idfrom,$idto)
-#   $callid: call-id
-#   $cseq:   optional sequence number, only for CANCEL requests
-#   $idfrom: ID for from-side
-#   $idto:   ID for to-side
+# Args: ($self,$nat_basic)
+#   $nat_basic: [ callid, ...]
 # Returns: @session_info
 #   @session_info: list of hashes from session info_as_hash
 # Comment: this SIP packet should be forwarded, even if the call
@@ -157,7 +148,7 @@ sub activate_session {
 ############################################################################
 sub close_session {
     my Net::SIP::NATHelper::Base $self = shift;
-    my $callid = shift;
+    my $callid = $_[0]->[0];
 
     my $call = $self->{calls}{$callid};
     unless ( $call ) {
@@ -361,12 +352,13 @@ sub new {
 
 ############################################################################
 # allocate sockets for rewriting SDP body
-# Args: ($nathelper,$self,$cseq,$idfrom,$idto,$side,$addr,$media)
+# Args: ($nathelper,$self,$nat_basic,$side,$addr,$media)
 # Returns: $media
 ############################################################################
 sub allocate_sockets {
     my Net::SIP::NATHelper::Call $self = shift;
-    my ($nathelper,$cseq,$idfrom,$idto,$side,$addr,$media) = @_;
+    my ($nathelper,$nat_basic,$side,$addr,$media) = @_;
+    my (undef,$cseq,$idfrom,$idto) = @$nat_basic;
 
     # find existing data for $idfrom,$cseq
     my $cseq_data = $self->{from}{$idfrom};
@@ -417,12 +409,13 @@ sub allocate_sockets {
 
 ############################################################################
 # activate session
-# Args: ($self,$cseq,$idfrom,$idto;$param)
+# Args: ($self,$nat_basic;$param)
 # Returns: ($info,$duplicate)
 ############################################################################
 sub activate_session {
     my Net::SIP::NATHelper::Call $self = shift;
-    my ($cseq,$idfrom,$idto,$param) = @_;
+    my ($nat_basic,$param) = @_;
+    my (undef,$cseq,$idfrom,$idto,$uri_from,$uri_to) = @$nat_basic;
 
     my $by_cseq = $self->{from}{$idfrom};
     my $data = $by_cseq && $by_cseq->{$cseq};
@@ -444,7 +437,11 @@ sub activate_session {
 	return;
     }
 
-    my $sess = $sessions->{$idto} = $self->create_session( $gfrom,$gto,$param );
+    my $sess = $sessions->{$idto} = $self->create_session( $gfrom,$gto,{
+	uri_from => $uri_from,
+	uri_to   => $uri_to,
+	%{$param || {}},
+    });
     DEBUG( 10,"new session {$sess->{id}} $self->{callid},$cseq $idfrom -> $idto" );
 
     # expire the now unused previous sessions in this call immediately
@@ -469,15 +466,16 @@ sub create_session {
 
 ############################################################################
 # close session
-# Args: ($self,$cseq,$idfrom,$idto)
-#   $cseq: optional sequence number, only for CANCEL requests
+# Args: ($self,$nat_basic)
+#   $nat_basic: [ callid, cseq, idfrom, idto ... ]
+#       cseq used only for CANCEL requests
 # Returns: @session_info
 #   @session_info: list of infos of all closed sessions, info is hash with
 #     callid,cseq,idfrom,idto,from,to,bytes_from,bytes_to
 ############################################################################
 sub close_session {
     my Net::SIP::NATHelper::Call $self = shift;
-    my ($cseq,$idfrom,$idto) = @_;
+    my (undef,$cseq,$idfrom,$idto) = @{ shift() };
 
     #DEBUG( 100,$self->dump );
 

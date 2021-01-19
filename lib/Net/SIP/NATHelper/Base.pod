@@ -39,12 +39,14 @@ Restricts the maximum number of sockets allocated for a single socket group
 
 =over 4
 
-=item allocate_sockets ( CALLID,CSEQ,IDFROM,IDTO,SIDE,ADDR,MEDIA )
+=item allocate_sockets ( NAT_BASIC,SIDE,ADDR,MEDIA )
 
 This is called to allocate new local sockets for MEDIA. MEDIA
 is a \@list of specifications like you get from B<get_media>
 in L<Net::SIP::SDP>. ADDR is the local address, where the sockets
 should be allocated.
+
+NAT_BASIC  consists of C<<[ CALLID, CSEQ, IDFROM, IDTO, URI_FROM, URI_TO ]>>.
 
 IDFROM and IDTO represent the sides of the session, while SIDE
 helps to pick the right side for allocation, e.g. if SIDE is 0
@@ -56,6 +58,8 @@ CALLID and CSEQ are used to identify the SIP transaction, for which
 the NAT will be done, while IDSIDE is either IDFROM or IDTO (see below)
 depending on the side, where the packet came in.
 
+URI_FROM and URI_TO are primarily for information.
+
 The methode will return  the \@list of new media in the format
 needed by B<replace_media_listen> in L<Net::SIP::SDP>, e.g tuples
 of C<[ip,base_port]>.
@@ -64,8 +68,9 @@ If the allocation of sockets failed (because of resource constraints)
 it will return undef. This will usually cause the caller do simply
 not forward the packet and wait for the reetransmit (at least for UDP).
 
-=item activate_session ( CALLID,CSEQ,IDFROM,IDTO,[\%PARAM] )
+=item activate_session ( NAT_BASIC ,[\%PARAM] )
 
+NAT_BASIC is as described in C<allocate_sockets>
 Activates a session in the transaction defined by CALLID,CSEQ. This
 will cause all sessions for older transactions in the same call (identified
 by CALLID) to shut down.
@@ -77,6 +82,7 @@ sides.
 PARAM is an optional hash reference. If given it will be added as user
 information to the new session and given back in the information hash
 returned by L<close_session> etc.
+URI_FROM and URI_TO will be added to PARAM as C<uri_from> and C<uri_to>.
 
 The method returns two items: The first is information about the session
 like returned in L<close_session>, the second is a flag, which is true,
@@ -84,7 +90,9 @@ if the activation was for an already astablished session.
 
 The method is usually called whenever a SDP body is given and on ACK requests.
 
-=item close_session ( CALLID,CSEQ,IDFROM,IDTO )
+=item close_session ( NAT_BASIC )
+
+NAT_BASIC is as described before.
 
 This will cause the close of the session described by the arguments
 (which have the same meaning like in B<activate_session>). Usually

@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.826 2020-11-25
+- Interface between StatelessProxy and NATHelper: include URIs for From and
+  To in the API. Any custom NATHelper need to be adjusted for the changed
+  API!
 0.825 2020-11-24
 - SocketPool: don't set SSL_hostname if host is IPv4/IPv6 address
 0.824 2020-11-23
