@@ -137,17 +137,16 @@ sub debug {
     }
     my ($msg,@arg) = @_;
     return if !defined($msg);
-    if ( 1 || $msg !~ m{^\w+:} ) {
-	# Message hat keinen eigenen "Prefix:", also mit Funktion[Zeile] prefixen
-	my ($sub) = (caller(1))[3];
-	my $line  = (caller(0))[2];
-	$sub =~s{^main::}{} if $sub;
-	$sub ||= 'Main';
-	$msg = "$sub\[$line]: ".$msg;
-    }
+
+    # prefix message with sub[line] to show origin
+    my ($sub) = (caller(1))[3];
+    my $line  = (caller(0))[2];
+    $sub =~s{^main::}{} if $sub;
+    $sub ||= 'Main';
+    $msg = "$sub\[$line]: ".$msg;
 
     if ( @arg ) {
-	# $msg als format-string für sprintf ansehen
+	# use $msg as format-string for sprintf
 	no warnings 'uninitialized';
 	$msg = sprintf($msg,@arg);
     }
@@ -155,7 +154,7 @@ sub debug {
     # if $debug_sub use this
     return $debug_sub->($msg) if $debug_sub;
 
-    # alle Zeilen mit DEBUG: prefixen
+    # prefix all lines with DEBUG:
     $prefix = sprintf "%.4f %s",scalar(gettimeofday()),$prefix;
     $msg = $prefix." ".$msg;
     $msg =~s{\n}{\n$prefix\t}g;
