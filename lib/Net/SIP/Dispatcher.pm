@@ -724,7 +724,11 @@ sub resolve_uri {
 
     my $ip_addr = $param->{maddr};
     {
-	my ($host,$port,$family) = ip_string2parts($domain, $ip_addr ? 1:0);
+	my ($host,$port,$family) = eval { ip_string2parts($domain, $ip_addr ? 1:0) };
+	$host or do {
+	    DEBUG( 50,"bad URI '$uri'" );
+	    return invoke_callback($callback, EHOSTUNREACH );
+	};
 	$default_port = $port if defined $port;
 	if ($family) {
 	    $ip_addr ||= $host;
