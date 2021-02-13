@@ -109,11 +109,21 @@ sub new {
 
     $self->outgoing_proxy($outgoing_proxy) if $outgoing_proxy;
 
+    return $self;
+}
+
+sub __set_disp_expire_timer {
+    my Net::SIP::Dispatcher $self = shift;
+    return if exists $self->{disp_expire};
     # regularly prune queue
     my $sub = sub {
 	my ($self,$timer) = @_;
 	if ( $self ) {
-	    $self->queue_expire( $self->{eventloop}->looptime );
+	    my $min_expire = $self->queue_expire( $self->{eventloop}->looptime );
+	    if ( not defined $min_expire ) {
+		delete $self->{disp_expire};
+		$timer->cancel;
+	    }
 	} else {
 	    $timer->cancel;
 	}
@@ -121,8 +131,6 @@ sub new {
     my $cb = [ $sub,$self ];
     weaken( $cb->[1] );
     $self->{disp_expire} = $self->add_timer( 1,$cb,1,'disp_expire' );
-
-    return $self;
 }
 
 ###########################################################################
@@ -413,6 +421,7 @@ sub deliver {
     $new_entry->prepare_retransmits( $now ) if $do_retransmits;
 
     push @{ $self->{queue}}, $new_entry;
+    $self->__set_disp_expire_timer;
     $self->__deliver( $new_entry );
 }
 
@@ -459,6 +468,7 @@ sub cancel_delivery {
     } else {
 	croak( "cancel_delivery w/o id" );
     }
+    $self->__set_disp_expire_timer;
     return @$q < $qn; # true if items got deleted
 }
 
@@ -563,6 +573,7 @@ sub queue_expire {
     }
 
     # return time to next expire for optimizations
+    DEBUG( 50,"next expire %s", $min_expire || '<undef>' );
     return $min_expire;
 }
 
