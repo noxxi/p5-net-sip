@@ -337,8 +337,16 @@ sub register {
     my $contact = delete $args{contact} || $self->{contact};
     if ( ! $contact) {
 	$contact = $from;
-	my $local = $leg->laddr(2);
-	$contact.= '@'.$local unless $contact =~s{\@([^\s;,>]+)}{\@$local};
+	my $addr = $leg->laddr(2);
+	my ($host,$port,$fam) = eval { ip_string2parts($addr) };
+	if (defined $host && ip_canonical($host) =~ m{^(0\.0\.0\.0|::)$}) {
+	    my $dst_addr = exists $args{dst_addr} ? $args{dst_addr} : undef;
+	    $dst_addr = hostname2ip((ip_string2parts(scalar sip_uri2parts($registrar)))[0], $fam) unless $dst_addr;
+	    $dst_addr = ($host =~ /:/) ? '0100::' : '192.0.2.0' unless $dst_addr; # fallback to IPv6 Discard Prefix or IPv4 TEST-NET-1
+	    $host = laddr4dst($dst_addr);
+	    $addr = ip_parts2string($host,$port,$fam,1) if defined $host;
+	}
+	$contact.= '@'.$addr unless $contact =~s{\@([^\s;,>]+)}{\@$addr};
     }
 
     my %rarg = (

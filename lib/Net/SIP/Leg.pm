@@ -383,7 +383,7 @@ sub deliver {
 	# one because it might be retried later
 	# (could skip this for tcp?)
 	$packet = $packet->clone;
-	$self->add_via($packet);
+	$self->add_via($packet, $dst);
     }
 
     # 2xx responses to INVITE requests and the request itself must have a
@@ -407,6 +407,11 @@ sub deliver {
 	    : ( to   => scalar($packet->get_header('to')) )
 	);
 	my ($proto,$addr) = $self->{contact} =~m{^(\w+):(?:.*\@)?(.*)$};
+	my ($host,$port,$fam) = eval { ip_string2parts($addr) };
+	if (defined $host && ip_canonical($host) =~ m{^(?:0\.0\.0\.0|::)$}) {
+	    $host = laddr4dst($dst->{addr});
+	    $addr = ip_parts2string($host,$port,$fam,1) if defined $host;
+	}
 	my $contact = ( $user =~m{([^<>\@\s]+)\@} ? $1 : $user ).
 	    "\@$addr";
 	$contact = $proto.':'.$contact if $contact !~m{^\w+:};
@@ -495,15 +500,25 @@ sub check_via {
 
 ###########################################################################
 # add myself as Via header to packet
-# Args: ($self,$packet)
+# Args: ($self,$packet,$dst)
 #  $packet: Net::SIP::Packet (usually Net::SIP::Request)
 # Returns: NONE
 # modifies packet in-place
 ###########################################################################
 sub add_via {
     my Net::SIP::Leg $self = shift;
-    my $packet = shift;
-    $packet->insert_header( via => $self->{via}.$self->via_branch($packet,3));
+    my ($packet,$dst) = @_;
+    my $via = $self->{via};
+    if ($dst && $via =~ m{^(\S*\s)([^;]*)(;.*)$}) {
+	my ($prefix,$addr,$suffix) = ($1, $2, $3);
+	my ($host,$port,$fam) = eval { ip_string2parts($addr) };
+	if (defined $host && ip_canonical($host) =~ /^(?:0\.0\.0\.0|::)$/) {
+	    $host = laddr4dst($dst->{addr});
+	    $addr = ip_parts2string($host,$port,$fam,1) if defined $host;
+	    $via = $prefix.$addr.$suffix;
+	}
+    }
+    $packet->insert_header( via => $via.$self->via_branch($packet,3));
 }
 
 ###########################################################################

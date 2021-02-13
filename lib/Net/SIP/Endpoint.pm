@@ -17,7 +17,7 @@ use fields (
 
 use Net::SIP::Debug;
 use Net::SIP::Endpoint::Context;
-use Net::SIP::Util qw(invoke_callback);
+use Net::SIP::Util ':all';
 use Scalar::Util 'weaken';
 
 ############################################################################
@@ -100,6 +100,19 @@ sub register {
 
     my ($me,$registrar,$contact) =
 	delete @args{qw( from registrar contact )};
+
+    my ($addr,$user,$proto,$param) = sip_uri2parts($contact);
+    my ($host,$port,$fam) = eval { ip_string2parts($addr) };
+    if (defined $host && ip_canonical($host) =~ m{^(0\.0\.0\.0|::)$}) {
+	my $dst_addr = exists $args{dst_addr} ? $args{dst_addr} : undef;
+	$dst_addr = hostname2ip((ip_string2parts(scalar sip_uri2parts($registrar)))[0], $fam) unless $dst_addr;
+	$dst_addr = ($host =~ /:/) ? '0100::' : '192.0.2.0' unless $dst_addr; # fallback to IPv6 Discard Prefix or IPv4 TEST-NET-1
+	$host = laddr4dst($dst_addr);
+	if (defined $host) {
+	    $addr = ip_parts2string($host,$port,$fam,1);
+	    $contact = sip_parts2uri($addr,$user,$proto,$param);
+	}
+    }
 
     my $expires = delete $args{expires};
     $expires = 900 if !defined($expires);

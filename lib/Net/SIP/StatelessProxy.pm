@@ -578,7 +578,7 @@ sub __forward_packet_final {
     }
 
     if ( $outgoing_leg != $incoming_leg and $packet->is_request ) {
-	$incoming_leg->add_via($packet);
+	$incoming_leg->add_via($packet, $dst_addr);
     }
 
     # prepare outgoing packet
