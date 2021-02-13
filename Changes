@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.827 2021-02-13
+- Improvements to resource usage and reliability fixes by pali. Thanks a lot.
+  https://github.com/noxxi/p5-net-sip/pull/34
+  https://github.com/noxxi/p5-net-sip/pull/33
 0.826 2020-11-25
 - Interface between StatelessProxy and NATHelper: include URIs for From and
   To in the API. Any custom NATHelper need to be adjusted for the changed
