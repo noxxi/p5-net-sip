@@ -22,7 +22,7 @@ WriteMakefile(
                 license     => 'http://dev.perl.org/licenses/',
                 repository  => 'https://github.com/noxxi/p5-net-sip',
                 homepage    => 'https://github.com/noxxi/p5-net-sip',
-                bugtracker  => 'https://rt.cpan.org/Dist/Display.html?Queue=Net-SIP',
+                bugtracker  => 'https://github.com/noxxi/p5-net-sip/issues',
             },
         },
     ):(),
