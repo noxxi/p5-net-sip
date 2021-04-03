@@ -9,6 +9,7 @@ use warnings;
 package Net::SIP::SocketPool;
 use fields qw(loop ipproto tls dst fds tids cb timeout_timer);
 
+use Errno qw(ETIMEDOUT);
 use Net::SIP::Util ':all';
 use Net::SIP::Packet;
 use Net::SIP::Debug;
@@ -317,6 +318,8 @@ sub _timeout_sockets {
 	    $self->_del_socket($_);
 	} elsif ($_->{inside_connect} && $tdiff > $CONNECT_TIMEOUT) {
 	    $self->_del_socket($_,"connect timed out");
+	    my $error_cb = delete $_->{error_cb};
+	    invoke_callback($error_cb, ETIMEDOUT) if $error_cb;
 	} else {
 	    $need_timer = 1;
 	}
@@ -567,6 +570,7 @@ sub _tcp_connect {
 	if ($!{EALREADY} || $!{EINPROGRESS}) {
 	    # insert write handler
 	    $DEBUG && DEBUG(100,"tcp connect: add write handler for async connect");
+	    $fo->{error_cb} = $callback;
 	    $self->{loop}->addFD($fo->{fd}, EV_WRITE,
 		[ \&_tcp_connect, $self,$fo,$peer,$callback ]);
 	    return;
