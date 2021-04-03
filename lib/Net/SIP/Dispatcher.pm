@@ -1063,7 +1063,7 @@ sub __generic_resolver {
     for(my $i=0; $i<@$queries; $i++) {
 	my $q = $queries->[$i];
 	if ($q->{type} eq 'BREAK-IF-RESULTS') {
-	    if (@$results) {
+	    if (@$results and $i==0) {
 		# skip remaining queries
 		@$queries = ();
 		last;
