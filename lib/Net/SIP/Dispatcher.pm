@@ -693,6 +693,7 @@ sub resolve_uri {
     };
 
     my @proto;
+    my $force_port;
     my $default_port = 5060;
     if ( $sip_proto eq 'sips' ) {
 	$default_port = 5061;
@@ -740,7 +741,7 @@ sub resolve_uri {
 	    DEBUG( 50,"bad URI '$uri'" );
 	    return invoke_callback($callback, EHOSTUNREACH );
 	};
-	$default_port = $port if defined $port;
+	$force_port = $port if defined $port;
 	if ($family) {
 	    $ip_addr ||= $host;
 	    $domain = ip_ptr($host,$family);
@@ -800,7 +801,7 @@ sub resolve_uri {
 		proto  => $proto,
 		host   => $host,
 		addr   => $family ? $host : undef,
-		port   => $port || $default_port,
+		port   => $port || $force_port || $default_port,
 		family => $family
 	    });
 	    push @resp, map { lock_ref_keys({
@@ -828,7 +829,7 @@ sub resolve_uri {
 	return invoke_callback($callback, ENOPROTOOPT) if ! @resp;
     }
 
-    my @param = ( $dst_addr,$legs,$allowed_legs,$default_port,$callback );
+    my @param = ( $dst_addr,$legs,$allowed_legs,$force_port,$default_port,$callback );
     if (@resp) {
 	# directly call __resolve_uri_final if all names are resolved
 	return __resolve_uri_final( @param,\@resp )
@@ -861,11 +862,14 @@ sub resolve_uri {
 }
 
 sub __resolve_uri_final {
-    my ($dst_addr,$legs,$allowed_legs,$default_port,$callback,$resp) = @_;
+    my ($dst_addr,$legs,$allowed_legs,$force_port,$default_port,$callback,$resp) = @_;
     $DEBUG && DEBUG_DUMP( 100,$resp );
 
     return invoke_callback( $callback,EHOSTUNREACH )
 	unless $resp && @$resp;
+
+    # overwrite port if it was forced by user
+    do { $_->{port} = $force_port for(@$resp) } if $force_port;
 
     # for A|AAAA records we got no port, use default_port
     $_->{port} ||= $default_port for(@$resp);
