@@ -36,7 +36,7 @@ use List::Util 'first';
 use Hash::Util 'lock_ref_keys';
 use Carp 'croak';
 use Net::SIP::Debug;
-use Scalar::Util 'weaken';
+use Scalar::Util qw(refaddr weaken);
 
 # The maximum priority value in SRV records is 0xffff and the lowest priority
 # value is considered the best. Make undefined priority higher so that it gets
@@ -861,10 +861,22 @@ sub __resolve_uri_final {
     # FIXME: can contradict order in @proto
     @$resp = sort { $a->{prio} <=> $b->{prio} } @$resp;
 
+    # remove duplicate entries in response
+    my %resp;
+    for(my $i=0; $i<@$resp; $i++) {
+	my $r = $resp->[$i];
+	if (exists $resp{$r->{host}}->{$r->{family}}->{$r->{proto}}->{$r->{addr}}->{$r->{port}}) {
+	    splice(@$resp,$i--,1);
+	} else {
+	    $resp{$r->{host}}->{$r->{family}}->{$r->{proto}}->{$r->{addr}}->{$r->{port}} = $r->{prio};
+	}
+    }
+
     @$dst_addr = ();
     @$legs = ();
+    my %refaddr_legs;
     foreach my $r ( @$resp ) {
-	my $leg = first { $_->can_deliver_to(
+	my @r_legs = grep { $_->can_deliver_to(
 	    proto  => $r->{proto},
 	    host   => $r->{host},
 	    addr   => $r->{addr},
@@ -872,9 +884,14 @@ sub __resolve_uri_final {
 	    family => $r->{family},
 	)} @$allowed_legs;
 
-	if ( $leg ) {
+	if ( @r_legs ) {
 	    push @$dst_addr, $r;
-	    push @$legs,$leg;
+	    foreach my $leg (@r_legs) {
+		my $refaddr = refaddr($leg);
+		next if exists $refaddr_legs{$refaddr};
+		$refaddr_legs{$refaddr} = 1;
+		push @$legs,$leg;
+	    }
 	} else {
 	    DEBUG(50,"no leg with $r->{proto} to %s", ip_parts2string($r));
 	}
