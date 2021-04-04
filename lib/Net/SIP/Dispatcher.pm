@@ -843,6 +843,19 @@ sub resolve_uri {
     # but query instead directly for _sip._udp.domain.. like in
     # RFC2543 specified
 
+    # filter protocols not supported by any leg
+    my @proto_new;
+    foreach my $p ( @proto ) {
+	my $l = first { $_->match({ proto => $p }) } @$allowed_legs;
+	push @proto_new,$p if $l;
+    }
+    @proto = @proto_new;
+    @proto or do {
+	DEBUG( 50,"no legs allowed for $uri" );
+	@$dst_addr = ();
+	return invoke_callback( $callback, ENOPROTOOPT ); # no proto available
+    };
+
     return $self->dns_domain2srv($domain, \@proto,
 	[ \&__resolve_uri_final, @param ]);
 }
