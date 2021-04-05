@@ -244,12 +244,13 @@ sub sendto {
     }
 
     if ($self->{ipproto} eq 'tcp') {
-	if ($fo->{peer}) {
+	if ($fo && $fo->{peer}) {
 	    $DEBUG && DEBUG(40,"send tcp data to %s via %s",
 		ip_parts2string($dst),
 		ip_parts2string($fo->{peer}));
 	    # send over this connected socket
 	    $fo->{wbuf} .= $data;
+	    $fo->{error_cb} = $callback;
 	    _tcp_send($self,$fo,$callback) if ! $fo->{inside_connect};
 	    return;
 	}
@@ -270,6 +271,7 @@ sub sendto {
 	    wbuf => $data,
 	    didit => $self->{loop}->looptime,
 	    inside_connect => 1,
+	    error_cb => $callback,
 	});
 	_tcp_connect($self,$fo,ip_parts2sockaddr($dst),$callback);
 	return;
@@ -318,8 +320,7 @@ sub _timeout_sockets {
 	    $self->_del_socket($_);
 	} elsif ($_->{inside_connect} && $tdiff > $CONNECT_TIMEOUT) {
 	    $self->_del_socket($_,"connect timed out");
-	    my $error_cb = delete $_->{error_cb};
-	    invoke_callback($error_cb, ETIMEDOUT) if $error_cb;
+	    invoke_callback($_->{error_cb}, ETIMEDOUT) if $_->{error_cb};
 	} else {
 	    $need_timer = 1;
 	}
@@ -570,7 +571,6 @@ sub _tcp_connect {
 	if ($!{EALREADY} || $!{EINPROGRESS}) {
 	    # insert write handler
 	    $DEBUG && DEBUG(100,"tcp connect: add write handler for async connect");
-	    $fo->{error_cb} = $callback;
 	    $self->{loop}->addFD($fo->{fd}, EV_WRITE,
 		[ \&_tcp_connect, $self,$fo,$peer,$callback ]);
 	    return;
