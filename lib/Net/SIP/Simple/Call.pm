@@ -596,8 +596,8 @@ sub _setup_peer_rtp_socks {
 
     my $sdp_peer;
     if ( UNIVERSAL::isa( $data, 'Net::SIP::Packet' )) {
-	$sdp_peer = $data->sdp_body or do {
-	    $self->error( "No SDP body in packet" );
+	$sdp_peer = eval { $data->sdp_body } or do {
+	    $self->error( "No or malformed SDP body in packet" );
 	    return;
 	};
     } else {

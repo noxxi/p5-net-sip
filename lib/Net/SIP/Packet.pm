@@ -720,7 +720,7 @@ sub sdp_body {
     my $ct = $self->get_header( 'content-type' );
     return if $ct && lc($ct) ne 'application/sdp';
     my $body = ($self->as_parts)[3] || return;
-    return eval { Net::SIP::SDP->new( $body ) };
+    return Net::SIP::SDP->new( $body );
 }
 
 ###########################################################################
