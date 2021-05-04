@@ -8,9 +8,6 @@ Revision history for Net::SIP
 - If a URL explicitly specified a port number this will take precedence to any
   port number set in the SRV record when resolving the URL.
   https://github.com/noxxi/p5-net-sip/pull/40
-- Do not crash in Net::SIP::Packet::sdp_body when the SDP body is malformed.
-  Return undef instead
-  https://github.com/noxxi/p5-net-sip/pull/42
 - resolver: make sure to consider a response for TCP even if one for UDP was
   already returned, but the leg is TCP only.
   Do not send DNS SRV queries for protocols not supported by the legs
