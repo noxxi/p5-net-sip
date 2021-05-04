@@ -112,25 +112,25 @@ sub new {
     return $self;
 }
 
+# regularly prune queue
+sub __disp_expire_timer {
+    my $self = shift || return; # dispatcher already deleted (weak reference)
+    my $min_expire = $self->queue_expire($self->{eventloop}->looptime);
+    if (!$min_expire) {
+	# nothing in queue to expire
+	delete $self->{disp_expire};
+	return;
+    }
+    # add timer again
+    $self->{disp_expire} = $self->add_timer(
+	1, [\&__disp_expire_timer, $self], undef, 'disp_expire');
+}
 sub __set_disp_expire_timer {
     my Net::SIP::Dispatcher $self = shift;
-    return if exists $self->{disp_expire};
-    # regularly prune queue
-    my $sub = sub {
-	my ($self,$timer) = @_;
-	if ( $self ) {
-	    my $min_expire = $self->queue_expire( $self->{eventloop}->looptime );
-	    if ( not defined $min_expire ) {
-		delete $self->{disp_expire};
-		$timer->cancel;
-	    }
-	} else {
-	    $timer->cancel;
-	}
-    };
-    my $cb = [ $sub,$self ];
-    weaken( $cb->[1] );
-    $self->{disp_expire} = $self->add_timer( 1,$cb,1,'disp_expire' );
+    $self->{disp_expire} and return;
+    my $cb = [\&__disp_expire_timer, $self];
+    weaken($cb->[1]);
+    $self->{disp_expire} = $self->add_timer(1, $cb, undef, 'disp_expire');
 }
 
 ###########################################################################
@@ -765,6 +765,7 @@ sub resolve_uri {
 	    if ( $addr ) {
 		DEBUG( 50,"setting dst_addr from domain specific proxy for domain $dom" );
 		@$dst_addr = @$addr;
+		undef $force_port;
 	    }
 	}
     }
@@ -775,6 +776,7 @@ sub resolve_uri {
 	# if we have a fixed outgoing proxy use it
 	DEBUG( 50,"setting dst_addr+leg to $addr from outgoing_proxy" );
 	@$dst_addr = ( $addr );
+	undef $force_port;
     }
 
     # is it an IP address?

@@ -1,5 +1,21 @@
 Revision history for Net::SIP
 
+0.829 2021-05-04
+- fix crash introduced in 0.827 when trying to be smarter about timers
+  (actually, this just made an error already introduced in 2007 way more likely)
+- Propagate timeout errors on TCP connect via callback
+  https://github.com/noxxi/p5-net-sip/pull/41
+- If a URL explicitly specified a port number this will take precedence to any
+  port number set in the SRV record when resolving the URL.
+  https://github.com/noxxi/p5-net-sip/pull/40
+- Do not crash in Net::SIP::Packet::sdp_body when the SDP body is malformed.
+  Return undef instead
+  https://github.com/noxxi/p5-net-sip/pull/42
+- resolver: make sure to consider a response for TCP even if one for UDP was
+  already returned, but the leg is TCP only.
+  Do not send DNS SRV queries for protocols not supported by the legs
+  https://github.com/noxxi/p5-net-sip/pull/39
+  https://github.com/noxxi/p5-net-sip/pull/43
 0.828 2021-02-26
 - changed bugtracker in Makefile.PL to github, away from obsolete rt.cpan.org
 0.827 2021-02-13
