@@ -18,6 +18,7 @@ use Net::SIP::Debug;
 use Net::SIP::DTMF;
 use Net::SIP::Dispatcher::Eventloop;
 
+my $SSRC = rand()*2**32; # source ID for RTP streams, uniq for each program
 
 # on MSWin32 non-blocking sockets are not supported from IO::Socket
 use constant CAN_NONBLOCKING => $^O ne 'MSWin32';
@@ -63,7 +64,7 @@ sub media_recv_echo {
 
 		    last if ! $s_sock || ! $remote; # call on hold ?
 
-		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,0x1234);
+		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,$SSRC);
 		    if (@pkt && $pkt[0] ne '') {
 			DEBUG( 100,"send DTMF to RTP");
 			send( $s_sock,$_,0,$remote ) for(@pkt);
@@ -339,7 +340,7 @@ sub _send_rtp {
     # 32 bit timestamp based on seq and packet size
     my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;
 
-    my @pkt = _generate_dtmf($targs,$seq,$timestamp,0x1234);
+    my @pkt = _generate_dtmf($targs,$seq,$timestamp,$SSRC);
     if (@pkt && $pkt[0] ne '') {
 	DEBUG( 100,"send DTMF to RTP");
 	send( $sock,$_,0,$addr ) for(@pkt);
@@ -406,7 +407,7 @@ sub _send_rtp {
 	$payload_type | ( $rtp_event << 7 ) ,
 	$seq, # sequence
 	$timestamp,
-	0x1234,    # source ID
+	$SSRC,
     );
     DEBUG( 100,"send %d bytes to RTP", length($buf));
     send( $sock,$header.$buf,0,$addr );
