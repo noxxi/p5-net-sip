@@ -1,7 +1,9 @@
 Revision history for Net::SIP
 
+0.830 2021-07-16
 - fix detection of strict routing. Require not only that URI in request
   matches local leg, but also that a Route header exist
+- Simple::RTP - create unique SSRC per program instead of using 0x1234 everywhere #47
 0.829 2021-05-04
 - fix crash introduced in 0.827 when trying to be smarter about timers
   (actually, this just made an error already introduced in 2007 way more likely)
