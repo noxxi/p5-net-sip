@@ -882,7 +882,7 @@ sub __resolve_uri_final {
 	my %dup;
 	@$resp =
 	    sort { $a->{prio} <=> $b->{prio} }
-	    grep { !$dup{$_->{host},$_->{family},$_->{proto},$_->{addr},$_->{port}}++ }
+	    grep { !$dup{$_->{host}}{$_->{family}}{$_->{proto}}{$_->{addr}}{$_->{port}}++ }
 	    @$resp;
     }
 
