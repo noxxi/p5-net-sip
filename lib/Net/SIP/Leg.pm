@@ -253,14 +253,10 @@ sub forward_incoming {
 	$uri = $1 if $uri =~m{^<(.*)>};
 	($uri) = sip_hdrval2parts( route => $uri );
 	my $remove_route;
-	if ( $uri eq $self->{contact} ) {
+	my @route = $packet->get_header('route');
+	if (@route and $uri eq $self->{contact}) {
 	    # last router placed myself into URI -> strict router
 	    # get original URI back from last Route-header
-	    my @route = $packet->get_header( 'route' );
-	    if ( !@route ) {
-		# ooops, no route headers? -> DROP
-		return [ '','request from strict router contained no route headers' ];
-	    }
 	    $remove_route = $#route;
 	    $uri = $route[-1];
 	    $uri = $1 if $uri =~m{^<(.*)>};
@@ -268,7 +264,6 @@ sub forward_incoming {
 
 	} else {
 	    # last router was loose,remove top route if it is myself
-	    my @route = $packet->get_header( 'route' );
 	    if ( @route ) {
 		my $route = $route[0];
 		$route = $1 if $route =~m{^<(.*)>};
