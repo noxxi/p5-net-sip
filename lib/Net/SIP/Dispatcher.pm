@@ -876,27 +876,37 @@ sub __resolve_uri_final {
     # for A|AAAA records we got no port, use default_port
     $_->{port} ||= $default_port for(@$resp);
 
-    # sort by prio
+    # sort by prio and eliminate duplicates
     # FIXME: can contradict order in @proto
-    @$resp = sort { $a->{prio} <=> $b->{prio} } @$resp;
+    if (@$resp>1) {
+	my %dup;
+	@$resp =
+	    sort { $a->{prio} <=> $b->{prio} }
+	    grep { !$dup{$_->{host},$_->{family},$_->{proto},$_->{addr},$_->{port}}++ }
+	    @$resp;
+    }
 
     @$dst_addr = ();
     @$legs = ();
     foreach my $r ( @$resp ) {
-	my $leg = first { $_->can_deliver_to(
+	if (my @l = grep { $_->can_deliver_to(
 	    proto  => $r->{proto},
 	    host   => $r->{host},
 	    addr   => $r->{addr},
 	    port   => $r->{port},
 	    family => $r->{family},
-	)} @$allowed_legs;
-
-	if ( $leg ) {
+	)} @$allowed_legs) {
 	    push @$dst_addr, $r;
-	    push @$legs,$leg;
+	    push @$legs, @l;
 	} else {
 	    DEBUG(50,"no leg with $r->{proto} to %s", ip_parts2string($r));
 	}
+    }
+
+    # remove duplicates
+    if (@$legs>1) {
+	my %dup;
+	@$legs = grep { !$dup{$_}++ } @$legs;
     }
 
     return invoke_callback( $callback, EHOSTUNREACH ) if !@$dst_addr;
