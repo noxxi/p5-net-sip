@@ -184,12 +184,18 @@ a one-line summary and the rest the result from B<as_string>.
 Returns Array with CODE|METHOD, TEXT|URI, \@HEADER and BODY like used
 in B<new_from_parts>.
 
-=item sdp_body
+=item sdp_body( [ SDP ] )
 
 Returns body as L<Net::SIP::SDP> object if there is a body and the
-content-type is 'application/sdp' or empty.
+content-type is 'application/sdp' or empty. Will also find 'application/sdp'
+inside a 'multipart/mixed' body.
 
 If body contains invalid SDP it raises an exception (e.g. die()).
+
+If the optional SDP argument is given, it is expected to be a L<Net::SIP::SDP>
+object. This will be converted into a string and will replace an existing body
+(also inside multipart/mixed, leaving the rest untouched) or set a new body if
+none existed before.
 
 =back
 

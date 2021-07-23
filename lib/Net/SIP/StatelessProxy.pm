@@ -755,7 +755,7 @@ sub do_nat {
 	}
 
 	$body->replace_media_listen( $new_media );
-	$packet->set_body( $body );
+	$packet->sdp_body( $body );
 	DEBUG( 100, "new SDP body: ".$body->as_string );
     }
 

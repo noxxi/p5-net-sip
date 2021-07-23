@@ -87,6 +87,7 @@ our @EXPORT_OK = qw(
     hostname2ip
     CAN_IPV6
     invoke_callback
+    mime_parse
 );
 our %EXPORT_TAGS = ( all => [ @EXPORT_OK, @EXPORT ] );
 
@@ -114,6 +115,9 @@ sub sip_hdrval2parts {
     croak( "usage: sip_hdrval2parts( key => val )" ) if @_!=2;
     my ($key,$v) = @_;
     return if !defined($v);
+    $v =~s{\r?\n([ \t])}{$1}g; # unfold
+    $v =~s{^\s+}{};
+    $v =~s{\s+\z}{};
     my $delim = $delimiter{$key} || ';';
 
     # split on delimiter (but not if quoted)
@@ -750,5 +754,83 @@ sub ip_is_v46 {
 	inet_pton(AF_INET6, $_[0]) ? AF_INET6 :
 	undef;
 }
+
+###########################################################################
+# Parsing and generating of MIME, only the parts we actually need in Net::SIP
+###########################################################################
+
+sub mime_parse {
+    my ($msg,$hdr) = @_;
+    my $p = Net::SIP::Utils::_MIME->parse($msg,$hdr);
+    return $p;
+}
+
+package Net::SIP::Utils::_MIME;
+use fields qw(ct ctparam hdr body preamble parts postparts eol);
+Net::SIP::Util->import(qw(sip_hdrval2parts));
+
+sub parse {
+    my ($class,$body,$hdr) = @_;
+    my $eol;
+    if (!defined $hdr) {
+	($hdr,$eol,$body) = $body =~m{\A(.*?\r?\n)(\r?\n)(.*)\z}s or return;
+    }
+    my ($cthdr) = $hdr =~m{^(?:Content-type|c):\s*(.*(?:\n[ \t].*)*)}mi;
+    my ($ct,$param) = sip_hdrval2parts('content-type', $cthdr // '');
+    $ct = lc($ct);
+    my $self = fields::new($class);
+    %$self = (
+	ct => $ct,
+	ctparam => $param,
+	hdr => $_[2] ? '' : $hdr,
+	body => $body // '',
+	eol => $eol,
+    );
+    if ($ct =~m{^multipart/} and my $bd = $param->{boundary}) {
+	my $pbegin = 0;
+	while ($body =~ m{(?:\G|\r?\n)--\Q$bd\E(--)?(\r?\n)}gc) {
+	    $self->{eol} ||= $2;
+	    if ($pbegin == 0) {
+		$self->{preamble} = substr($body,0,$-[0]);
+		$pbegin = $+[0];
+		next;
+	    }
+	    my $part = substr($body,$pbegin,$-[0]-$pbegin);
+	    $pbegin = $+[0];
+	    push @{ $self->{parts} ||= [] }, $class->parse($part);
+	    last if $1;
+	}
+	$self->{postparts} = substr($body, $pbegin, length($body)-$pbegin)
+    }
+    $self->{eol} ||= "\r\n";
+    return $self;
+}
+
+sub as_string {
+    my ($self,$force_rebuild) = @_;
+    if (!defined $self->{body} || $force_rebuild
+	and my $bd = $self->{ctparam}{boundary}) {
+	$self->{body} = $self->{preamble} ne '' ? $self->{preamble} . $self->{eol} : '';
+	for my $p (@{$self->{parts} || []}) {
+	    $self->{body} .= "--$bd" . $self->{eol} . $p->as_string($force_rebuild) . $self->{eol};
+	}
+	$self->{body} .= "--$bd--" . $self->{eol} . $self->{postparts};
+    }
+    return ($self->{hdr} ? $self->{hdr} . $self->{eol} : '') . $self->{body};
+}
+
+sub find_parts {
+    my ($self,$sub) = @_;
+    my @r;
+    for my $p (@{$self->{parts} || return}) {
+	if ($sub->($p)) {
+	    push @r,$p
+	} elsif ($p->{parts}) {
+	    push @r, $p->find_parts($sub)
+	}
+    }
+    return @r;
+}
+
 
 1;

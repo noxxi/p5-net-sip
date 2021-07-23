@@ -11,6 +11,7 @@ package Net::SIP::Packet;
 use Net::SIP::Debug;
 use Storable;
 use Net::SIP::SDP;
+use Net::SIP::Util qw(mime_parse);
 use Carp 'croak';
 
 use fields qw( code method text header lines body as_string );
@@ -710,17 +711,58 @@ sub as_parts {
 
 ###########################################################################
 # return SDP body
-# Args: $self
+# Args: ($self,?$newsdp)
+#   $newsdp: Net::SIP::SDP object if new value should be set
 # Returns: $body
 #   $body: Net::SIP::SDP object if body exists and content-type is
-#     application/sdp (or not defined)
+#     application/sdp (or not defined). Returns previous body if $newsdp
 ###########################################################################
 sub sdp_body {
     my Net::SIP::Packet $self = shift;
-    my $ct = $self->get_header( 'content-type' );
-    return if $ct && lc($ct) ne 'application/sdp';
-    my $body = ($self->as_parts)[3] || return;
-    return Net::SIP::SDP->new( $body );
+    my $ct = $self->get_header('content-type') || '';
+
+    my $sdpbody;
+    if ($ct eq '' || lc($ct) eq 'application/sdp') {
+	$sdpbody = $self->{body};
+	$self->{body} = $_[0]->as_string if @_; # set new body
+
+    } elsif ($ct =~m{^multipart/}i) {
+	my $mime = mime_parse($self->{body},"Content-Type: $ct\r\n");
+	my @sdp = grep { $_->{body} }
+	    $mime->find_parts(sub { shift->{ct} eq 'application/sdp' });
+	die "multiple SDP parts" if @sdp>1;
+	$sdpbody = @sdp && $sdp[0]->{body};
+	if (@_) {
+	    # set new body
+	    if (@sdp) {
+		# replace exising SDP part
+		$sdp[0]->{body} = $_[0]->as_string;
+		$self->{body} = $mime->as_string(1);
+	    } elsif ($mime->{parts} and
+		$ct =~m{^multipart/(?:mixed|related)\s*;}i) {
+		# add as another part to multipart
+		push @{$mime->{parts}}, mime_parse(
+		    "Content-Type: application/sdp\r\n\r\n"
+		    . $_[0]->as_string
+		);
+		$self->{body} = $mime->as_string(1);
+	    } else {
+		# fully replace body
+		$self->set_header('content-type' => 'application/sdp');
+		$self->{body} = $_[0]->as_string;
+	    }
+	}
+
+    } else {
+	if (@_) {
+	    # fully replace body
+	    $self->set_header('content-type' => 'application/sdp');
+	    $self->{body} = $_[0]->as_string;
+	}
+    }
+
+    $self->{as_string} = undef if @_; # should be rebuild
+    return $sdpbody ? Net::SIP::SDP->new($sdpbody) : undef;
 }
 
 ###########################################################################
