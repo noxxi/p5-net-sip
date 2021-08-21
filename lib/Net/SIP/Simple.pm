@@ -434,7 +434,7 @@ sub invite {
 #    cb_cleanup: called on destroy of call object
 #    auth_whatever: will require authorization, see whatever in Net::SIP::Authorize
 #    for all other args see Net::SIP::Simple::Call....
-# Returns: NONE
+# Returns: listener object, which can be used in another chain
 ###########################################################################
 sub listen {
     my Net::SIP::Simple $self = shift;
@@ -490,7 +490,9 @@ sub listen {
 
     # in case listener should provide authorization put Authorizer in between
     if ( my $auth = _make_auth_from_args($self,\%args) ) {
-	$self->create_chain([$auth,$self->{endpoint}]);
+	return $self->create_chain([$auth,$self->{endpoint}]);
+    } else {
+	return $self->{endpoint}
     }
 }
 

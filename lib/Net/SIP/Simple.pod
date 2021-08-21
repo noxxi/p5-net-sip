@@ -218,6 +218,9 @@ forwarded as C<user2pass> etc to the authorizer.
 
 Special keys not described in L<Net::SIP::Simple::Call>:
 
+The returned object can be used together with other objects
+within C<create_chain>, but it should be used as the last object.
+
 =over 8
 
 =item filter
