@@ -1,5 +1,13 @@
 Revision history for Net::SIP
 
+0.831 2021-09-02
+- support for SDP inside multipart/ MIME body
+  - sdp_body will extract the SDP part
+  - sdp_body will also be able to replace an existing SDP part or add one or
+    rewrite the MIME body
+- remove duplicate results and legs when resolving URI, solving #44
+- Net::SIP::Simple::listen returns now an object, which can be used as part of a
+  chain. Should be used as last part though
 0.830 2021-07-16
 - fix detection of strict routing. Require not only that URI in request
   matches local leg, but also that a Route header exist
