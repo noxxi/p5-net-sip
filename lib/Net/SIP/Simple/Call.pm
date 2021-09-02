@@ -246,7 +246,7 @@ sub reinvite {
 	};
 	if ( $param->{sdp_on_ack} && $ack ) {
 	    $self->_setup_local_rtp_socks;
-	    $ack->set_body( $param->{sdp} );
+	    $ack->sdp_body( $param->{sdp} );
 	}
 	invoke_callback( $param->{cb_final},'OK',$self, packet => $packet );
 	invoke_callback( $param->{init_media},$self,$param );
