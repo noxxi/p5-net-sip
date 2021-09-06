@@ -785,10 +785,18 @@ sub parse {
 	hdr => $_[2] ? '' : $hdr,
 	body => $body // '',
 	eol => $eol,
+	postparts => '',
     );
     if ($ct =~m{^multipart/} and my $bd = $param->{boundary}) {
 	my $pbegin = 0;
-	while ($body =~ m{(?:\G|\r?\n)--\Q$bd\E(--)?(\r?\n)}gc) {
+	while ($body =~ m{
+	    (?:\G|\r?\n)       # CRLF preceding dash-boundary
+	    -- \Q$bd\E         # dash-boundary
+	    (?:
+		(--)?          # $1: final part of close-delimiter
+		(\r?\n|\z)     # $2: delimiter between dash-boundary and body
+	    )
+	}gcx) {
 	    $self->{eol} ||= $2;
 	    if ($pbegin == 0) {
 		$self->{preamble} = substr($body,0,$-[0]);
@@ -798,9 +806,12 @@ sub parse {
 	    my $part = substr($body,$pbegin,$-[0]-$pbegin);
 	    $pbegin = $+[0];
 	    push @{ $self->{parts} ||= [] }, $class->parse($part);
-	    last if $1;
+	    if ($1) {
+		$self->{postparts} = $2;
+		last;
+	    }
 	}
-	$self->{postparts} = substr($body, $pbegin, length($body)-$pbegin)
+	$self->{postparts} .= substr($body, $pbegin, length($body)-$pbegin)
     }
     $self->{eol} ||= "\r\n";
     return $self;
@@ -814,7 +825,7 @@ sub as_string {
 	for my $p (@{$self->{parts} || []}) {
 	    $self->{body} .= "--$bd" . $self->{eol} . $p->as_string($force_rebuild) . $self->{eol};
 	}
-	$self->{body} .= "--$bd--" . $self->{eol} . $self->{postparts};
+	$self->{body} .= "--$bd--" . $self->{postparts};
     }
     return ($self->{hdr} ? $self->{hdr} . $self->{eol} : '') . $self->{body};
 }
