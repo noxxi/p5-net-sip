@@ -511,7 +511,7 @@ sub as_parts {
 }
 
 {
-    my $word_rx = qr{[\w\-\.!%\*+`'~()<>:"/?{}\x1c\x1b\x1d]+};
+    my $word_rx = qr{[\w\-\.!%\*+`'~()<>:"/?{}\[\]\x1c\x1b\x1d]+};
     my $callid_rx = qr{^$word_rx(?:\@$word_rx)?$};
     my %key2parser = (
 
