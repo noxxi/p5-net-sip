@@ -95,6 +95,17 @@ Contact: <sip:bar@example.com>
 
 REQ
 
+check(undef, <<'REQ');
+INVITE sip:foo@bar.com SIP/2.0
+From: <sip:me@example.com>
+To: <sip:you@example.com>
+Call-Id: foobar@example.com[123]
+Cseq: 20 INVITE
+Content-length: 0
+Contact: <sip:foo@example.com>
+
+REQ
+
 done_testing();
 
 sub check {
