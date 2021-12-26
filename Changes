@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+0.833 2021-12-26
+- fix regex for call-id to properly include \\, \[, \]
+  changes based on https://github.com/noxxi/p5-net-sip/pull/52
 0.832 2021-09-06
 - fix multipart handling in case no CRLF after close-delimiter
 0.831 2021-09-02
