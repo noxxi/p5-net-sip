@@ -223,7 +223,7 @@ sub authorize {
     if ( ref($user2pass) eq 'ARRAY' && ! ref( $user2pass->[0] )) {
 	$default_upw = $user2pass;
     } elsif ( ref($user2pass) eq 'HASH' ) {
-	$realm2upw = %$user2pass;
+	$realm2upw = $user2pass;
     } else {
 	$cb_upw = $user2pass;
     }
