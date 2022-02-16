@@ -131,13 +131,14 @@ sub create_ack {
 	$auth{$_} = $v;
     }
     my $header = {
-	'call-id' => scalar($self->get_header('call-id')),
-	from      => scalar($self->get_header('from')),
+	'call-id'       => scalar($self->get_header('call-id')),
+	from            => scalar($self->get_header('from')),
 	# unlike CANCEL the 'to' header is from the response
-	to        => [ $response->get_header('to') ],
-	via       => [ ($self->get_header( 'via' ))[0] ],
-	route     => [ $self->get_header( 'route' ) ],
-	cseq      => $cseq,
+	to              => [ $response->get_header('to') ],
+	via             => [ ($self->get_header( 'via' ))[0] ],
+	route           => [ $self->get_header( 'route' ) ],
+	cseq            => $cseq,
+	'max-forwards'  => 70,
 	%auth,
     };
     return Net::SIP::Request->new( 'ACK',$self->uri,$header );

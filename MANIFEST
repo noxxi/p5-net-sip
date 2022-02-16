@@ -88,6 +88,7 @@ t/22_stateless_proxy_ack_on_error.t
 t/23_valid_message.t
 t/24_dtmf_audio.t
 t/25_register_tcp_timeout.t
+t/26_request_ack.t
 t/certs/caller.sip.test.pem
 t/certs/listen.sip.test.pem
 t/certs/proxy.sip.test.pem
