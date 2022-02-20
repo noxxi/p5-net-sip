@@ -106,6 +106,9 @@ Contact: <sip:foo@example.com>
 
 REQ
 
+# Don't try to parse a headers keepalive packet of null chars
+check(qr/empty packet/, "\r\n\r\n" . (chr(hex('00')) x 12));
+
 done_testing();
 
 sub check {
