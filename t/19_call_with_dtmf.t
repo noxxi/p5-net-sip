@@ -159,15 +159,17 @@ sub uas {
     ) || die $!;
 
     # count received RTP data
-    my $received = my $lost = my $lastseq = 0;
+    my $received = my $lost = 0;
+    my $lastseq;
     my $save_rtp = sub {
 	my ($buf,$seq) = @_;
 	#warn substr( $buf,0,10)."\n";
-	my $diff = $seq - $lastseq;
+	defined $lastseq or $lastseq = ($seq-1) % 2**32;
+	my $diff = ($seq - $lastseq) % 2**32;
 	if ($diff == 0) {
 	    diag("duplicate $seq");
 	    next;
-	} elsif ($diff<0) {
+	} elsif ($diff>2**31) {
 	    diag("out of order $seq");
 	    next;
 	}
