@@ -18,8 +18,6 @@ use Net::SIP::Debug;
 use Net::SIP::DTMF;
 use Net::SIP::Dispatcher::Eventloop;
 
-my $SSRC = rand()*2**32; # source ID for RTP streams, uniq for each program
-
 # on MSWin32 non-blocking sockets are not supported from IO::Socket
 use constant CAN_NONBLOCKING => $^O ne 'MSWin32';
 
@@ -68,7 +66,11 @@ sub media_recv_echo {
 		    $targs->{wseq}++;
 		    my $seq = $targs->{wseq};
 
-		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,$SSRC);
+		    # source ID for RTP stream, uniq for each stream
+		    defined $targs->{wssrc} or $targs->{wssrc} = int( rand( 2**32 ));
+		    my $ssrc = $targs->{wssrc};
+
+		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,$ssrc);
 		    if (@pkt && $pkt[0] ne '') {
 			DEBUG( 100,"send DTMF to RTP");
 			send( $s_sock,$_,0,$remote ) for(@pkt);
@@ -76,7 +78,7 @@ sub media_recv_echo {
 		    }
 
 		    last if $delay<0;
-		    my $buf = pack('CCnNN',0b10000000,$mpt,$seq,$tstamp,$SSRC).$payload;
+		    my $buf = pack('CCnNN',0b10000000,$mpt,$seq,$tstamp,$ssrc).$payload;
 		    push @$delay_buffer, $buf;
 		    while ( @$delay_buffer > $delay ) {
 			send( $s_sock,shift(@$delay_buffer),0,$remote );
@@ -343,10 +345,14 @@ sub _send_rtp {
     $targs->{wseq}++;
     my $seq = $targs->{wseq};
 
+    # source ID for RTP stream, uniq for each stream
+    defined $targs->{wssrc} or $targs->{wssrc} = int( rand( 2**32 ));
+    my $ssrc = $targs->{wssrc};
+
     # 32 bit timestamp based on seq and packet size
     my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;
 
-    my @pkt = _generate_dtmf($targs,$seq,$timestamp,$SSRC);
+    my @pkt = _generate_dtmf($targs,$seq,$timestamp,$ssrc);
     if (@pkt && $pkt[0] ne '') {
 	DEBUG( 100,"send DTMF to RTP");
 	send( $sock,$_,0,$addr ) for(@pkt);
@@ -412,7 +418,7 @@ sub _send_rtp {
 	$payload_type | ( $rtp_event << 7 ) ,
 	$seq, # sequence
 	$timestamp,
-	$SSRC,
+	$ssrc,
     );
     DEBUG( 100,"send %d bytes to RTP", length($buf));
     send( $sock,$header.$buf,0,$addr );
