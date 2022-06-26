@@ -56,13 +56,17 @@ sub media_recv_echo {
 	    my $echo_back = sub {
 		my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
 		{
-		    my ($buf,$mpt,$seq,$tstamp,$ssrc,$csrc) =
+		    my (undef,$mpt,undef,$tstamp,undef,undef,$payload) =
 			_receive_rtp($sock,$writeto,$targs,$didit,$channel)
 			or last;
 		    #DEBUG( "$didit=$$didit" );
 		    $$didit = 1;
 
 		    last if ! $s_sock || ! $remote; # call on hold ?
+
+		    defined $targs->{wseq} or $targs->{wseq} = int( rand( 2**16 ));
+		    $targs->{wseq}++;
+		    my $seq = $targs->{wseq};
 
 		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,$SSRC);
 		    if (@pkt && $pkt[0] ne '') {
@@ -72,6 +76,7 @@ sub media_recv_echo {
 		    }
 
 		    last if $delay<0;
+		    my $buf = pack('CCnNN',0b10000000,$mpt,$seq,$tstamp,$SSRC).$payload;
 		    push @$delay_buffer, $buf;
 		    while ( @$delay_buffer > $delay ) {
 			send( $s_sock,shift(@$delay_buffer),0,$remote );
@@ -311,7 +316,7 @@ sub _receive_rtp {
 	}
     }
 
-    return wantarray ? ( $packet,$mpt,$seq,$tstamp,$ssrc,$csrc ): $packet;
+    return wantarray ? ( $packet,$mpt,$seq,$tstamp,$ssrc,$csrc,$payload ): $packet;
 }
 
 ###########################################################################
