@@ -334,6 +334,7 @@ sub _receive_rtp {
 sub _send_rtp {
     my ($sock,$loop,$addr,$readfrom,$channel,$targs,$timer) = @_;
 
+    defined $targs->{wseq} or $targs->{wseq} = int( rand( 2**16 ));
     $targs->{wseq}++;
     my $seq = $targs->{wseq};
 
@@ -364,7 +365,6 @@ sub _send_rtp {
     } else {
 	# read from file
 	for(my $tries = 0; $tries<2;$tries++ ) {
-	    $targs->{wseq} ||= int( rand( 2**16 ));
 	    my $fd = $targs->{fd};
 	    if ( !$fd ) {
 		$targs->{repeat} = -1 if $targs->{repeat} < 0;
