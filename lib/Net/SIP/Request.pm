@@ -138,6 +138,7 @@ sub create_ack {
 	via       => [ ($self->get_header( 'via' ))[0] ],
 	route     => [ $self->get_header( 'route' ) ],
 	cseq      => $cseq,
+	'max-forwards' => 70,
 	%auth,
     };
     return Net::SIP::Request->new( 'ACK',$self->uri,$header );
@@ -167,6 +168,7 @@ sub create_cancel {
 	via       => [ ($self->get_header( 'via' ))[0] ],
 	route     => [ $self->get_header( 'route' ) ],
 	cseq      => $cseq,
+	'max-forwards' => 70,
 	%auth
     };
     return Net::SIP::Request->new( 'CANCEL',$self->uri,$header );
