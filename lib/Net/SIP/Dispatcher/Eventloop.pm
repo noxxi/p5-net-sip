@@ -200,12 +200,15 @@ sub loop {
 	my $nfound = select($vec[0],$vec[1], undef, $to);
 	$DEBUG && DEBUG(100,"AFTER  read=%s write=%s nfound=%d",
 	    unpack("b*",$vec[0]), unpack("b*",$vec[1]), $nfound);
-	if ($nfound<0) {
-	    next if $! == EINTR;
-	    die $!
-	};
+	my $select_err = $!;
 
 	$looptime = $self->{now} = gettimeofday();
+
+	if ($nfound<0) {
+	    next if $select_err == EINTR;
+	    die $select_err;
+	};
+
 	$self->{just_dropped} = [];
 
 	for(my $i=0; $nfound>0 && $i<@$fds; $i++) {
