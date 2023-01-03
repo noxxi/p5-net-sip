@@ -1,5 +1,13 @@
 Revision history for Net::SIP
 
+0.834 2023-01-03
+- #61 from pali/leg-peer-socket
+  fix Leg creation with TCP
+- #56 from qunifi/catch-null-s2p
+  ignore empty packets used for keepalive
+- #62 from pali/eventloop-timer
+  fix eventloop when select was interrupted by signal, fixes #58
+- fix #53 handling of auth information in user2pass
 0.833 2021-12-26
 - fix regex for call-id to properly include \\, \[, \]
   changes based on https://github.com/noxxi/p5-net-sip/pull/52
