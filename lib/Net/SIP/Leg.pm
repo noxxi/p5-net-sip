@@ -165,12 +165,10 @@ sub new {
 	    $self->{src} = ip_sockaddr2parts($saddr);
 	    $self->{src}{host} = $host if $host;
 	}
-	if (my $saddr = getpeername($sock)) {
-	    if (!$dst) {
-		# set dst from connected socket
-		$dst = ip_sockaddr2parts($saddr);
-	    }
-	    $sockpeer = $dst;
+	if ((!$dst or !$sockpeer) and my $saddr = getpeername($sock)) {
+	    # set from connected socket
+	    $sockpeer = ip_sockaddr2parts($saddr);
+	    $dst ||= $sockpeer;
 	}
     }
 
