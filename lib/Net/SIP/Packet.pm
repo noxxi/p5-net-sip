@@ -648,7 +648,9 @@ sub as_parts {
 	my @header = split( m{\r?\n}, $header );
 
 	my $key2check;
-	if ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
+	if ( !length($header[0]) ) {
+	    die "bad request: empty packet\n";
+	} elsif ( $header[0] =~m{^SIP/2.0\s+(\d+)\s+(\S.*?)\s*$} ) {
 	    # Response, e.g. SIP/2.0 407 Authorization required
 	    $result{code} = $1;
 	    $result{text} = $2;
