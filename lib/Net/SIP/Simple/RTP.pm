@@ -18,8 +18,6 @@ use Net::SIP::Debug;
 use Net::SIP::DTMF;
 use Net::SIP::Dispatcher::Eventloop;
 
-my $SSRC = rand()*2**32; # source ID for RTP streams, uniq for each program
-
 # on MSWin32 non-blocking sockets are not supported from IO::Socket
 use constant CAN_NONBLOCKING => $^O ne 'MSWin32';
 
@@ -56,7 +54,7 @@ sub media_recv_echo {
 	    my $echo_back = sub {
 		my ($s_sock,$remote,$delay_buffer,$delay,$writeto,$targs,$didit,$sock) = @_;
 		{
-		    my ($buf,$mpt,$seq,$tstamp,$ssrc,$csrc) =
+		    my (undef,$mpt,undef,$tstamp,undef,undef,$payload) =
 			_receive_rtp($sock,$writeto,$targs,$didit,$channel)
 			or last;
 		    #DEBUG( "$didit=$$didit" );
@@ -64,7 +62,15 @@ sub media_recv_echo {
 
 		    last if ! $s_sock || ! $remote; # call on hold ?
 
-		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,$SSRC);
+		    defined $targs->{wseq} or $targs->{wseq} = int( rand( 2**16 ));
+		    $targs->{wseq}++;
+		    my $seq = $targs->{wseq};
+
+		    # source ID for RTP stream, uniq for each stream
+		    defined $targs->{wssrc} or $targs->{wssrc} = int( rand( 2**32 ));
+		    my $ssrc = $targs->{wssrc};
+
+		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,$ssrc);
 		    if (@pkt && $pkt[0] ne '') {
 			DEBUG( 100,"send DTMF to RTP");
 			send( $s_sock,$_,0,$remote ) for(@pkt);
@@ -72,6 +78,7 @@ sub media_recv_echo {
 		    }
 
 		    last if $delay<0;
+		    my $buf = pack('CCnNN',0b10000000,$mpt,$seq,$tstamp,$ssrc).$payload;
 		    push @$delay_buffer, $buf;
 		    while ( @$delay_buffer > $delay ) {
 			send( $s_sock,shift(@$delay_buffer),0,$remote );
@@ -311,7 +318,7 @@ sub _receive_rtp {
 	}
     }
 
-    return wantarray ? ( $packet,$mpt,$seq,$tstamp,$ssrc,$csrc ): $packet;
+    return wantarray ? ( $packet,$mpt,$seq,$tstamp,$ssrc,$csrc,$payload ): $packet;
 }
 
 ###########################################################################
@@ -334,13 +341,18 @@ sub _receive_rtp {
 sub _send_rtp {
     my ($sock,$loop,$addr,$readfrom,$channel,$targs,$timer) = @_;
 
+    defined $targs->{wseq} or $targs->{wseq} = int( rand( 2**16 ));
     $targs->{wseq}++;
     my $seq = $targs->{wseq};
+
+    # source ID for RTP stream, uniq for each stream
+    defined $targs->{wssrc} or $targs->{wssrc} = int( rand( 2**32 ));
+    my $ssrc = $targs->{wssrc};
 
     # 32 bit timestamp based on seq and packet size
     my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;
 
-    my @pkt = _generate_dtmf($targs,$seq,$timestamp,$SSRC);
+    my @pkt = _generate_dtmf($targs,$seq,$timestamp,$ssrc);
     if (@pkt && $pkt[0] ne '') {
 	DEBUG( 100,"send DTMF to RTP");
 	send( $sock,$_,0,$addr ) for(@pkt);
@@ -364,7 +376,6 @@ sub _send_rtp {
     } else {
 	# read from file
 	for(my $tries = 0; $tries<2;$tries++ ) {
-	    $targs->{wseq} ||= int( rand( 2**16 ));
 	    my $fd = $targs->{fd};
 	    if ( !$fd ) {
 		$targs->{repeat} = -1 if $targs->{repeat} < 0;
@@ -407,7 +418,7 @@ sub _send_rtp {
 	$payload_type | ( $rtp_event << 7 ) ,
 	$seq, # sequence
 	$timestamp,
-	$SSRC,
+	$ssrc,
     );
     DEBUG( 100,"send %d bytes to RTP", length($buf));
     send( $sock,$header.$buf,0,$addr );
