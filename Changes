@@ -1,5 +1,8 @@
 Revision history for Net::SIP
 
+- #60 from pali/max-forwards
+  Make sure that ACK and CANCEL requests have max-forwards header
+  Add test from qunifi:add-missing-ack-max-forwards #55 (similar issue)
 0.834 2023-01-03
 - #61 from pali/leg-peer-socket
   fix Leg creation with TCP
