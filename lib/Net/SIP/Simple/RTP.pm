@@ -62,13 +62,10 @@ sub media_recv_echo {
 
 		    last if ! $s_sock || ! $remote; # call on hold ?
 
-		    defined $targs->{wseq} or $targs->{wseq} = int( rand( 2**16 ));
-		    $targs->{wseq}++;
-		    my $seq = $targs->{wseq};
+		    my $seq = ++($targs->{wseq} //= int(rand(2**16)));
 
 		    # source ID for RTP stream, uniq for each stream
-		    defined $targs->{wssrc} or $targs->{wssrc} = int( rand( 2**32 ));
-		    my $ssrc = $targs->{wssrc};
+		    my $ssrc = $targs->{wssrc} //= int(rand(2**32));
 
 		    my @pkt = _generate_dtmf($targs,$seq,$tstamp,$ssrc);
 		    if (@pkt && $pkt[0] ne '') {
@@ -247,8 +244,9 @@ sub media_send_recv {
 #   $didit: reference to scalar which gets set to TRUE on each received packet
 #     and which gets set to FALSE from a timer, thus detecting inactivity
 #   $channel: index of RTP channel
-# Return: $packet
+# Return: $packet | $packet,$mpt,$seq,$tstamp,$ssrc,$csrc,$payload
 #   $packet: received RTP packet (including header)
+#   $mpt,$seq,$tstamp,$ssrc,$csrc,$payload - parsed details from RTP header
 ###########################################################################
 sub _receive_rtp {
     my ($sock,$writeto,$targs,$didit,$channel) = @_;
@@ -341,13 +339,10 @@ sub _receive_rtp {
 sub _send_rtp {
     my ($sock,$loop,$addr,$readfrom,$channel,$targs,$timer) = @_;
 
-    defined $targs->{wseq} or $targs->{wseq} = int( rand( 2**16 ));
-    $targs->{wseq}++;
-    my $seq = $targs->{wseq};
+    my $seq = ++($targs->{wseq} //= int(rand(2**16)));
 
     # source ID for RTP stream, uniq for each stream
-    defined $targs->{wssrc} or $targs->{wssrc} = int( rand( 2**32 ));
-    my $ssrc = $targs->{wssrc};
+    my $ssrc = $targs->{wssrc} //= int(rand(2**32));
 
     # 32 bit timestamp based on seq and packet size
     my $timestamp = ( $targs->{rtp_param}[1] * $seq ) % 2**32;

@@ -164,7 +164,7 @@ sub uas {
     my $save_rtp = sub {
 	my ($buf,$seq) = @_;
 	#warn substr( $buf,0,10)."\n";
-	defined $lastseq or $lastseq = ($seq-1) % 2**32;
+	$lastseq //= ($seq-1) % 2**32;
 	my $diff = ($seq - $lastseq) % 2**32;
 	if ($diff == 0) {
 	    diag("duplicate $seq");
