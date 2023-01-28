@@ -1,5 +1,6 @@
 Revision history for Net::SIP
 
+0.835 2023-01-28
 - #60 from pali/max-forwards
   Make sure that ACK and CANCEL requests have max-forwards header
   Add test from qunifi:add-missing-ack-max-forwards #55 (similar issue)
