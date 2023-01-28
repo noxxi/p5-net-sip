@@ -123,7 +123,7 @@ sub new {
     }
     _add_socket($self,{
 	fd => $fd,
-	$peer ? (peer => $peer) : (),
+	$peer ? (peer => $peer, rbuf => '', wbuf => '') : (),
 	master => 1,
     });
     return $self;
