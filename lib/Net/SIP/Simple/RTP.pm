@@ -282,8 +282,8 @@ sub _receive_rtp {
     my $padding = $vpxcc & 0x20 ? unpack( 'C', substr($buf,-1,1)) : 0;
     my $payload = $padding ? substr( $buf,0,length($buf)-$padding ): $buf;
 
-    DEBUG( 100,"ch=%d payload=%d/%d pt=%d xh=%d padding=%d cc=%d",
-	$channel, $seq, length($payload), $mpt & 0x7f, $xh, $padding, $cc);
+    DEBUG( 100,"ch=%d payload=%d/%d pt=%d/%d xh=%d padding=%d cc=%d",
+	$channel, $seq, length($payload), $mpt >> 7, $mpt & 0x7f, $xh, $padding, $cc);
     if ( $targs->{ssrc} && $targs->{ssrc} != $ssrc ) {
 	# RTP stream has changed, reset rseq
 	delete $targs->{rseq};
@@ -415,7 +415,8 @@ sub _send_rtp {
 	$timestamp,
 	$ssrc,
     );
-    DEBUG( 100,"send %d bytes to RTP", length($buf));
+    DEBUG( 100,"ch=%d payload=%d/%d pt=%d/%d",
+	$channel, $seq, length($buf), $payload_type >> 7, $payload_type & 0x7f);
     send( $sock,$header.$buf,0,$addr );
 }
 
