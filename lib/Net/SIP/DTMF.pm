@@ -199,6 +199,8 @@ sub _dtmf_xtc_rtpevent {
 	    $end = 1;
 	    $volume &= 0b01111111
 	}
+	$DEBUG && DEBUG(100,"DTMF event [%s] end=%d vol=%d duration=%d",
+	    $event, $end, $volume, $duration);
 	if ( ! $current_event ) {
 	    return if $end; # probably repeated send of end
 	    # we don't look at the marker for initial packet, because maybe
