@@ -8,7 +8,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 9*6*2;
+use Test::More tests => 9*6*2*2;
 do './testlib.pl' || do './t/testlib.pl' || die "no testlib";
 
 use Net::SIP ':all';
@@ -19,23 +19,33 @@ my @tests;
 for my $transport (qw(udp tcp tls)) {
     for my $family (qw(ip4 ip6)) {
 	for my $codec (qw(pcmu pcma)) {
-	    push @tests, [ $transport, $family, $codec ];
+	    # same DTMF types for RFC2833 in uac and uas
+	    push @tests, {
+		transport => $transport,
+		family => $family,
+		codec => $codec,
+		dtmf_type_uac => 101,
+		dtmf_type_uas => 101,
+	    };
+	    # different DTMF types for RFC2833 in uac and uas
+	    push @tests, { %{$tests[-1]},
+		dtmf_type_uas => 102,
+	    }
 	}
     }
 }
 
 for my $t (@tests) {
-    my ($transport,$family,$codec) = @$t;
     SKIP: {
-	if (my $err = test_use_config($family,$transport)) {
+	if (my $err = test_use_config($t->{family},$t->{transport})) {
 	    skip $err,9;
 	    next;
 	}
 
-	note("------- test with family $family transport $transport codec $codec");
+	note("------- test with family $t->{family} transport $t->{transport} codec $t->{codec} dtmf_rtptype $t->{dtmf_type_uac}/$t->{dtmf_type_uas}");
 
 	# create leg for UAS on dynamic port
-	my ($sock_uas,$uas_addr) = create_socket($transport);
+	my ($sock_uas,$uas_addr) = create_socket($t->{transport});
 	diag( "UAS on $uas_addr" );
 
 	# fork UAS and make call from UAC to UAS
@@ -47,7 +57,7 @@ for my $t (@tests) {
 	    $SIG{ __DIE__ } = undef;
 	    close($from_uas);
 	    $to_uac->autoflush;
-	    uas( $sock_uas, $to_uac, $codec );
+	    uas( $sock_uas, $to_uac, %$t);
 	    exit(0);
 	}
 
@@ -59,7 +69,7 @@ for my $t (@tests) {
 	local $SIG{__DIE__} = sub { kill 9,$pid; ok( 0,'died' ) };
 	local $SIG{ALRM} =    sub { kill 9,$pid; ok( 0,'timed out' ) };
 
-	uac(test_sip_uri($uas_addr), $from_uas, $codec);
+	uac(test_sip_uri($uas_addr), $from_uas, %$t);
 
 	my $uas = <$from_uas>;
 	killall();
@@ -80,7 +90,7 @@ sub rtp_param {
 ###############################################
 
 sub uac {
-    my ($peer_uri,$from_uas,$codec) = @_;
+    my ($peer_uri,$from_uas,%args) = @_;
     Debug->set_prefix( "DEBUG(uac):" );
 
     # line noise when no DTMF is sent
@@ -116,8 +126,9 @@ sub uac {
     my $call = $uac->invite(
 	test_sip_uri('you.uas@example.com'),
 	init_media  => $uac->rtp( 'send_recv', $send_something ),
-	rtp_param   => rtp_param($codec),
+	rtp_param   => rtp_param($args{codec}),
 	cb_rtp_done => \$rtp_done,
+	dtmf_rtptype => $args{dtmf_type_uac},
 	cb_dtmf => sub {
 	    push @events,shift;
 	}
@@ -139,7 +150,13 @@ sub uac {
     $uas = <$from_uas>;
     like($uas, qr/UAS RTP ok/, "UAS RTP ok");
     # DTMF echoed back
-    is( "@events","1 2 D # 3 4 B *", "UAC DTMF received");
+    if ($args{dtmf_type_uac} != $args{dtmf_type_uas}) {
+	# with non-matching DMTP RTP types a simple RTP echo will mean that
+	# UAC will not be able to detect the echoed back DTMF events
+	is( "@events","3 4 B *", "UAC DTMF received");
+    } else {
+	is( "@events", "1 2 D # 3 4 B *", "UAC DTMF received");
+    }
     $uac->cleanup;
 }
 
@@ -148,7 +165,7 @@ sub uac {
 ###############################################
 
 sub uas {
-    my ($sock,$to_uac,$codec) = @_;
+    my ($sock,$to_uac,%args) = @_;
     Debug->set_prefix( "DEBUG(uas):" );
     my $uas = Net::SIP::Simple->new(
 	domain => 'example.com',
@@ -192,7 +209,8 @@ sub uas {
 	    $call_closed =1;
 	},
 	init_media     => $uas->rtp( 'recv_echo', $save_rtp ),
-	rtp_param      => rtp_param($codec),
+	rtp_param      => rtp_param($args{codec}),
+	dtmf_rtptype => $args{dtmf_type_uas},
 	cb_dtmf => sub {
 	    push @events,shift
 	}

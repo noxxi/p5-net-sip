@@ -614,7 +614,6 @@ sub _setup_peer_rtp_socks {
     }
 
     my $raddr = $param->{media_raddr} = [];
-    my @media_dtmfxtract;
     for( my $i=0;$i<@media;$i++) {
 	my $m = $media[$i];
 	my $range = $m->{range} || 1;
@@ -626,31 +625,8 @@ sub _setup_peer_rtp_socks {
 	    my @socks = map { ip_parts2sockaddr($m->{addr},$m->{port}+$_) }
 		(0..$range-1);
 	    push @$raddr, @socks == 1 ? $socks[0] : \@socks;
-
-	    if ( $m->{media} eq 'audio' and $param->{cb_dtmf} ) {
-		my $fmt = $param->{rtp_param}->[0];
-		$fmt = 0 if $fmt != 0 and $fmt != 8; # Only PCMU=0 and PCMA=8 are supported, default is PCMU
-		my $fmt_name = ($fmt == 8) ? 'PCMA' : 'PCMU';
-		my %mt = (audio => "$fmt_name/8000", rfc2833 => "telephone-event/8000");
-		my $mt = $param->{dtmf_methods} || 'audio,rfc2833';
-		my (%rmap,%pargs);
-		for($mt =~m{([\w+\-]+)}g) {
-		    my $type = $mt{$_} or die "invalid dtmf_method: $_";
-		    $rmap{$type} = $_.'_type';
-		    %pargs = (audio_type => $fmt) if $_ eq 'audio';
-		}
-		for my $l (@{$m->{lines}}) {
-		    $l->[0] eq 'a' or next;
-		    my ($type,$name) = $l->[1] =~m{^rtpmap:(\d+)\s+(\S+)} or next;
-		    my $pname = $rmap{$name} or next;
-		    $pargs{$pname} = $type;
-		}
-		$media_dtmfxtract[$i] = dtmf_extractor(%pargs) if %pargs;
-	    }
 	}
     }
-
-    $param->{media_dtmfxtract} = @media_dtmfxtract ? \@media_dtmfxtract :undef;
 
     return 1;
 }
@@ -673,7 +649,9 @@ sub _setup_local_rtp_socks {
 	$sdp = Net::SIP::SDP->new( $sdp );
     }
 
+
     my $laddr = $param->{leg}->laddr(0);
+    my @media_dtmf;
     if ( !$sdp ) {
 	# create SDP body
 	my $raddr = $param->{media_rsocks};
@@ -681,6 +659,7 @@ sub _setup_local_rtp_socks {
 	# if no raddr yet just assume one
 	my @media;
 	my $rp = $param->{rtp_param};
+	my $dtmf_rtptype = $param->{dtmf_rtptype} || 101;
 	if ( my $sdp_peer = $param->{sdp_peer} ) {
 	    foreach my $m ( $sdp_peer->get_media ) {
 		if ( $m->{proto} ne 'RTP/AVP' ) {
@@ -696,29 +675,37 @@ sub _setup_local_rtp_socks {
 			"ptime:".$rp->[2]*1000
 		    ) if $rp->[3];
 		    push @a, (
-			"rtpmap:101 telephone-event/8000",
-			"fmtp:101 0-16"
+			"rtpmap:$dtmf_rtptype telephone-event/8000",
+			"fmtp:$dtmf_rtptype 0-16"
 		    );
 		}
 		push @media, {
 		    media => $m->{media},
 		    proto => $m->{proto},
 		    range => $m->{range},
-		    fmt   => [ $m->{fmt},101 ],
+		    fmt   => [ $m->{fmt},$dtmf_rtptype ],
 		    a     => \@a,
 		};
+		push @media_dtmf, dtmf_extractor(
+		    audio_type => $m->{fmt},
+		    rfc2833_type => $dtmf_rtptype,
+		);
 	    }
 	} else {
 	    my @a;
 	    push @a,( "rtpmap:$rp->[0] $rp->[3]" , "ptime:".$rp->[2]*1000) if $rp->[3];
-	    my $te = $rp->[3] && $rp->[0] == 101 ? 102: 101;
+	    my $te = $rp->[3] && $rp->[0] == $dtmf_rtptype ? $dtmf_rtptype+1: $dtmf_rtptype;
 	    push @a, ( "rtpmap:$te telephone-event/8000","fmtp:$te 0-16" );
 	    push @media, {
 		proto => 'RTP/AVP',
 		media => 'audio',
 		fmt   => [ $rp->[0] || 0, $te ],
 		a     => \@a,
-	    }
+	    };
+	    push @media_dtmf, dtmf_extractor(
+		audio_type => $rp->[0] || 0,
+		rfc2833_type => $te,
+	    );
 	}
 
 	my $lsocks = $param->{media_lsocks} = [];
@@ -733,7 +720,37 @@ sub _setup_local_rtp_socks {
 	    { addr => $laddr },
 	    @media
 	);
+    } else {
+	my $sdpo = Net::SIP::SDP->new_from_string($sdp);
+	my $i = 0;
+	for my $m (@{$sdpo->{media}}) {
+	    my $paddr = ip_canonical($m->{addr});
+	    goto skip if !$m->{port} or  $paddr eq '0.0.0.0' or  $paddr eq '::'; # on hold
+	    goto skip if !$m->{media} eq 'audio'; # no DMTF transport
+
+	    my @fmt = @{$m->{fmt}};
+	    my %pargs;
+	    for my $l (@{$m->{lines}}) {
+		$l->[0] eq 'a' or next;
+		my ($type,$name) = $l->[1] =~m{^rtpmap:(\d+)\s+(\S+)} or next;
+		if ($name eq 'telephone-event/8000') {
+		    $pargs{rfc2833_type} = $type;
+		} elsif ($name =~m{^pcm[ua]/8000$}i) {
+		    $pargs{audio_type} = $type;
+		} else {
+		    next;
+		}
+		@fmt = grep { $_ != $type } @fmt;
+	    }
+	    $pargs{audio_type} = $fmt[0] if @fmt && ! exists $pargs{audio_type};
+	    $media_dtmf[$i] = dtmf_extractor(%pargs) if %pargs;
+
+	    skip:
+	    $i++;
+	}
     }
+
+    $param->{media_dtmfxtract} = @media_dtmf ? \@media_dtmf : undef;
 
     unless ( $param->{media_lsocks} ) {
 	# SDP body was provided, but sockets not
