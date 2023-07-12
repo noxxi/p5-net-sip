@@ -1,5 +1,6 @@
 Revision history for Net::SIP
 
+0.836 2023-07-12
 - #64: the RTP type mapping from the peer instead of the own mapping was used
   when extracting DTMF. This lead to failed extraction if the rtpmap differed
   betwen the peers

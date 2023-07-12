@@ -721,14 +721,18 @@ sub _setup_local_rtp_socks {
 	    @media
 	);
     } else {
-	my $sdpo = Net::SIP::SDP->new_from_string($sdp);
+	my $sdpo = UNIVERSAL::isa($sdp, 'Net::SIP::SDP')
+	    ? $sdp : Net::SIP::SDP->new($sdp);
 	my $i = 0;
 	for my $m (@{$sdpo->{media}}) {
 	    my $paddr = ip_canonical($m->{addr});
 	    goto skip if !$m->{port} or  $paddr eq '0.0.0.0' or  $paddr eq '::'; # on hold
 	    goto skip if !$m->{media} eq 'audio'; # no DMTF transport
 
-	    my @fmt = @{$m->{fmt}};
+	    my @fmt =
+		! defined $m->{fmt} ? () :
+		ref $m->{fmt} ? @{$m->{fmt}} :
+		($m->{fmt});
 	    my %pargs;
 	    for my $l (@{$m->{lines}}) {
 		$l->[0] eq 'a' or next;
