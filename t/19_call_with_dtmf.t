@@ -185,10 +185,10 @@ sub uas {
 	my $diff = ($seq - $lastseq) % 2**32;
 	if ($diff == 0) {
 	    diag("duplicate $seq");
-	    next;
+	    return;
 	} elsif ($diff>2**31) {
 	    diag("out of order $seq");
-	    next;
+	    return;
 	}
 	if ($diff>1) {
 	    $lost += $diff-1;
