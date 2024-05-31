@@ -1214,6 +1214,7 @@ sub __net_dns_resolver {
 	my ($sock,$callback) = @_;
 	my $q = $NetDNSResolver->bgread($sock);
 	$eventloop->delFD($sock);
+	close($sock);
 	my @ans;
 	for my $rr ( $q->answer ) {
 	    if ($rr->type eq 'SRV' ) {
