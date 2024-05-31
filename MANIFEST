@@ -73,6 +73,8 @@ t/05_call_with_stateless_proxy.t
 t/06_call_with_reinvite.t
 t/07_call_on_hold.t
 t/08_register_with_auth.t
+t/09_fdleak.t
+t/10_fdleak.t
 t/11_invite_timeout.t 
 t/12_maddr.t
 t/13_maddr_proxy.t
