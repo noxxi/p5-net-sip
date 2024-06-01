@@ -237,6 +237,7 @@ sub loop {
 # canceling the timer (by setting expire to 0)
 ##########################################################################
 package Net::SIP::Dispatcher::Eventloop::TimerEvent;
+use Net::SIP::Debug;
 use fields qw( expire repeat callback name );
 
 ##########################################################################
@@ -258,6 +259,8 @@ sub new {
 	    last;
 	}
     }
+    $DEBUG && DEBUG(99, "$self add timer %s exp=%s repeat=%d",
+	$name, $expire, $repeat || 0);
     %$self = (
 	expire => $expire,
 	repeat => $repeat,
@@ -275,6 +278,7 @@ sub new {
 ##########################################################################
 sub cancel {
     my Net::SIP::Dispatcher::Eventloop::TimerEvent $self = shift;
+    $DEBUG && DEBUG(99, "$self cancel timer $self->{name}");
     $self->{expire} = 0;
     $self->{callback} = undef;
 }

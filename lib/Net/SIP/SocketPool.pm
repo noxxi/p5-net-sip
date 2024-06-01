@@ -15,6 +15,7 @@ use Net::SIP::Packet;
 use Net::SIP::Debug;
 use Net::SIP::Dispatcher::Eventloop;
 use Socket qw(SOL_SOCKET SO_ERROR);
+use Scalar::Util 'weaken';
 
 # RFC does not specify some fixed limit for the SIP header and body so we have
 # to make up some limits we think are useful.
@@ -250,7 +251,7 @@ sub sendto {
 		ip_parts2string($fo->{peer}));
 	    # send over this connected socket
 	    $fo->{wbuf} .= $data;
-	    $fo->{error_cb} = $callback;
+	    weaken($fo->{error_cb} = $callback);
 	    _tcp_send($self,$fo,$callback) if ! $fo->{inside_connect};
 	    return;
 	}
@@ -264,7 +265,7 @@ sub sendto {
 	    LocalAddr => (ip_sockaddr2parts(getsockname($fo->{fd})))[0],
 	    Blocking => 0,
 	);
-	$fo = $self->_add_socket({
+	my %h = (
 	    fd => $clfd,
 	    peer => $dst,
 	    rbuf => '',
@@ -272,7 +273,9 @@ sub sendto {
 	    didit => $self->{loop}->looptime,
 	    inside_connect => 1,
 	    error_cb => $callback,
-	});
+	);
+	weaken($h{error_cb});
+	$fo = $self->_add_socket(\%h);
 	_tcp_connect($self,$fo,ip_parts2sockaddr($dst),$callback);
 	return;
     }
