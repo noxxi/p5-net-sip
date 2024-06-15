@@ -322,8 +322,8 @@ sub _timeout_sockets {
 	if ($tdiff>$expire) {
 	    $self->_del_socket($_);
 	} elsif ($_->{inside_connect} && $tdiff > $CONNECT_TIMEOUT) {
-	    $self->_del_socket($_,"connect timed out");
 	    invoke_callback($_->{error_cb}, ETIMEDOUT) if $_->{error_cb};
+	    $self->_del_socket($_,"connect timed out");
 	} else {
 	    $need_timer = 1;
 	}
