@@ -136,6 +136,8 @@ C<new> in L<Net::SIP::Leg> for more details.
 =item cleanup
 
 Cleans up object, removes legs it added from the dispatcher.
+The EventLoop will also be reset, but only if it was implicitly created inside
+this object.
 Needs to be called if you want to destroy the object, because it will not
 self-destroy (see B<new>).
 

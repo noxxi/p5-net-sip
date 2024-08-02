@@ -109,4 +109,11 @@ simply wrap all callbacks given in B<addFD> and B<add_timer> in another
 callback which at the end checks the stopvars and terminates the 3rd-party loop
 in a loop-specific way.
 
+=item reset
+
+This will remove any fd and timers and their associated callbacks from the loop.
+This might be necessary to release ressources if the loop should be stopped and
+any ressources should be freed up immediately, instead of being implicitly freed
+up and end of program.
+
 =back

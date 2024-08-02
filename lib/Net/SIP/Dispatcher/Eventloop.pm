@@ -31,7 +31,7 @@ use constant EV_WRITE => 1;
 ###########################################################################
 sub new {
     my $class = shift;
-    my $self = fields::new($class);
+    my $self = ref($class) ? $class: fields::new($class);
     %$self = (
 	fd           => [],         # {fd}[fn][rw] -> [fd,callback,name]
 	vec          => [ '','' ],  # read|write vec(..) for select
@@ -229,6 +229,16 @@ sub loop {
 	    $to = undef
 	}
     }
+}
+
+###########################################################################
+# reset loop to remove any fd, timers etc and their associated callbacks
+# Args: ($self)
+# Returns: NONE
+###########################################################################
+sub reset {
+    my $self = shift;
+    $self->new;
 }
 
 

@@ -104,8 +104,12 @@ sub new {
 
     my $disp = delete $args{dispatcher};
     my $loop = $disp && $disp->loop
-	|| delete $args{loop}
-	|| Net::SIP::Dispatcher::Eventloop->new;
+	|| delete $args{loop};
+    if (!$loop) {
+	# create one but clean it up later to remove pending actions
+	$loop = Net::SIP::Dispatcher::Eventloop->new;
+	push @$ua_cleanup, sub { $loop->reset }
+    }
     my $proxy = delete $args{outgoing_proxy} || delete $args{proxy};
     my $d2p   = delete $args{domain2proxy}   || delete $args{d2p};
     $disp ||= Net::SIP::Dispatcher->new(

@@ -1,5 +1,9 @@
 Revision history for Net::SIP
 
+0.838 2024-08-02
+- Provide way to explictly reset Eventloop to remove any fd, timers and
+  associated callbacks. Will automatically reset EventLoop inside cleanup of
+  Net::SIP::Simple if it was implicitly created inside this objects.
 0.837 2024-06-17
 - #69 fix leaking TCP sockets due to circular reference in SocketPool
 0.836 2023-07-12
