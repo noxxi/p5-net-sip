@@ -300,4 +300,9 @@ This checks if the given IP address is a valid IPv6 address.
 This checks if the given IP address is a valid IPv4 or IPv6 address and
 returns the address family if this is an IP address.
 
+=item CAN_IPV6([bool]) -> ipv6_available
+
+This checks if IPv6 is supported by Perl.
+Use can also be explicitly disabled this way by calling C<CAN_IPV6(0)>.
+
 =back

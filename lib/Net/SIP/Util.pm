@@ -70,8 +70,16 @@ BEGIN {
 	*AF_INET6 = sub() { -1 };
     }
 
-    *CAN_IPV6 = $mod6 ? sub() { 1 } : sub() { 0 };
-    Socket->import(qw(unpack_sockaddr_in6 pack_sockaddr_in6)) if $mod6;
+    if ($mod6) {
+	my $ipv6_disabled;
+	*CAN_IPV6 = sub() {
+	    $ipv6_disabled = $_[0] if @_ == 1;
+	    return $ipv6_disabled;
+	};
+	Socket->import(qw(unpack_sockaddr_in6 pack_sockaddr_in6));
+    } else {
+	*CAN_IPV6 = sub() { 0 }
+    }
 }
 
 our @EXPORT = qw(INETSOCK);
