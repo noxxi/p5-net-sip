@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.839 2025-09-04
+- fix logic error in edge cases, no actual impact known so far
 0.838 2024-08-02
 - Provide way to explictly reset Eventloop to remove any fd, timers and
   associated callbacks. Will automatically reset EventLoop inside cleanup of
