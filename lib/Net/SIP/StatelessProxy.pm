@@ -508,7 +508,7 @@ sub __forward_packet_final {
 
     my $dst_addr = $entry->{dst_addr};
     my $legs = $entry->{outgoing_leg};
-    if ( !@$legs == @$dst_addr ) {
+    if ( @$legs != @$dst_addr ) {
 	# get legs from dst_addr
 	my @all_legs = $self->{dispatcher}->get_legs;
 	@$legs = ();
