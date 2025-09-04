@@ -727,7 +727,7 @@ sub _setup_local_rtp_socks {
 	for my $m (@{$sdpo->{media}}) {
 	    my $paddr = ip_canonical($m->{addr});
 	    goto skip if !$m->{port} or  $paddr eq '0.0.0.0' or  $paddr eq '::'; # on hold
-	    goto skip if !$m->{media} eq 'audio'; # no DMTF transport
+	    goto skip if $m->{media} ne 'audio'; # no DMTF transport
 
 	    my @fmt =
 		! defined $m->{fmt} ? () :
