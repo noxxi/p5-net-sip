@@ -71,10 +71,10 @@ BEGIN {
     }
 
     if ($mod6) {
-	my $ipv6_disabled;
-	*CAN_IPV6 = sub() {
-	    $ipv6_disabled = $_[0] if @_ == 1;
-	    return $ipv6_disabled;
+	my $ipv6_enabled =1;
+	*CAN_IPV6 = sub {
+	    $ipv6_enabled = $_[0] if @_ == 1;
+	    return $ipv6_enabled;
 	};
 	Socket->import(qw(unpack_sockaddr_in6 pack_sockaddr_in6));
     } else {

@@ -1,5 +1,7 @@
 Revision history for Net::SIP
 
+0.840 2025-11-10
+- fix broken Net::SIP::Util::CAN_IPV6
 0.839 2025-09-04
 - fix logic error in edge cases, no actual impact known so far
 0.838 2024-08-02
