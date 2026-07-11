@@ -181,12 +181,12 @@ sub uas {
     my $save_rtp = sub {
 	my ($buf,$seq) = @_;
 	#warn substr( $buf,0,10)."\n";
-	$lastseq //= ($seq-1) % 2**32;
-	my $diff = ($seq - $lastseq) % 2**32;
+	$lastseq //= ($seq-1) % 2**16;
+	my $diff = ($seq - $lastseq) % 2**16;
 	if ($diff == 0) {
 	    diag("duplicate $seq");
 	    return;
-	} elsif ($diff>2**31) {
+	} elsif ($diff>2**15) {
 	    diag("out of order $seq");
 	    return;
 	}
